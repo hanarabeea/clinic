@@ -31,8 +31,12 @@ ERRORS = {
 
 
 def _client(timeout=15.0) -> httpx.Client:
+    # The gateway is local plain HTTP: don't load TLS certificates at all. Some antivirus (Avast's aswMonFltProxy)
+    # blocks reading them and turned every page that checks WhatsApp into a PermissionError.
+    secure = str(settings.WA_GATEWAY_URL).startswith("https")
     return httpx.Client(
         base_url=settings.WA_GATEWAY_URL,
+        verify=secure,
         headers={"X-Api-Key": settings.WA_GATEWAY_KEY},
         timeout=timeout,
         transport=getattr(settings, "WA_GATEWAY_TRANSPORT", None),  # tests inject httpx.MockTransport
@@ -52,7 +56,7 @@ def status(org) -> dict:
             r = c.get(f"/sessions/{session_id(org)}")
             r.raise_for_status()
             return r.json()
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError, OSError):
         return {"state": "offline", "qr": None, "me": None}
 
 
@@ -78,7 +82,7 @@ class WhatsAppProvider:
         try:
             with _client(timeout=90.0) as c:
                 r = c.post(f"/sessions/{session_id(self.org)}/send", json=payload)
-        except httpx.HTTPError as e:
+        except (httpx.HTTPError, OSError) as e:
             return ProviderResult(ok=False, error=f"بوابة الواتساب مش بترد: {e}", temporary=True)
         try:
             data = r.json()
@@ -120,7 +124,7 @@ def is_registered(org, e164: str) -> bool | None:
         if r.status_code != 200:
             return None
         return bool(r.json().get("registered"))
-    except (httpx.HTTPError, ValueError):
+    except (httpx.HTTPError, ValueError, OSError):
         return None
 
 

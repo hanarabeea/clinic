@@ -151,3 +151,18 @@ def test_cross_tenant(client, world, org_b, make_member):
     client.force_login(make_member(org_b, "owner"))
     client.get(reverse("messaging:whatsapp"))
     assert whatsapp.session_id(org_b) != whatsapp.session_id(world["org"])
+
+
+def test_security_software_blocking_tls_never_crashes(monkeypatch, org_a):
+    """Avast's aswMonFltProxy made building an HTTP client raise PermissionError → the home page crashed."""
+    import httpx
+
+    from apps.messaging import whatsapp
+
+    def blocked(*args, **kwargs):
+        raise PermissionError(13, "Permission denied (aswMonFltProxy)")
+
+    monkeypatch.setattr(httpx, "Client", blocked)
+    monkeypatch.setattr(whatsapp.settings, "WA_GATEWAY_KEY", "k", raising=False)
+    assert whatsapp.status(org_a)["state"] == "offline"
+    assert whatsapp.is_registered(org_a, "+201001234567") is None

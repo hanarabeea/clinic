@@ -379,3 +379,8 @@ gotchas and conventions introduced in that phase.
   `CASES`. Rules added: rough matches on short words (< `WEAK_MIN_CHARS`) are refused, prefix-stripped spellings score
   `GUESS_PENALTY` lower, dashes/slashes in names are indexed as spaces and glued, "4 و20" → 24, "لما يحتاج" → "عند
   اللزوم", a number after a unit is not a count when "مرات/ساعات" follows. Add a case there for every new misreading.
+- Release checks (2026-10-15): `tests/test_crawl.py` seeds a full clinic (seed_org, drugs, seed_demo, simulate_day) and
+  every role follows every href/hx-get it can reach (~400 pages for owner/doctor): no 500s, and reception/viewer/admin
+  never get a 200 on `/desk/`. WhatsApp gateway client never loads TLS certificates for the local http:// gateway and
+  treats `OSError` as "offline" (Avast's aswMonFltProxy blocked cert loading and crashed the home page). Grid cards
+  holding long text need `min-w-0` (the dashboard's top-diagnoses card pushed the phone layout sideways).
