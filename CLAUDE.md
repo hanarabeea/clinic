@@ -373,3 +373,9 @@ gotchas and conventions introduced in that phase.
   grid of big tiles), `quiet-input` (prescription cells that look like text until hovered/focused). The voice mic sits
   **inside** fields: wrap an input in `.dictate-inline` or a textarea in `.dictate-corner`. Below `lg` the action bar's
   ("الكشف" | "الروشتة") are two full-width tabs at the top (`showPane()`, remembered per visit in sessionStorage; `/` and a blocked finish switch to the prescription); the drawer has its own tabs (`[data-drawer]`).
+- Voice robustness (2026-10-15): `tests/test_voice_robustness.py` runs against the real 25k catalog (imported once per
+  module, ~3 min): 400 everyday words + a dose must never become a drug (`everyday_words.py` is the vocabulary that can
+  never start a name), real names found ≥93% also with ال/و prefixes and ر↔ل, and every dose/duration phrasing in
+  `CASES`. Rules added: rough matches on short words (< `WEAK_MIN_CHARS`) are refused, prefix-stripped spellings score
+  `GUESS_PENALTY` lower, dashes/slashes in names are indexed as spaces and glued, "4 و20" → 24, "لما يحتاج" → "عند
+  اللزوم", a number after a unit is not a count when "مرات/ساعات" follows. Add a case there for every new misreading.

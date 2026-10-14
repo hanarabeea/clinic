@@ -56,13 +56,16 @@ STOPWORDS = set(
 )
 
 DOSE_UNITS = (
-    r"قرص|اقراص|حبايه|حبايات|حبه|حبتين|كبسوله|كبسولات|معلقه|معالق|معلقتين|نقطه|نقط|نقطتين|بخه|بختين|بخات|"
+    r"قرصين|قرص|اقراص|كبسولتين|حبايتين|حبايه|حبايات|حبه|حبتين|كبسوله|كبسولات|معلقه|معالق|معلقتين|نقطه|نقط|نقطتين|بخه|بختين|بخات|"
     r"حقنه|حقن|امبول|امبوله|كيس|اكياس|ظرف|اظرف|مل|سم|سي سي|cc|ml|وحده|وحدات|لبوسه|لبوس|فوار|لزقه|دهان|طبقه رقيقه"
 )
 NUM = r"(?:\d+(?:[.,]\d+)?|½|¼|و½|نص|ونص|ربع)"
 PATTERNS = [
     # dose: "قرص", "½ قرص", "2 معلقه", "10 مل"
-    ("dose", re.compile(rf"(?:{NUM}\s*)?(?:{DOSE_UNITS})(?:\s*{NUM})?")),
+    # a number after the unit counts the unit ("قرص 2") — unless it's the start of a frequency ("قرص 3 مرات")
+    ("dose", re.compile(rf"(?:{NUM}\s*)?(?:{DOSE_UNITS})(?:\s*{NUM}(?!\s*(?:مرات|مره|مرتين|ساعات|ساعه|ايام|يوم)))?")),
+    # "when needed", however it's said → shown as "عند اللزوم"
+    ("prn", re.compile(r"لما (?:يحتاج|تحتاج|يحتاجه|تحتاجه|تحتاجي|يحتاجها|يوجعه|يوجعك|يوجعها|تتعب|يتعب)|لو (?:فيه|في|حس|حسيت|حست) (?:وجع|الم|حراره|سخونيه|صداع|تعب)|وقت (?:الالم|الوجع|اللزوم|التعب)")),
     # frequency
     ("freq", re.compile(r"كل\s*\d+\s*(?:ساعات|ساعه|ايام|يوم)")),
     ("freq", re.compile(r"(?:مره|مرتين|\d+\s*مرات)?\s*كل يوم(?:\s*بالليل|\s*الصبح)?|يوم بعد يوم|يوم اه ويوم لا")),
@@ -83,7 +86,7 @@ PATTERNS = [
 # Display polish for normalized phrases.
 PRETTY = [
     ("الاكل", "الأكل"), ("يوميا", "يوميًا"), ("اسبوعيا", "أسبوعيًا"), ("معلقه", "معلقة"), ("حبايه", "حباية"),
-    ("كبسوله", "كبسولة"), ("نقطه", "نقطة"), ("حقنه", "حقنة"), ("لمده", "لمدة"), ("اسبوع", "أسبوع"), ("مره", "مرة"), ("مرة 1", "مرة واحدة"),
+    ("كبسوله", "كبسولة"), ("نقطه", "نقطة"), ("حقنه", "حقنة"), ("لمده", "لمدة"), ("اسبوع", "أسبوع"), ("مره", "مرة"), ("مرة 1", "مرة واحدة"), ("بخه", "بخة"), ("لبوسه", "لبوسة"), ("علي طول", "على طول"), ("صغيره", "صغيرة"),
     ("ساعه", "ساعة"), ("علي الريق", "على الريق"), ("ايام", "أيام"), ("اقراص", "أقراص"), ("اكياس", "أكياس"),
 ]  # fmt: skip
 
@@ -101,6 +104,8 @@ SPOKEN_EN = {normalize(k): v for k, v in {
 }.items()}  # fmt: skip
 # Letters Arabic speech recognition confuses with each other → one "sound" letter.
 _SOUNDS = str.maketrans("رصطضذظقحثغ", "لستدززكهسخ")
+GUESS_PENALTY = 4
+WEAK_MIN_CHARS = 6  # a rough match on a short word ("ايدي", "تاني", "فلوس") is too often an everyday word
 SOUND_PENALTY = 7  # a 100% sound match = 93 (still "strong"), a weaker one needs a dose after it
 
 
@@ -137,6 +142,10 @@ TYPES = {normalize(k): v for k, v in {
     "لبوس": "supp", "حقن": "amp", "حقنه": "amp", "فوار": "eff", "بودره": "powder", "غسول": "wash", "اقراص": "tab",
     "كبسول": "cap", "كبسولات": "cap", "لبوسه": "supp", "معجون": "paste", "سبراي": "spray",
 }.items()}  # fmt: skip
+from .everyday_words import EVERYDAY  # noqa: E402
+
+STOPWORDS |= {normalize(w) for w in EVERYDAY}
+
 # Name modifiers and strength units never start a drug name ("اكسترا" alone is not a drug; "جرام" is a strength).
 MODIFIERS = {normalize(w) for w in "اكسترا بلس فورت فورتي ريتارد اس ار اكس ال".split()}
 UNITS = {
@@ -158,11 +167,13 @@ _CLITICS = ("وال", "بال", "فال", "لل", "ال", "و")  # "والاوج
 _SOFT_CLITICS = ("ب", "ف", "ك", "و", "ل")  # tried as well, never instead ("بنادول" starts with ب)
 _GLUED = re.compile(r"(?<=[^\W\d_])(?=\d)|(?<=\d)(?=[^\W\d_])")  # "كونكور5" / "500mg" → split
 _COMPOUND = re.compile(r"\b([1-9]00)\s+و([1-9]\d?)\b")  # "200 و50" (ميتين وخمسين) → 250
+_UNITS_TENS = re.compile(r"\b([1-9])\s+و([2-9]0)\b")  # "4 و20" (اربعه وعشرين) → 24 (Arabic says the units first)
 
 
 def _prepare(transcript: str) -> str:
     text = _PUNCT.sub(" ", words_to_numbers(transcript or ""))
     text = _COMPOUND.sub(lambda m: str(int(m[1]) + int(m[2])), text)
+    text = _UNITS_TENS.sub(lambda m: str(int(m[1]) + int(m[2])), text)
     return _GLUED.sub(" ", text)
 
 
@@ -270,7 +281,7 @@ def regimen(words: list[str]) -> tuple[str, str]:
                 taken.append(span)
                 found.append((span[0], kind, " ".join(m.group().split())))
     found.sort()
-    instructions = _join([_pretty(p) for _s, kind, p in found if kind != "duration"])
+    instructions = _join(["عند اللزوم" if kind == "prn" else _pretty(p) for _s, kind, p in found if kind != "duration"])
     durations = [_pretty(p) for _s, kind, p in found if kind == "duration"]
     duration = durations[0] if durations else ""
     # a misheard "لمدة" ("ولماضه") → shown as "لمدة"; "باستمرار" / "لحد ما العلبة تخلص" stay as said
@@ -316,21 +327,27 @@ def extract(org, transcript: str) -> list[Extracted]:
             continue
         owners = idx.owners[n]
         # each window in its spellings: the first word with/without a prefix (و، ال، ب، ف...)
-        qs = [(i, " ".join([v, *bare[i + 1 : i + n]])) for i in starts for v in _variants(norm[i])]
-        qs = [(i, q) for i, q in qs if len(q.replace(" ", "")) >= MIN_CHARS]
-        queries = [q for _i, q in qs]
+        # a spelling made by dropping a one-letter prefix (ب/ف/ك/و/ل) is a guess: it scores a little lower
+        qs = [
+            (i, " ".join([v, *bare[i + 1 : i + n]]), v not in (norm[i], bare[i]))
+            for i in starts
+            for v in _variants(norm[i])
+        ]
+        qs = [(i, q, guess) for i, q, guess in qs if len(q.replace(" ", "")) >= MIN_CHARS]
+        queries = [q for _i, q, _g in qs]
         scores = process.cdist(queries, idx.heads[n], scorer=fuzz.ratio, score_cutoff=WEAK, dtype=np.uint8,
                                workers=-1) if queries else []  # fmt: skip
         # letters speech recognition mixes up (الكول/الكور): a match on the "sound" scores a bit lower than an exact one
         phon = process.cdist([_sound(q) for q in queries], _sound_heads(idx, n), scorer=fuzz.ratio,
                              score_cutoff=STRONG, dtype=np.uint8, workers=-1) if queries else []  # fmt: skip
         found: dict[int, dict] = {}
-        for row, prow, (i, _q) in zip(scores, phon, qs, strict=True):
+        for row, prow, (i, _q, guess) in zip(scores, phon, qs, strict=True):
             best = found.setdefault(i, {})
+            cut = GUESS_PENALTY if guess else 0
             for h in np.nonzero(row)[0]:
-                best[owners[h]] = max(best.get(owners[h], 0), int(row[h]))
+                best[owners[h]] = max(best.get(owners[h], 0), int(row[h]) - cut)
             for h in np.nonzero(prow)[0]:
-                best[owners[h]] = max(best.get(owners[h], 0), int(prow[h]) - SOUND_PENALTY)
+                best[owners[h]] = max(best.get(owners[h], 0), int(prow[h]) - SOUND_PENALTY - cut)
         if n == 2 and idx.heads[1]:  # a name heard as two words ("اوج منتين") vs the one-word name
             joined = [(i, bare[i] + bare[i + 1]) for i in starts]
             rows = process.cdist([q for _i, q in joined], idx.heads[1], scorer=fuzz.ratio, score_cutoff=STRONG,
@@ -388,6 +405,8 @@ def extract(org, transcript: str) -> list[Extracted]:
         if span & used:
             continue
         top_score = hits[0][0]
+        if top_score < STRONG and len("".join(bare[i : i + n])) < WEAK_MIN_CHARS:
+            continue  # short words must match (almost) exactly
         if top_score < STRONG:
             # the dose must come before the next clearly-named drug ("اكتب لك انتينال مرة كل يوم": that dose is
             # Antinal's, it can't make "اكتب لك" count as a drug)
