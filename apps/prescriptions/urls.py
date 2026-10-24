@@ -18,6 +18,7 @@ urlpatterns = [
     path("rx/items/<int:item_pk>/<str:action>/", views.item_action, name="item_action"),
     path("rx/<int:pk>/requests/add/", views.request_add, name="request_add"),
     path("rx/<int:pk>/requests/dictate/", views.request_dictate, name="request_dictate"),
+    path("rx/<int:pk>/requests/add-many/", views.request_add_many, name="request_add_many"),
     path("rx/requests/<int:req_pk>/", views.request_update, name="request_update"),
     path("rx/requests/<int:req_pk>/remove/", views.request_remove, name="request_remove"),
     path("patients/<int:patient_pk>/prescriptions/", views.patient_prescriptions, name="patient_list"),

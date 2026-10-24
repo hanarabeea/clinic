@@ -79,7 +79,10 @@
       const add = row.querySelector("[data-primary]");
       if (!add) continue;
       const values = JSON.parse(add.getAttribute("hx-vals"));
-      row.querySelectorAll("input[name]").forEach((i) => { values[i.name] = i.value; });  // the (edited) dose/duration
+      row.querySelectorAll("input[name]").forEach((i) => {  // the (edited) dose/duration, or the heard requests
+        if (i.name === "names" || i.name === "kinds") (values[i.name] = values[i.name] || []).push(i.value);
+        else values[i.name] = i.value;
+      });
       await htmx.ajax("POST", add.getAttribute("hx-post"), { target: "#rx-builder", swap: "outerHTML", values });
       row.remove();
     }

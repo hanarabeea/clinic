@@ -99,7 +99,29 @@ def _pretty_part(word):
     return word[:-1] + "ة" if len(word) > 3 and word.endswith("ه") else word
 
 
+# Said in a prescription these are medicines unless a request word comes just before ("تحليل / اعمل / مستوى ...")
+AMBIGUOUS = {"Vitamin D (25-OH)", "Vitamin B12", "Serum iron & TIBC", "Serum ferritin", "Serum calcium", "Prolactin"}
+_CUES = {"تحليل", "تحاليل", "اعمل", "اعملي", "تعمل", "تعملي", "نعمل", "هنعمل", "مستوي", "مستوى", "نسبه", "قياس", "نشوف"}
+
+
+def _cue_before(words, i, reach=3):
+    return any(_bare(w, "x") in _CUES or w in _CUES for w in words[max(0, i - reach) : i])
+
+
+def split_requests(text: str):
+    """For the prescription mic: (requests said, the rest of the speech) — the rest goes on to the medicine extraction
+    without the request phrases ("سونار على البطن" must not become a drug)."""
+    found, _u, words, taken = _find(text, require_cue=True)
+    rest = " ".join(w for i, w in enumerate(words) if i not in taken)
+    return found, rest
+
+
 def find_requests(text: str) -> tuple[list[tuple[str, str]], list[str]]:
+    found, unknown, _w, _t = _find(text, require_cue=False)
+    return found, unknown
+
+
+def _find(text: str, *, require_cue: bool):
     """Requests said in free speech → ([(name, kind)], unrecognised scan phrases). Fuzzy (speech recognition is noisy),
     longest phrase wins, spoken order kept, each request once."""
     import re
@@ -119,6 +141,8 @@ def find_requests(text: str) -> tuple[list[tuple[str, str]], list[str]]:
             window = " ".join(_bare(w, ph[0]) for w in words[i : i + n])
             short = len(target) <= 3
             if (window == target) if short else fuzz.ratio(window, target) >= 88:
+                if name in AMBIGUOUS and require_cue and not _cue_before(words, i):
+                    continue  # "فيتامين د" alone is a medicine; "تحليل فيتامين د" is a test
                 taken |= span
                 found.append((i, name))
     # "<scan> على <part>" not covered above
@@ -142,4 +166,4 @@ def find_requests(text: str) -> tuple[list[tuple[str, str]], list[str]]:
         if name.lower() not in seen:
             seen.add(name.lower())
             out.append((name, "imaging" if name in IMAGING or kind_for(name) == "imaging" else "lab"))
-    return out, []
+    return out, [], words, taken

@@ -3,7 +3,7 @@
 an empty one is highlighted so it gets filled), and "أضف" IS the doctor's confirmation (13 §13.4): the line goes into
 the prescription ready, with no second "تأكيد". "أو …" adds another close match with the same dose; "أضف الكل" adds
 every row's best match with what's in its boxes. Kept across re-renders with hx-preserve (under the drug search).{% endcomment %}
-{% if lines %}
+{% if lines or heard_requests %}
 <div class="space-y-2 rounded-xl border border-brand/20 bg-brand-soft/50 p-3" id="dictation-box">
   <div class="flex flex-wrap items-center gap-2">
     <span class="grid size-7 place-items-center rounded-full bg-brand text-sm text-white">🎤</span>
@@ -13,7 +13,7 @@ every row's best match with what's in its boxes. Kept across re-renders with hx-
       {% else %}{% translate "اختار الدوا الصح لكل سطر" %}{% endif %}
     </p>
     <span class="ms-auto"></span>
-    {% if lines|length > 1 %}<button type="button" class="btn-primary px-3 py-1.5 text-xs" onclick="rxAddAll(this)">✓ {% translate "أضف الكل" %}</button>{% endif %}
+    {% if lines|length|add:heard_requests|length > 1 or lines and heard_requests %}<button type="button" class="btn-primary px-3 py-1.5 text-xs" onclick="rxAddAll(this)">✓ {% translate "أضف الكل" %}</button>{% endif %}
     <button type="button" class="btn-ghost px-2 py-1 text-xs" onclick="document.getElementById('rx-dictation').innerHTML = ''" aria-label="{% translate 'قفل' %}">✕ {% translate "قفل" %}</button>
   </div>
 
@@ -68,6 +68,29 @@ every row's best match with what's in its boxes. Kept across re-renders with hx-
   </div>
   {% endwith %}
   {% endfor %}
+
+  {% if heard_requests %}
+  {# tests / scans said while dictating: added to الطلبات (تحاليل | أشعة) under the medicines #}
+  <div class="rounded-lg bg-white px-3 py-3 shadow-sm" data-dictated-line data-requests>
+    <div class="flex flex-wrap items-center gap-2">
+      <p class="text-sm font-bold">{% translate "الطلبات اللي اتقالت" %}</p>
+      <span class="ms-auto"></span>
+      <button type="button" class="btn-ghost px-2 py-1 text-stone-400 hover:text-red-600" onclick="rxDictationDone(this)" aria-label="{% translate 'تجاهل' %}" title="{% translate 'تجاهل' %}">✕</button>
+    </div>
+    <div class="mt-2 flex flex-wrap items-center gap-1.5">
+      {% for name, kind in heard_requests %}
+      <span class="inline-flex items-center gap-1 rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-sm" dir="ltr">
+        {% if kind == "imaging" %}🩻{% else %}🧪{% endif %} {{ name }}
+        <input type="hidden" name="names" value="{{ name }}"><input type="hidden" name="kinds" value="{{ kind }}">
+      </span>
+      {% endfor %}
+      <span class="ms-auto"></span>
+      <button type="button" data-primary class="btn-primary px-5 py-2.5 text-sm"
+              hx-post="{% url 'prescriptions:request_add_many' rx.pk %}" hx-target="#rx-builder" hx-swap="outerHTML" hx-include="closest [data-dictated-line]"
+              hx-on::after-request="if (event.detail.successful) rxDictationDone(this)" hx-vals='{}'>✓ {% translate "أضف الطلبات" %}</button>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% elif heard %}
 <div class="flex flex-wrap items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm" id="dictation-box">

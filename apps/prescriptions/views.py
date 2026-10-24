@@ -318,14 +318,20 @@ def dictate(request, pk):
     conversation. If no medicine is recognised at all, fall back to one row per spoken line. Nothing is saved here."""
     rx = _rx(request, pk)
     text = request.POST.get("text", "")[:4000]
-    lines = extraction.extract(request.organization, text)
+    # tests / scans said while dictating the prescription go to الطلبات, and are taken out of the medicine search
+    from .investigations import split_requests
+
+    heard_requests, text_for_drugs = split_requests(text)
+    lines = extraction.extract(request.organization, text_for_drugs)
     extracted = bool(lines)
     if not extracted:
         # nothing recognised in the conversation: fall back to line by line, but only close matches — a loose first-word
         # match ("بص" → BEE TONIC) is worse than saying nothing was found
         lines = [ln for ln in matching.match_text(request.organization, text[:2000])
                  if ln.candidates and ln.candidates[0].score >= FALLBACK_MIN_SCORE]  # fmt: skip
-    ctx = {"rx": rx, "lines": lines, "extracted": extracted, "heard": text.strip()}
+    if not lines and heard_requests:
+        extracted = True  # only requests were said: no line-by-line drug guessing on them
+    ctx = {"rx": rx, "lines": lines, "extracted": extracted, "heard": text.strip(), "heard_requests": heard_requests}
     return render(request, "prescriptions/partials/dictation_results.html", ctx)
 
 
@@ -395,6 +401,20 @@ def request_dictate(request, pk):
         notice = _("اتضاف: %(l)s") % {"l": "، ".join(n for n, _k in found)}
         return _builder(request, rx, notice=notice)
     return _builder(request, rx, error=_("مالقيتش تحاليل أو أشعة في الكلام — قول الاسم تاني أو اكتبه."))
+
+
+@require_POST
+@require_perm("prescription.write")
+@desk_unlocked
+def request_add_many(request, pk):
+    """The requests heard by the prescription mic, added together (names[] / kinds[])."""
+    rx = _rx(request, pk)
+    try:
+        for name, kind in zip(request.POST.getlist("names"), request.POST.getlist("kinds"), strict=False):
+            services.add_request(rx, name, kind=kind if kind in ("lab", "imaging", "other") else None)
+    except services.PrescriptionError as e:
+        return _error(request, rx, e)
+    return _builder(request, rx)
 
 
 @require_POST

@@ -408,3 +408,24 @@ def test_js_keeps_recording_through_silence_until_pressed_again():
     assert out["restarted"] and "220, 38, 38" in out["red"]  # still recording (red mic) after the browser's own stop
     assert "كحة من يومين" in out["value"]
     assert out["stopped"] and "255, 255, 255" in out["white"]
+
+
+def test_prescription_mic_also_catches_tests_and_scans(client, desk, org):
+    client.force_login(desk["doc"])
+    rx = desk["rx"]
+    said = "هكتبلك فلاجيل قرص تلات مرات يوميا لمده اسبوع واعمل صورة دم وسونار على البطن"
+    html = client.post(reverse("prescriptions:dictate", args=[rx.pk]), {"text": said}).content.decode()
+    assert "Flagyl 500" in html and "الطلبات اللي اتقالت" in html and "CBC" in html and "Abdominal" in html
+    client.post(reverse("prescriptions:request_add_many", args=[rx.pk]),
+                {"names": ["CBC", "Abdominal & pelvic ultrasound"], "kinds": ["lab", "imaging"]})  # fmt: skip
+    assert [(r.name, r.kind) for r in rx.requests.order_by("order")] == [
+        ("CBC", "lab"), ("Abdominal & pelvic ultrasound", "imaging")]  # fmt: skip
+
+
+def test_vitamin_d_is_a_drug_unless_a_test_word_comes_before(org):
+    from apps.prescriptions.investigations import split_requests
+
+    assert split_requests("خدي فيتامين د نقط مرة في اليوم")[0] == []
+    assert split_requests("اعمل تحليل فيتامين د")[0] == [("Vitamin D (25-OH)", "lab")]
+    reqs, rest = split_requests("اوجمنتين كل 12 ساعه واعمل وظائف كلى")
+    assert reqs == [("Kidney function tests (Urea, Creatinine)", "lab")] and "كلي" not in rest

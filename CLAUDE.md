@@ -413,3 +413,8 @@ gotchas and conventions introduced in that phase.
   added with its kind. Typed text with nothing recognised is added as written; speech with nothing recognised only shows
   a message. Screen and print show two groups: تحاليل (Lab tests) | أشعة (Imaging). `dictation.js` collect-and-post mode
   now applies to any field with `data-dictate-url` (was `data-dictate="rx"` only); the "analysing" banner stays rx-only.
+- Requests from the prescription mic (2026-10-24): `dictate` first runs `investigations.split_requests(text)` — requests
+  found are shown in the voice box ("الطلبات اللي اتقالت", added via `prescriptions:request_add_many`, included in
+  "أضف الكل") and removed from the text before the medicine extraction. `AMBIGUOUS` names (Vitamin D, B12, iron,
+  ferritin, calcium, prolactin) count as a test only after a cue word (`_CUES`: تحليل/اعمل/مستوى…) — "فيتامين د نقط" stays
+  a medicine.
