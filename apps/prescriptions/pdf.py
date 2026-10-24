@@ -22,6 +22,7 @@ def _context(rx, mode):
     return {
         "rx": rx,
         "items": list(rx.items.all()),
+        "requests": list(rx.requests.all()),
         "patient": patient,
         "doctor": doctor,
         "issued": issued,

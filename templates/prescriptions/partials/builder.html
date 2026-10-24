@@ -144,6 +144,44 @@
       <li class="py-10 text-center text-sm text-stone-400">{% translate "الروشتة فاضية — اختار تصنيف أو ابحث فوق." %}</li>
       {% endfor %}
     </ol>
+
+    {# --- الطلبات: labs / imaging, printed under the medicines --- #}
+    <div class="mt-4 border-t border-dashed border-stone-300 pt-3" id="rx-requests">
+      <p class="mb-2 flex items-baseline gap-2 text-sm font-bold text-ink">🧪 {% translate "الطلبات" %} <span class="text-xs font-normal text-stone-400" dir="ltr">Investigations</span></p>
+      {% if requests %}
+      <ul class="mb-2 space-y-1.5">
+        {% for r in requests %}
+        {% url 'prescriptions:request_update' r.pk as req_url %}
+        <li class="group flex flex-wrap items-center gap-2" data-request="{{ r.pk }}">
+          <span class="rounded-md px-1.5 py-0.5 text-[11px] font-semibold {% if r.kind == 'imaging' %}bg-sky-50 text-sky-700{% elif r.kind == 'lab' %}bg-emerald-50 text-emerald-700{% else %}bg-stone-100 text-stone-600{% endif %}">{{ r.get_kind_display }}</span>
+          <input class="rx-paper-name min-w-[10rem] flex-1 basis-0 !text-base" dir="ltr" value="{{ r.name }}" name="value" aria-label="{% translate 'الطلب' %}"
+                 hx-post="{{ req_url }}" hx-vals='{"field": "name"}' hx-trigger="input changed delay:600ms, change" hx-target="#req-{{ r.pk }}">
+          <input class="rx-paper-field !border-stone-300 !bg-transparent min-w-[8rem] flex-1 basis-0 text-sm" dir="auto" value="{{ r.notes }}" name="value"
+                 placeholder="{% translate 'ملاحظة (اختياري)… مثلاً: صايم' %}" aria-label="{% translate 'ملاحظة' %}"
+                 hx-post="{{ req_url }}" hx-vals='{"field": "notes"}' hx-trigger="input changed delay:600ms, change" hx-target="#req-{{ r.pk }}">
+          <span id="req-{{ r.pk }}" class="w-4"></span>
+          <button class="btn-ghost px-1.5 py-1 text-red-600 opacity-30 group-hover:opacity-100 group-focus-within:opacity-100 pointer-coarse:opacity-100 hover:bg-red-50"
+                  hx-post="{% url 'prescriptions:request_remove' r.pk %}" hx-target="#rx-builder" hx-swap="outerHTML" aria-label="{% translate 'مسح' %}" title="{% translate 'مسح' %}">✕</button>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      <form class="flex gap-2" hx-post="{% url 'prescriptions:request_add' rx.pk %}" hx-target="#rx-builder" hx-swap="outerHTML">
+        <input name="name" list="rx-request-list" autocomplete="off" dir="auto"
+               placeholder="{% translate 'أضف تحليل أو أشعة… (CBC، سكر صايم، سونار بطن…)' %}"
+               class="min-w-0 flex-1 rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm focus:border-brand focus:ring-2 focus:ring-brand/20 focus:outline-none">
+        <button class="btn-secondary whitespace-nowrap">+ {% translate "إضافة" %}</button>
+      </form>
+      <datalist id="rx-request-list">{% for n in request_suggestions %}<option value="{{ n }}">{% endfor %}</datalist>
+      {% if frequent_requests %}
+      <div class="mt-2 flex flex-wrap gap-1">
+        {% for n in frequent_requests %}
+        <button type="button" class="chip-soft" dir="ltr" hx-post="{% url 'prescriptions:request_add' rx.pk %}" hx-target="#rx-builder" hx-swap="outerHTML"
+                hx-vals='{"name": "{{ n|escapejs }}"}'>+ {{ n|truncatechars:34 }}</button>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
   </div>
   <datalist id="rx-forms">{% for f in drug_forms %}<option value="{{ f }}">{% endfor %}</datalist>
 
@@ -199,6 +237,12 @@
         <div class="text-stone-600" dir="auto">{{ it.instructions }}{% if it.duration %} — {{ it.duration }}{% endif %}</div></li>
       {% endfor %}
     </ol>
+    {% if requests %}
+    <div class="mt-3 border-t border-dashed border-stone-200 pt-2 text-sm">
+      <b>🧪 {% translate "الطلبات" %}:</b>
+      <ul class="mt-1 space-y-0.5">{% for r in requests %}<li><span dir="ltr" class="font-semibold">{{ r.name }}</span>{% if r.notes %} <span class="text-stone-500" dir="auto">— {{ r.notes }}</span>{% endif %}</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
     {% if rx.advice %}<p class="mt-3 text-sm"><b>{% translate "نصايح" %}:</b> {{ rx.advice }}</p>{% endif %}
     {% if rx.void_reason %}<p class="mt-3 text-sm text-red-700">{% translate "سبب الإلغاء" %}: {{ rx.void_reason }}</p>{% endif %}
   </div>

@@ -349,3 +349,52 @@ def test_enter_in_search_picks_best_catalog_match(client, world):
     items = list(rx.items.all())
     assert items[0].drug.name == "Augmentin 1g" and items[0].instructions == "قرص كل 12 ساعة بعد الأكل"
     assert items[1].drug is None and items[1].drug_name == "Something new"
+
+
+# --- الطلبات (labs / imaging under the medicines) ----------------------------------------------
+
+
+def test_requests_added_printed_under_the_medicines_and_frozen_when_final(client, world):
+    from apps.prescriptions import pdf as rx_pdf
+
+    rx = _rx_with(world, "Panadol 500")
+    client.force_login(world["doc"])
+    url = reverse("prescriptions:request_add", args=[rx.pk])
+    for name in ("CBC", "cbc", "Abdominal & pelvic ultrasound", "سونار على الكلى"):
+        client.post(url, {"name": name})
+    reqs = list(rx.requests.order_by("order"))
+    assert [(r.name, r.kind) for r in reqs] == [
+        ("CBC", "lab"),
+        ("Abdominal & pelvic ultrasound", "imaging"),
+        ("سونار على الكلى", "imaging"),
+    ]  # fmt: skip  — the same test twice is kept once
+    client.post(reverse("prescriptions:request_update", args=[reqs[0].pk]), {"field": "notes", "value": "صايم"})
+    html = client.get(reverse("prescriptions:builder", args=[world["visit"].pk])).content.decode()
+    assert "الطلبات" in html and "Abdominal &amp; pelvic ultrasound" in html
+    printed = rx_pdf.render_html(rx)
+    printed = printed[printed.index("<body") :]  # (the embedded font data above can contain any letters)
+    assert printed.index("Panadol 500") < printed.index("الطلبات") < printed.index("CBC") and "صايم" in printed
+    rx = services.finalize(rx, by=world["doc"])
+    with pytest.raises(services.PrescriptionError):
+        services.add_request(rx, "ESR")
+    new = services.revise(rx, by=world["doc"])
+    assert [r.name for r in new.requests.order_by("order")] == [r.name for r in reqs]  # the revision keeps them
+
+
+def test_repeat_last_prescription_brings_its_requests(world):
+    rx = _rx_with(world, "Panadol 500")
+    services.add_request(rx, "HbA1c (السكر التراكمي)")
+    services.finalize(rx, by=world["doc"])
+    draft = services.draft_for_visit(world["visit"])
+    services.repeat_last(draft)
+    assert [r.name for r in draft.requests.all()] == ["HbA1c (السكر التراكمي)"]
+
+
+def test_requests_permissions_and_tenancy(client, world):
+    rx = _rx_with(world, "Panadol 500")
+    req = services.add_request(rx, "CBC")
+    for user, status in ((world["reception"], 403), (world["other"], 404)):
+        client.force_login(user)
+        assert client.post(reverse("prescriptions:request_add", args=[rx.pk]), {"name": "ESR"}).status_code == status
+        assert client.post(reverse("prescriptions:request_remove", args=[req.pk])).status_code == status
+    assert [r.name for r in rx.requests.all()] == ["CBC"]

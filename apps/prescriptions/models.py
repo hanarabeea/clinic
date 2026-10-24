@@ -225,6 +225,33 @@ class PrescriptionItem(TenantScopedModel):
         return self.drug_name
 
 
+class RequestKind(models.TextChoices):
+    LAB = "lab", _("تحليل")
+    IMAGING = "imaging", _("أشعة")
+    OTHER = "other", _("أخرى")
+
+
+class PrescriptionRequest(TenantScopedModel):
+    """A lab test / imaging requested on the prescription ("الطلبات"), printed under the medicines. Same lifecycle as
+    the lines: editable on a draft, frozen once the prescription is final, copied to a revision."""
+
+    prescription = models.ForeignKey(Prescription, on_delete=models.CASCADE, related_name="requests")
+    kind = models.CharField(_("النوع"), max_length=10, choices=RequestKind.choices, default=RequestKind.LAB)
+    name = models.CharField(_("الطلب"), max_length=150)
+    notes = models.CharField(_("ملاحظة"), max_length=200, blank=True)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        ordering = ["order", "id"]
+        verbose_name = _("طلب (تحليل / أشعة)")
+        verbose_name_plural = _("الطلبات (تحاليل وأشعة)")
+
+    def __str__(self):
+        return self.name
+
+
 class PrescriptionTemplate(TenantScopedModel):
     doctor = models.ForeignKey("doctors.Doctor", on_delete=models.CASCADE, related_name="rx_templates")
     name = models.CharField(_("اسم القالب"), max_length=100)

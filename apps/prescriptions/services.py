@@ -17,6 +17,7 @@ from .models import (
     Drug,
     Prescription,
     PrescriptionItem,
+    PrescriptionRequest,
     PrescriptionSequence,
     PrescriptionTemplate,
     PrescriptionTemplateItem,
@@ -113,6 +114,68 @@ def add_item(rx, *, drug=None, drug_name="", instructions=None, duration=None, f
     )
 
 
+REQUEST_FIELDS = ("name", "notes", "kind")
+
+
+def add_request(rx, name, *, kind=None, notes=""):
+    """A lab test / imaging on the prescription. Same test twice is ignored (returns the existing one)."""
+    from .investigations import kind_for
+
+    _require_draft(rx)
+    name = " ".join((name or "").split())[:150]
+    if not name:
+        raise PrescriptionError(_("اكتب اسم التحليل أو الأشعة."))
+    existing = rx.requests.filter(name__iexact=name).first()
+    if existing:
+        return existing
+    last = rx.requests.aggregate(m=Max("order"))["m"]
+    return PrescriptionRequest.objects.create(
+        organization=rx.organization, prescription=rx, name=name, kind=kind or kind_for(name), notes=notes[:200],
+        order=(last or 0) + 1,
+    )  # fmt: skip
+
+
+def update_request(req, field, value):
+    _require_draft(req.prescription)
+    if field not in REQUEST_FIELDS:
+        raise PrescriptionError(_("حقل مش معروف."))
+    value = (value or "").strip()[: PrescriptionRequest._meta.get_field(field).max_length]
+    if field == "name" and not value:
+        raise PrescriptionError(_("اكتب اسم التحليل أو الأشعة."))
+    setattr(req, field, value)
+    req.save(update_fields=[field, "updated_at"])
+    return req
+
+
+def remove_request(req):
+    _require_draft(req.prescription)
+    req.delete()
+
+
+def frequent_requests(doctor, limit=10):
+    """The doctor's most requested tests (final prescriptions), else the most common ones."""
+    from django.db.models import Count
+
+    from .investigations import IMAGING, LABS
+
+    rows = (
+        PrescriptionRequest.objects.filter(prescription__doctor=doctor, prescription__status=RxStatus.FINAL)
+        .values("name")
+        .annotate(n=Count("id"))
+        .order_by("-n", "name")[:limit]
+    )
+    own = [r["name"] for r in rows]
+    defaults = [*LABS[:6], *IMAGING[:3]]
+    return own + [d for d in defaults if d not in own][: max(0, limit - len(own))]
+
+
+def _copy_requests(src, dst):
+    have = {r.name.lower() for r in dst.requests.all()}
+    for r in src.requests.all():
+        if r.name.lower() not in have:
+            add_request(dst, r.name, kind=r.kind, notes=r.notes)
+
+
 def update_item(item, field, value):
     _require_draft(item.prescription)
     if field not in ITEM_FIELDS:
@@ -199,6 +262,7 @@ def repeat_from(rx, source):
                  form=it.form)  # fmt: skip
     if source.advice and not rx.advice:
         update_fields(rx, advice=source.advice)
+    _copy_requests(source, rx)
     return source
 
 
@@ -266,6 +330,7 @@ def repeat_last(rx):
                  form=it.form)  # fmt: skip
     if last.advice and not rx.advice:
         update_fields(rx, advice=last.advice)
+    _copy_requests(last, rx)
     return last
 
 
@@ -377,6 +442,9 @@ def revise(rx, *, by):
             organization=rx.organization, prescription=new, drug=it.drug, drug_name=it.drug_name, form=it.form,
             instructions=it.instructions, duration=it.duration, notes=it.notes, order=it.order,
         )  # fmt: skip
+    for r in rx.requests.all():
+        PrescriptionRequest.objects.create(organization=rx.organization, prescription=new, kind=r.kind, name=r.name,
+                                           notes=r.notes, order=r.order)  # fmt: skip
     return new
 
 

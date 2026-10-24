@@ -401,3 +401,9 @@ gotchas and conventions introduced in that phase.
 - Mic stays on (2026-10-24): recording never stops on silence — only a second press (or another mic, or a real error).
   The browser ends a recognition session by itself after quiet; `dictation.js` starts a new one at once (`listen()`),
   keeping what was collected. Safety net: `MAX_QUIET_RESTARTS` consecutive empty sessions (several minutes) stop it.
+- الطلبات / Investigations (2026-10-24): `PrescriptionRequest` (prescription FK `requests`, kind lab/imaging/other, name,
+  notes, order; simple-history; admin inline). Same lifecycle as the lines: `add_request` (same name twice → kept once,
+  kind guessed by `investigations.kind_for`), `update_request`, `remove_request` need a draft; `revise` copies them,
+  `repeat_last`/`repeat_from` bring them along. Suggestions: `investigations.LABS`/`IMAGING` (datalist) +
+  `frequent_requests(doctor)` chips. Printed in `pdf/prescription.html` under the medicines (before the advice).
+  URLs: `prescriptions:request_add` / `request_update` / `request_remove` (prescription.write).

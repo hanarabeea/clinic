@@ -32,6 +32,11 @@ ol.items li { margin-bottom: 3mm; page-break-inside: avoid; }
 .drug .form { font-weight: 400; font-size: 9.5pt; color: #555; unicode-bidi: isolate; direction: rtl; margin-left: 2mm; }
 .dose { padding-right: 0; padding-left: 6mm; text-align: right; }
 .advice { margin-top: 3mm; }
+.requests { margin-top: 3mm; padding-top: 2mm; border-top: 1px dashed #bbb; page-break-inside: avoid; }
+.req-title { font-weight: 700; font-size: 10.5pt; margin-bottom: 1mm; }
+.requests ul { margin: 0; padding: 0 5mm 0 0; }
+.requests li { margin-bottom: 1mm; font-size: 10.5pt; }
+.req-name { unicode-bidi: isolate; font-family: "Poppins", "Cairo", sans-serif; font-weight: 600; }
 .spacer { flex: 1; }
 .sign { display: flex; justify-content: space-between; margin-top: 6mm; font-size: 9.5pt; }
 footer .ltr { white-space: nowrap; }
@@ -76,6 +81,17 @@ footer { margin-top: 3mm; border-top: 1px solid #ccc; padding-top: 2mm; font-siz
     </li>
     {% endfor %}
   </ol>
+
+  {% if requests %}
+  <div class="requests">
+    <div class="req-title">الطلبات <span class="ltr" style="font-weight:400;color:#777">(Investigations)</span></div>
+    <ul>
+      {% for r in requests %}
+      <li><span class="ltr req-name">{{ r.name }}</span>{% if r.notes %} <span class="rtl" dir="auto" style="color:#555">— {{ r.notes }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
 
   {% if rx.advice %}<div class="advice"><b>نصايح:</b> <span dir="auto" style="unicode-bidi:isolate;white-space:pre-line">{{ rx.advice }}</span></div>{% endif %}
 

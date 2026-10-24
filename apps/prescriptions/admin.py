@@ -6,6 +6,7 @@ from .models import (
     Drug,
     Prescription,
     PrescriptionItem,
+    PrescriptionRequest,
     PrescriptionSequence,
     PrescriptionSettings,
     PrescriptionTemplate,
@@ -31,12 +32,17 @@ class ItemInline(admin.TabularInline):
     raw_id_fields = ("drug",)
 
 
+class RequestInline(admin.TabularInline):
+    model = PrescriptionRequest
+    extra = 0
+
+
 @admin.register(Prescription)
 class PrescriptionAdmin(SimpleHistoryAdmin):
     list_display = ("__str__", "patient", "doctor", "status", "issued_at", "organization")
     list_filter = ("organization", "status")
     raw_id_fields = ("visit", "patient", "revision_of")
-    inlines = [ItemInline]
+    inlines = [ItemInline, RequestInline]
 
 
 @admin.register(PrescriptionSettings)

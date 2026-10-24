@@ -31,6 +31,7 @@ from .models import (
     DrugCategory,
     Prescription,
     PrescriptionItem,
+    PrescriptionRequest,
     PrescriptionSettings,
     PrescriptionTemplate,
     PrintMode,
@@ -43,6 +44,12 @@ from .models import (
 def _rx(request, pk):
     return get_object_or_404(
         Prescription.objects.for_org(request.organization).select_related("patient", "doctor", "visit"), pk=pk
+    )
+
+
+def _req(request, pk):
+    return get_object_or_404(
+        PrescriptionRequest.objects.filter(organization=request.organization).select_related("prescription"), pk=pk
     )
 
 
@@ -87,6 +94,15 @@ def _builder_ctx(request, rx, **extra):
         if rx.visit_id
         else [],
     }
+    # الطلبات (labs / imaging) printed under the medicines
+    from .investigations import IMAGING, LABS
+
+    ctx["requests"] = list(rx.requests.all())
+    asked = {r.name.lower() for r in ctx["requests"]}
+    ctx["frequent_requests"] = (
+        [n for n in services.frequent_requests(rx.doctor) if n.lower() not in asked] if rx.is_editable else []
+    )
+    ctx["request_suggestions"] = [*LABS, *IMAGING]
     # quick-add chips: hide what's already on this prescription
     have = {(it.drug_id or it.drug_name.strip().lower()) for it in ctx["items"]}
     ctx["recent"] = [it for it in ctx["recent"] if (it.drug_id or it.drug_name.strip().lower()) not in have]
@@ -327,6 +343,47 @@ def dictate_add(request, pk):
         return _error(request, rx, e)
     if drug is not None:
         matching.learn_alias(drug, request.POST.get("spoken", ""))
+    return _builder(request, rx)
+
+
+# --- الطلبات (labs / imaging on the prescription) -----------------------------------------------
+
+
+@require_POST
+@require_perm("prescription.write")
+@desk_unlocked
+def request_add(request, pk):
+    rx = _rx(request, pk)
+    try:
+        services.add_request(rx, request.POST.get("name", ""), kind=request.POST.get("kind") or None,
+                             notes=request.POST.get("notes", ""))  # fmt: skip
+    except services.PrescriptionError as e:
+        return _error(request, rx, e)
+    return _builder(request, rx)
+
+
+@require_POST
+@require_perm("prescription.write")
+@desk_unlocked
+def request_update(request, req_pk):
+    req = _req(request, req_pk)
+    try:
+        services.update_request(req, request.POST.get("field", ""), request.POST.get("value", ""))
+    except services.PrescriptionError as e:
+        return render(request, "prescriptions/partials/cell_status.html", {"error": str(e)})
+    return render(request, "prescriptions/partials/cell_status.html", {})
+
+
+@require_POST
+@require_perm("prescription.write")
+@desk_unlocked
+def request_remove(request, req_pk):
+    req = _req(request, req_pk)
+    rx = req.prescription
+    try:
+        services.remove_request(req)
+    except services.PrescriptionError as e:
+        return _error(request, rx, e)
     return _builder(request, rx)
 
 
