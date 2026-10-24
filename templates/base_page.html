@@ -5,7 +5,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}{% endblock %} · DigiClinic</title>
+  {% if current_org_settings.logo %}
+  {# the clinic's own logo in the browser tab (the version changes with every save, so a new logo shows at once) #}
+  <link rel="icon" href="{% url 'organizations:logo' %}?v={{ current_org_settings.updated_at|date:"U" }}">
+  {% else %}
   <link rel="icon" type="image/png" href="{% static 'img/icon.png' %}">
+  {% endif %}
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   {% with s=current_org_settings %}{% if s %}
   {# The clinic's colours (Settings → الألوان, validated #RRGGBB) replace the theme's. The neutral colour is only a light #}

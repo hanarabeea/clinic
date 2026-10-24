@@ -82,3 +82,21 @@ def test_clinic_colours_apply_to_the_whole_interface(client, org_a, make_member)
     html = client.get("/").content.decode()
     assert "--color-brand: #246770" in html and "--color-brand-dark: #1B4F56" in html
     assert "color-mix(in srgb, #3EA0BC 18%, white)" in html  # neutral only as a light background tint
+
+
+def test_clinic_logo_is_the_browser_tab_icon(client, org_a, make_member, tmp_path, settings):
+    import io
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from PIL import Image
+
+    settings.MEDIA_ROOT = str(tmp_path)
+    buf = io.BytesIO()
+    Image.new("RGB", (32, 32), "teal").save(buf, "PNG")
+    s = org_a.settings
+    s.logo = SimpleUploadedFile("logo.png", buf.getvalue(), content_type="image/png")
+    s.save()
+    client.force_login(make_member(org_a, "owner"))
+    html = client.get("/").content.decode()
+    assert '<link rel="icon" href="/org/logo/?v=' in html
+    assert client.get("/org/logo/").status_code == 200
