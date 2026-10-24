@@ -49,8 +49,8 @@
   }
 
   const Provider = WebSpeechProvider;
-  // safety net only: after several minutes of total silence (mic forgotten on) the recording stops by itself
-  const MAX_QUIET_RESTARTS = 60;
+  const MAX_QUIET_MS = 5 * 60 * 1000;  // safety net: 5 minutes with nothing heard (mic forgotten on) stops it
+  const RESTART_DELAY_MS = 250;  // Chrome needs a moment between two sessions
   const STOP_GRACE_MS = 1500;  // after the stop press, how long to wait for Chrome's last result
   const ERRORS = {
     "not-allowed": "المايك مقفول — اسمح للمتصفح يستخدم المايك.",
@@ -128,7 +128,9 @@
     let provider = null;
     const collected = [];
     let failed = false; // an error message stays visible after the session ends
-    let restarts = 0;
+    let lastSpeech = Date.now();  // the last time anything was heard
+    let quickEnds = [];  // times of sessions that ended within a second (Chrome refusing)
+    let sessionStart = 0;
     // What Chrome has heard but not finalised yet. Chrome only finalises at a pause: if the doctor talks on and then
     // presses stop, everything since the last pause is still "interim" — it used to be dropped, so only the first
     // drug reached the server. Now it's kept: we wait for Chrome's last result, and fall back to the interim text.
@@ -185,9 +187,9 @@
     };
     const listen = () => {
       provider = new Provider();
-      provider.onInterim((text) => { interimEl.textContent = text; pending = text; if (text) restarts = 0; });
+      provider.onInterim((text) => { interimEl.textContent = text; pending = text; if (text) lastSpeech = Date.now(); });
       provider.onFinal((text) => {
-        restarts = 0;
+        lastSpeech = Date.now();
         pending = "";
         takeText(text);
       });
@@ -201,13 +203,24 @@
       provider.onEnd(() => {
         if (session.stopped) { done(); return; }
         flushPending(); // a session closed by the browser mid-sentence: keep what was heard
-        // the browser closed the session on its own (silence / time limit): keep recording
-        if (++restarts > MAX_QUIET_RESTARTS) { session.stop(); return; }
+        // the browser closed the session on its own (silence / ~1 min limit): keep recording.
+        // Stop only after MAX_QUIET_MS with nothing heard at all — never by counting restarts: Chrome can end a fresh
+        // session instantly several times in a row, and a counter used to run out mid-sentence and stop silently.
+        if (Date.now() - lastSpeech > MAX_QUIET_MS) { session.stop(); return; }
+        const now = Date.now();
+        if (now - sessionStart < 1000) quickEnds = [...quickEnds.filter((t) => now - t < 10000), now];
+        if (quickEnds.length >= 8) {  // Chrome keeps refusing to listen: say so instead of failing silently
+          failed = true;
+          interimEl.textContent = "المايك وقف لوحده — دوس عليه تاني وكمل كلامك.";
+          session.stop();
+          return;
+        }
         setTimeout(() => {
           if (session.stopped) return;
-          try { listen(); } catch (e) { session.stop(); }
-        }, 150);
+          try { listen(); } catch (e) { setTimeout(() => { if (!session.stopped) listen(); }, 400); }
+        }, RESTART_DELAY_MS);
       });
+      sessionStart = Date.now();
       provider.start(langPref());
     };
     active = session;

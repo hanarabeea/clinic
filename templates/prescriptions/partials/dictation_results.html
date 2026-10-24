@@ -17,6 +17,13 @@ every row's best match with what's in its boxes. Kept across re-renders with hx-
     <button type="button" class="btn-ghost px-2 py-1 text-xs" onclick="document.getElementById('rx-dictation').innerHTML = ''" aria-label="{% translate 'قفل' %}">✕ {% translate "قفل" %}</button>
   </div>
 
+  {% if heard %}
+  {# the whole text Chrome understood — so the doctor can see a medicine / test that was misheard or cut off #}
+  <details open class="rounded-lg bg-white/70 px-3 py-2 text-xs text-stone-600">
+    <summary class="cursor-pointer font-semibold">🗣 {% translate "الكلام كله اللي اتسمع" %}</summary>
+    <p class="mt-1 whitespace-pre-line leading-relaxed" dir="auto">{{ heard }}</p>
+  </details>
+  {% endif %}
   {% for line in lines %}
   {% with best=line.candidates.0 %}
   <div class="rounded-lg bg-white px-3 py-3 shadow-sm" data-dictated-line>

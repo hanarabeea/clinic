@@ -400,7 +400,9 @@ gotchas and conventions introduced in that phase.
   products with the same `generic_name` in that form, ranked by how many said forms they fit (كيس+فوار → EFF. SACHETS).
 - Mic stays on (2026-10-24): recording never stops on silence — only a second press (or another mic, or a real error).
   The browser ends a recognition session by itself after quiet; `dictation.js` starts a new one at once (`listen()`),
-  keeping what was collected. Safety net: `MAX_QUIET_RESTARTS` consecutive empty sessions (several minutes) stop it.
+  keeping what was collected (after `RESTART_DELAY_MS`). Safety net is time-based: `MAX_QUIET_MS` (5 min) with nothing
+  heard stops it; 8 sessions ending within a second each in 10 s → a visible "المايك وقف لوحده" message. (A restart
+  *counter* used to run out within a second when Chrome refused sessions, silently cutting the doctor off.)
 - الطلبات / Investigations (2026-10-24): `PrescriptionRequest` (prescription FK `requests`, kind lab/imaging/other, name,
   notes, order; simple-history; admin inline). Same lifecycle as the lines: `add_request` (same name twice → kept once,
   kind guessed by `investigations.kind_for`), `update_request`, `remove_request` need a draft; `revise` copies them,
@@ -422,3 +424,7 @@ gotchas and conventions introduced in that phase.
   `stop()`, waits for `onend` (≤ `STOP_GRACE_MS`, mic amber meanwhile) and then flushes the still-interim text
   (`pending`) as a final. A session the browser closes by itself also flushes `pending` before restarting. Before this,
   talking straight through and pressing stop sent only what was finalised (often just the first drug).
+- Split names & vowels (2026-10-24): two heard words that together match a one-word name ("اريستا بيكس" → ERASTAPEX)
+  get `JOIN_BONUS` and win over a half matching something else (never gluing a form/unit/modifier word); a vowel-less
+  comparison (`_novowel`: long vowels ا/و/ي dropped, not on words still carrying "ال") finds "اريستابكس" ≈ "اراستابيكس".
+  The voice box shows the full heard text ("🗣 الكلام كله اللي اتسمع") open, so a cut-off recording is visible.

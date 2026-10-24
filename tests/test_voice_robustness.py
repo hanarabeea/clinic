@@ -262,3 +262,10 @@ def test_said_form_with_an_ingredient_name(catalog, db, said, must_have):
     [item] = extraction.extract(catalog, said)
     top = item.candidates[0].drug.name.upper()
     assert all(f in top for f in must_have) or any(f in top for f in must_have[1:] or must_have), top
+
+
+@pytest.mark.parametrize("said", ["اريستابكس اربعين قرص الصبح", "اريستا بيكس قرص الصبح", "ارستابكس 40 الصبح"])
+def test_name_heard_with_other_vowels_or_split(catalog, db, said):
+    """ERASTAPEX ("اراستابيكس") said "اريستابكس", or split by the recogniser ("اريستا بيكس")."""
+    [item] = extraction.extract(catalog, said)
+    assert item.candidates[0].drug.name.startswith("ERASTAPEX"), item.candidates[0].drug.name

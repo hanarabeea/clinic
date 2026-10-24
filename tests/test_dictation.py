@@ -242,7 +242,9 @@ def test_conversation_keeps_only_medicines_dose_and_duration(client, desk, org):
     html = client.post(reverse("prescriptions:dictate", args=[rx.pk]), {"text": talk}).content.decode()
     assert "Flagyl 500" in html and "Panadol Extra" in html
     assert "لمدة أسبوع" in html and "عند اللزوم" in html
-    shown = re.sub(r'title="[^"]*"|«[^»]*»', "", html)  # drop the quoted speech (shown for reference only)
+    shown = re.sub(
+        r'title="[^"]*"|«[^»]*»|<details.*?</details>', "", html, flags=re.S
+    )  # transcript shown on purpose  # drop the quoted speech (shown for reference only)
     assert "سوايل" not in shown  # the chit-chat is not offered as instructions
     flagyl = Drug.objects.get(organization=org, name="Flagyl 500")
     client.post(reverse("prescriptions:dictate_add", args=[rx.pk]),
@@ -445,3 +447,24 @@ def test_js_words_still_being_recognised_when_stopped_are_kept():
 
     value = _in_browser(FAKE_RECOGNITION, scenario)
     assert "اوجمنتين" in value and "بنادول عند اللزوم" in value and "كونكور 5 الصبح" in value
+
+
+def test_js_survives_the_browser_ending_sessions_repeatedly():
+    """Chrome may end fresh sessions several times in a row; a restart counter used to run out within a second and stop
+    the recording in the middle of the doctor's speech."""
+
+    def scenario(page):
+        page.locator(".dictation-mic").click()
+        page.evaluate("window.__say('كونكور 5 الصبح')")
+        for _ in range(5):  # five sessions ended by the browser, one after another
+            page.evaluate("window.__rec.onend()")
+            page.wait_for_timeout(300)
+        page.evaluate("window.__say('وبنادول عند اللزوم')")  # said after all those restarts
+        recording = page.evaluate("document.querySelector('.dictation-mic').style.background")
+        page.locator(".dictation-mic").click()
+        page.wait_for_timeout(300)
+        return recording, page.locator("#t").input_value()
+
+    recording, value = _in_browser(FAKE_RECOGNITION, scenario)
+    assert "220, 38, 38" in recording  # still red = still recording
+    assert "كونكور 5 الصبح" in value and "بنادول عند اللزوم" in value

@@ -110,6 +110,11 @@ SPOKEN_EN = {normalize(k): v for k, v in {
 # Letters Arabic speech recognition confuses with each other → one "sound" letter.
 _SOUNDS = str.maketrans("رصطضذظقحثغ", "لستدززكهسخ")
 GUESS_PENALTY = 4
+NOVOWEL_MIN = 5  # letters left after dropping long vowels
+NOVOWEL_CUTOFF = 95
+NOVOWEL_PENALTY = 4  # identical without vowels → 96 ("strong")
+JOIN_MIN = 90  # two heard words joined ≈ one catalog name
+JOIN_BONUS = 6
 CONTEXT_BONUS = 6
 FORM_PREF = 8  # "شراب سيتال": the syrup before the suppository even if the suppository's name is a bit closer
 # how each spoken form appears in catalog names
@@ -139,6 +144,22 @@ SOUND_PENALTY = 7  # a 100% sound match = 93 (still "strong"), a weaker one need
 
 def _sound(text: str) -> str:
     return text.translate(_SOUNDS)
+
+
+_LONG_VOWELS = str.maketrans("", "", "اويى")
+
+
+def _novowel(text: str) -> str:
+    """Spelling without long vowels (and with sound-alike letters merged): "اريستابكس" and "اراستابيكس" (ERASTAPEX)
+    become the same — speech recognition and the catalog's transliteration often differ only there."""
+    return " ".join(w[:1] + w[1:].translate(_LONG_VOWELS) for w in text.split())
+
+
+def _novowel_heads(idx, n: int) -> list[str]:
+    cache = idx.__dict__.setdefault("novowel_heads", {})
+    if n not in cache:
+        cache[n] = [_novowel(h) for h in idx.heads[n]]
+    return cache[n]
 
 
 def _sound_heads(idx, n: int) -> list[str]:
@@ -411,15 +432,35 @@ def extract(org, transcript: str) -> list[Extracted]:
                 best[owners[h]] = max(best.get(owners[h], 0), int(row[h]) - cut)
             for h in np.nonzero(prow)[0]:
                 best[owners[h]] = max(best.get(owners[h], 0), int(prow[h]) - SOUND_PENALTY - cut)
-        if n == 2 and idx.heads[1]:  # a name heard as two words ("اوج منتين") vs the one-word name
-            joined = [(i, bare[i] + bare[i + 1]) for i in starts]
-            rows = process.cdist([q for _i, q in joined], idx.heads[1], scorer=fuzz.ratio, score_cutoff=STRONG,
-                                 dtype=np.uint8, workers=-1) if joined else []  # fmt: skip
-            for row, (i, _q) in zip(rows, joined, strict=True):
+        if n == 1:  # long vowels ignored ("اريستابكس" ≈ "اراستابيكس"): only long-enough, near-identical spellings
+            # not on a word still carrying "ال" (everyday nouns: "الفطار", "البصل") — the bare spelling is tried anyway
+            nv = [(i, _novowel(q)) for i, q, _g in qs if not q.startswith("ال")]
+            nv = [(i, q) for i, q in nv if len(q) >= NOVOWEL_MIN]
+            rows = process.cdist([q for _i, q in nv], _novowel_heads(idx, 1), scorer=fuzz.ratio,
+                                 score_cutoff=NOVOWEL_CUTOFF, dtype=np.uint8, workers=-1) if nv else []  # fmt: skip
+            for row, (i, _q) in zip(rows, nv, strict=True):
                 best = found.setdefault(i, {})
                 for h in np.nonzero(row)[0]:
+                    best[owners[h]] = max(best.get(owners[h], 0), int(row[h]) - NOVOWEL_PENALTY)
+        if n == 2 and idx.heads[1]:  # a name heard as two words ("اوج منتين", "اريستا بيكس") vs the one-word name
+            # never glue a form / unit / modifier word onto a name ("اسيك كريم" is ACIK cream, not "اسيككريم")
+            joined = [
+                (i, bare[i] + bare[i + 1])
+                for i in starts
+                if norm[i + 1] not in TYPES and norm[i + 1] not in MODIFIERS and norm[i + 1] not in UNITS
+            ]
+            plain = process.cdist([q for _i, q in joined], idx.heads[1], scorer=fuzz.ratio, score_cutoff=JOIN_MIN,
+                                  dtype=np.uint8, workers=-1) if joined else []  # fmt: skip
+            vowelless = process.cdist([_novowel(q) for _i, q in joined], _novowel_heads(idx, 1), scorer=fuzz.ratio,
+                                      score_cutoff=JOIN_MIN, dtype=np.uint8, workers=-1) if joined else []  # fmt: skip
+            for row, vrow, (i, _q) in zip(plain, vowelless, joined, strict=True):
+                best = found.setdefault(i, {})
+                for h in set(np.nonzero(row)[0]) | set(np.nonzero(vrow)[0]):
                     pk = idx.owners[1][h]
-                    best[pk] = max(best.get(pk, 0), int(row[h]) - 2)
+                    # the two halves together ARE the name: it must beat either half matching something else ("بيكس"
+                    # alone is PIX SHAMPOO) — a bonus, and on a tie the longer (two-word) window wins
+                    raw = max(int(row[h]), int(vrow[h]))
+                    best[pk] = max(best.get(pk, 0), min(100, raw + JOIN_BONUS))
         if n == 1:  # Arabic speech vs English-only names, by consonant skeleton
             sk_heads, sk_owners = _skeleton_heads(idx)
             sk = [(i, _skeleton_ar(v)) for i in starts for v in _variants(norm[i]) if not v.isascii()]

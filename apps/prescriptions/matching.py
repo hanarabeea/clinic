@@ -197,16 +197,19 @@ def _add_to_index(drug: Drug, spoken: str) -> None:
     idx = _INDEX.get(drug.organization_id)
     if idx is None:
         return
-    from .extraction import _sound  # the sound-alike cache (extraction.py) is extended the same way
+    from .extraction import _novowel, _sound  # caches built in extraction.py are extended the same way
 
     words = spoken.split()
     sounds = idx.__dict__.get("sound_heads", {})
+    novowels = idx.__dict__.get("novowel_heads", {})
     for n in range(1, min(MAX_PREFIX_WORDS, len(words)) + 1):
         head = " ".join(words[:n])
         idx.heads[n].append(head)
         idx.owners[n].append(drug.pk)
         if n in sounds:
             sounds[n].append(_sound(head))
+        if n in novowels:
+            novowels[n].append(_novowel(head))
     # the skeleton cache holds English names only — a learned Arabic alias doesn't change it
     stats = Drug.objects.filter(organization_id=drug.organization_id, is_active=True).aggregate(
         n=Count("id"), t=Max("updated_at")
