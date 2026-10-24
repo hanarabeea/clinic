@@ -384,3 +384,7 @@ gotchas and conventions introduced in that phase.
   never get a 200 on `/desk/`. WhatsApp gateway client never loads TLS certificates for the local http:// gateway and
   treats `OSError` as "offline" (Avast's aswMonFltProxy blocked cert loading and crashed the home page). Grid cards
   holding long text need `min-w-0` (the dashboard's top-diagnoses card pushed the phone layout sideways).
+- Voice box = confirmation (2026-10-24): the voice results show الجرعة/المدة as editable inputs (empty dose yellow, each
+  with its own mic); "أضف"/"أضف الكل" send those values and **that press is the 13 §13.4 confirmation** — `dictate_add`
+  now saves `needs_review=False` (lines added any other way are unaffected; `confirm_item` stays for old drafts). A number
+  before "مرات/ساعات/ايام" is never the strength ("انتينال 5 مرات"), but before "مرة" it is ("كونكور 5 مرة الصبح").

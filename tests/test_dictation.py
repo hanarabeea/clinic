@@ -110,22 +110,21 @@ def desk(org, org_b, make_member):
     return {"rx": rx, "doc": doc, "reception": reception, "other": make_member(org_b, "doctor"), "visit": visit}
 
 
-def test_dictated_lines_need_review_before_finalizing(client, desk, org):
+def test_pressing_add_on_a_dictated_line_is_the_confirmation(client, desk, org):
+    """13 §13.4: dictated lines need the doctor's confirmation — given by "أضف" in the voice box (where the dose is
+    reviewed/edited), so no second "تأكيد" in the prescription."""
     client.force_login(desk["doc"])
     rx = desk["rx"]
     html = client.post(reverse("prescriptions:dictate", args=[rx.pk]),
                        {"text": "فلاجيل تلات مرات يوميا\nبنادول اكسترا عند اللزوم"}).content.decode()  # fmt: skip
     assert "Flagyl 500" in html and "Panadol Extra" in html
-    assert rx.items.count() == 0  # nothing saved until the doctor picks
+    assert 'name="instructions"' in html  # the dose is editable before adding
+    assert rx.items.count() == 0  # nothing saved until the doctor presses أضف
     flagyl = Drug.objects.get(organization=org, name="Flagyl 500")
     client.post(reverse("prescriptions:dictate_add", args=[rx.pk]),
-                {"drug": flagyl.pk, "spoken": "فلاجيل", "instructions": "3 مرات يوميا"})  # fmt: skip
+                {"drug": flagyl.pk, "spoken": "فلاجيل", "instructions": "قرص 3 مرات يوميا بعد الأكل"})  # fmt: skip
     item = rx.items.get()
-    assert (item.drug, item.instructions, item.needs_review) == (flagyl, "3 مرات يوميا", True)
-    html = client.post(reverse("prescriptions:action", args=[rx.pk, "finalize"])).content.decode()
-    assert "مراجعة" in html
-    assert Prescription.objects.get(pk=rx.pk).status == "draft"
-    client.post(reverse("prescriptions:item_action", args=[item.pk, "confirm"]))
+    assert (item.drug, item.instructions, item.needs_review) == (flagyl, "قرص 3 مرات يوميا بعد الأكل", False)
     client.post(reverse("prescriptions:action", args=[rx.pk, "finalize"]))
     assert Prescription.objects.get(pk=rx.pk).status == "final"
 
@@ -363,3 +362,13 @@ def test_learning_an_alias_does_not_rebuild_the_voice_index(org):
     [item] = extraction.extract(org, "خدي زيرتيك جديد مرتين في اليوم")
     assert matching._INDEX[org.pk] is before  # updated in place, not rebuilt
     assert item.candidates[0].drug == drug
+
+
+def test_frequency_number_is_not_taken_as_strength(org):
+    from apps.prescriptions import extraction
+
+    Drug.objects.create(organization=org, name="ANTINAL 220MG/5ML 60ML SUSP.", aliases_ar=["انتينال"])
+    [item] = extraction.extract(org, "انتينال 5 مرات في اليوم")
+    assert "5 مرات في اليوم" in item.instructions
+    [item] = extraction.extract(org, "بنادول مره عندي اللزوم")
+    assert "عند اللزوم" in item.instructions

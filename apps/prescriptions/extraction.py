@@ -65,7 +65,7 @@ PATTERNS = [
     # a number after the unit counts the unit ("قرص 2") — unless it's the start of a frequency ("قرص 3 مرات")
     ("dose", re.compile(rf"(?:{NUM}\s*)?(?:{DOSE_UNITS})(?:\s*{NUM}(?!\s*(?:مرات|مره|مرتين|ساعات|ساعه|ايام|يوم)))?")),
     # "when needed", however it's said → shown as "عند اللزوم"
-    ("prn", re.compile(r"لما (?:يحتاج|تحتاج|يحتاجه|تحتاجه|تحتاجي|يحتاجها|يوجعه|يوجعك|يوجعها|تتعب|يتعب)|لو (?:فيه|في|حس|حسيت|حست) (?:وجع|الم|حراره|سخونيه|صداع|تعب)|وقت (?:الالم|الوجع|اللزوم|التعب)")),
+    ("prn", re.compile(r"عندي اللزوم|عند لزوم|عندي الحاجه|لما (?:يحتاج|تحتاج|يحتاجه|تحتاجه|تحتاجي|يحتاجها|يوجعه|يوجعك|يوجعها|تتعب|يتعب)|لو (?:فيه|في|حس|حسيت|حست) (?:وجع|الم|حراره|سخونيه|صداع|تعب)|وقت (?:الالم|الوجع|اللزوم|التعب)")),
     # frequency
     ("freq", re.compile(r"كل\s*\d+\s*(?:ساعات|ساعه|ايام|يوم)")),
     ("freq", re.compile(r"(?:مره|مرتين|\d+\s*مرات)?\s*كل يوم(?:\s*بالليل|\s*الصبح)?|يوم بعد يوم|يوم اه ويوم لا")),
@@ -153,6 +153,7 @@ UNITS = {
     for w in "جرام جم جرامات مجم ملجم مللي ملي مل مليجرام ميليجرام ميلي ميكرو ميكروجرام وحده وحدات mg gm g ml mcg iu".split()
 }
 COUNTED = {normalize(w) for w in "مل ml مللي ملي سم cc نقطه نقط وحده وحدات".split()}  # number + these = a dose
+TIMES = {normalize(w) for w in "مرات ساعات ايام".split()}  # "5 مرات" = a count; "كونكور 5 مرة": 5 is the strength
 # Said right before a name, these mean the drug is being stopped / not prescribed ("بلاش البنادول", "وقفي الكونكور").
 NEGATIONS = {
     normalize(w)
@@ -434,6 +435,8 @@ def extract(org, transcript: str) -> list[Extracted]:
         strength = None
         while j < end and (norm[j] in MODIFIERS or norm[j] in UNITS or (_is_number(norm[j]) and strength is None)):
             if _is_number(norm[j]):
+                if j + 1 < end and norm[j + 1] in COUNTED | TIMES:
+                    break  # "5 مرات" / "5 مل" is the dose, not the strength (even if "5" is in the product name)
                 if j + 1 < end and norm[j + 1] in COUNTED:
                     break  # "شراب 5 مل" is the dose, not the strength
                 big = float(norm[j].replace(",", ".")) >= 20  # "بروفين 250 معلقة": 250 is a strength, not a dose

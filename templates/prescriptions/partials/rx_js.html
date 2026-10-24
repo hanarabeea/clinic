@@ -78,9 +78,9 @@
     for (const row of [...document.querySelectorAll("#dictation-box [data-dictated-line]")]) {
       const add = row.querySelector("[data-primary]");
       if (!add) continue;
-      await htmx.ajax("POST", add.getAttribute("hx-post"), {
-        target: "#rx-builder", swap: "outerHTML", values: JSON.parse(add.getAttribute("hx-vals")),
-      });
+      const values = JSON.parse(add.getAttribute("hx-vals"));
+      row.querySelectorAll("input[name]").forEach((i) => { values[i.name] = i.value; });  // the (edited) dose/duration
+      await htmx.ajax("POST", add.getAttribute("hx-post"), { target: "#rx-builder", swap: "outerHTML", values });
       row.remove();
     }
     const box = document.getElementById("rx-dictation");

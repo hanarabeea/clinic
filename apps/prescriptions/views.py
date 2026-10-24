@@ -301,7 +301,8 @@ def dictate(request, pk):
 @require_perm("prescription.write")
 @desk_unlocked
 def dictate_add(request, pk):
-    """The doctor picked a suggestion (or "as spoken"): add it flagged `needs_review` (13 §13.4) and learn the alias."""
+    """The doctor reviewed the line in the voice box (dose/duration editable there) and pressed "أضف": that press is the
+    confirmation required by 13 §13.4, so the line goes in ready (no second "تأكيد"). Learns the spoken alias."""
     rx = _rx(request, pk)
     drug = None
     if request.POST.get("drug", "").isdigit():
@@ -314,7 +315,7 @@ def dictate_add(request, pk):
             drug_name=request.POST.get("spoken", ""),
             instructions=instructions or None,
             duration=request.POST.get("duration", "").strip() or None,
-            needs_review=True,
+            needs_review=False,
         )
     except services.PrescriptionError as e:
         return _error(request, rx, e)

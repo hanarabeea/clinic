@@ -79,6 +79,11 @@
   .rx-paper-field { @apply border-0 border-b border-dashed border-stone-300 bg-transparent px-1 py-1 text-[15px] text-stone-800 placeholder:text-stone-400 hover:border-stone-400 focus:border-solid focus:border-brand focus:outline-none pointer-coarse:py-2; }
   .rx-paper-field:placeholder-shown { @apply border-amber-400 bg-amber-50/40; }
 
+  /* voice results: dose / duration boxes; an empty dose is yellow so it gets said or typed before "أضف" */
+  .rx-voice-field { @apply w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-[15px] focus:border-brand focus:ring-2 focus:ring-brand/20 focus:outline-none; }
+  .rx-voice-field:placeholder-shown:not(.rx-voice-optional) { @apply border-2 border-amber-400 bg-amber-50; }
+  .rx-voice-field:placeholder-shown::placeholder { @apply text-amber-700; }
+
   /* voice mic inside the field (not under it, not over the text) */
   .dictate-inline, .dictate-corner { position: relative; }
   /* the mic sits on the left (RTL page): keep that side free whatever the text direction; an empty field (hint) reads
