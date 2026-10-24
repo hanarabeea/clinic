@@ -70,3 +70,15 @@ def test_lockout_counts_email_case_insensitively(client, org_a, make_member):
         client.post(reverse("accounts:login"), {"username": email, "password": "nope"})
     resp = client.post(reverse("accounts:login"), {"username": "sales@example.com", "password": PASSWORD})
     assert resp.status_code == 429
+
+
+def test_clinic_colours_apply_to_the_whole_interface(client, org_a, make_member):
+    """Settings → الألوان used to change only the printed prescription; now every page uses them."""
+    from apps.organizations.models import OrganizationSettings
+
+    OrganizationSettings.objects.filter(organization=org_a).update(primary_color="#246770", dark_color="#1B4F56",
+                                                                   neutral_color="#3EA0BC")  # fmt: skip
+    client.force_login(make_member(org_a, "owner"))
+    html = client.get("/").content.decode()
+    assert "--color-brand: #246770" in html and "--color-brand-dark: #1B4F56" in html
+    assert "color-mix(in srgb, #3EA0BC 18%, white)" in html  # neutral only as a light background tint
