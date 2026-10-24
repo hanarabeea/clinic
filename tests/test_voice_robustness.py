@@ -243,3 +243,22 @@ def test_said_form_picks_the_product_form(catalog, db):
 def test_dose_word_before_the_name_is_kept(catalog, db):
     [item] = extraction.extract(catalog, "حبايه جلوكوفاج الصبح")
     assert item.instructions == "حباية الصبح"
+
+
+@pytest.mark.parametrize(
+    ("said", "must_have"),
+    [
+        ("كيس فوار باراسيتامول لما يحتاج", ("EFF", "SACHET")),
+        ("فوار باراسيتامول", ("EFF",)),
+        ("كيس باراسيتامول مرتين", ("SACHET",)),
+        ("شراب باراسيتامول كل 6 ساعات", ("SYRUP", "SUSP")),
+        ("لبوس باراسيتامول بالليل", ("SUPP",)),
+        ("كيس فوار سيفامول", ("EFF", "SACHET")),
+        ("اقراص فوار سيفامول", ("EFF", "TAB")),
+    ],
+)  # fmt: skip
+def test_said_form_with_an_ingredient_name(catalog, db, said, must_have):
+    """No product named like the ingredient comes in the said form → same active ingredient in that form first."""
+    [item] = extraction.extract(catalog, said)
+    top = item.candidates[0].drug.name.upper()
+    assert all(f in top for f in must_have) or any(f in top for f in must_have[1:] or must_have), top

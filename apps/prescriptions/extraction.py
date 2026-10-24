@@ -122,7 +122,8 @@ FORM_NAMES = {
     "amp": ("amp", "vial", "inj"),
     "supp": ("supp",),
     "spray": ("spray",),
-    "eff": ("eff", "sachet"),
+    "eff": ("eff",),
+    "sachet": ("sachet",),
     "tab": ("tab",),
     "cap": ("cap",),
     "lotion": ("lotion",),
@@ -165,7 +166,7 @@ def _glue(words: list[str]) -> str:
 # Product type words → the English word in catalog names; said next to a name they pick the right product.
 TYPES = {normalize(k): v for k, v in {
     "صابونه": "soap", "صابون": "soap", "كريم": "cream", "شامبو": "shampoo", "لوشن": "lotion", "جل": "gel",
-    "مرهم": "oint", "شراب": "syrup", "سيرب": "syrup", "نقط": "drops", "نقطه": "drops", "قطره": "drops", "كيس": "eff", "اكياس": "eff", "ظرف": "eff", "قطرة": "drops", "قطرتين": "drops", "قطور": "drops", "مرهم عين": "oint", "امبول": "amp", "اقراص فوار": "eff", "بخاخ": "spray",
+    "مرهم": "oint", "شراب": "syrup", "سيرب": "syrup", "نقط": "drops", "نقطه": "drops", "قطره": "drops", "كيس": "sachet", "اكياس": "sachet", "ظرف": "sachet", "قطرة": "drops", "قطرتين": "drops", "قطور": "drops", "مرهم عين": "oint", "امبول": "amp", "اقراص فوار": "eff", "بخاخ": "spray",
     "لبوس": "supp", "حقن": "amp", "حقنه": "amp", "فوار": "eff", "بودره": "powder", "غسول": "wash", "اقراص": "tab",
     "كبسول": "cap", "كبسولات": "cap", "لبوسه": "supp", "معجون": "paste", "سبراي": "spray",
 }.items()}  # fmt: skip
@@ -322,6 +323,34 @@ def regimen(words: list[str]) -> tuple[str, str]:
     if duration and re.match(r"\d|اسبوع|أسبوع|شهر|يوم", duration):
         duration = f"لمدة {duration}"
     return instructions, duration
+
+
+def _same_ingredient_in_form(org, pk, kinds, limit=TOP_N) -> dict:
+    """{pk: name} of active drugs with the same active ingredient(s) as drug `pk`, in one of the said forms."""
+    from django.db.models import Q
+
+    from .models import Drug
+
+    generic = (Drug.objects.filter(pk=pk).values_list("generic_name", flat=True).first() or "").strip()
+    if not generic:
+        return {}
+    form_q = Q()
+    for k in kinds:
+        for f in FORM_NAMES.get(k, (k,)):
+            form_q |= Q(name__icontains=f)
+    rows = list(
+        Drug.objects.filter(organization=org, is_active=True, generic_name__iexact=generic)
+        .filter(form_q)
+        .order_by("-usage_count", "name")
+        .values_list("pk", "name")[:60]
+    )
+
+    def fits(name):  # how many of the said forms the name matches ("كيس فوار" → EFF. SACHETS before plain SACHETS)
+        name = name.lower()
+        return sum(any(f in name for f in FORM_NAMES.get(k, (k,))) for k in kinds)
+
+    rows.sort(key=lambda r: -fits(r[1]))  # stable: usage order kept within the same fit
+    return dict(rows[:limit])
 
 
 def idx_names(idx, pks) -> dict:
@@ -499,11 +528,24 @@ def extract(org, transcript: str) -> list[Extracted]:
             name = names.get(pk, "").lower()
             has = bool(strength) and strength in re.findall(r"\d+(?:\.\d+)?", name)
             unsaid = any(w in VARIANT_WORDS and w not in said_en for w in re.split(r"[^a-z]+", name))
-            form_ok = any(any(f in name for f in FORM_NAMES.get(k, (k,))) for k in kinds)
+            form_ok = sum(any(f in name for f in FORM_NAMES.get(k, (k,))) for k in kinds)  # how many said forms fit
             said_variant = any(v in name for v in said_en & VARIANT_WORDS)  # "panadol اكسترا" → Panadol Extra
-            return (-(score + (FORM_PREF if form_ok else 0) + (FORM_PREF if said_variant else 0)), not has, unsaid,
+            return (-(score + FORM_PREF * form_ok + (FORM_PREF if said_variant else 0)), not has, unsaid,
                     -idx.usage[pk], idx.name_len[pk])  # fmt: skip
 
+        if (
+            kinds
+            and hits
+            and not any(
+                any(f in names.get(pk, "").lower() for k in kinds for f in FORM_NAMES.get(k, (k,)))
+                for _s, pk in hits[:20]
+            )
+        ):
+            # "كيس فوار باراسيتامول": none of the matches comes in the said form → the same active ingredient in that form
+            extra = _same_ingredient_in_form(org, hits[0][1], kinds)
+            if extra:
+                names.update(extra)
+                hits = [(hits[0][0], pk) for pk in extra] + list(hits)
         ranked = sorted(hits, key=rank)[:TOP_N]
         spoken = " ".join(tokens[i:j])
         said = " ".join(tokens[i : min(end, j + LOOKAHEAD)])

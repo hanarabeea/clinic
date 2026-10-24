@@ -395,4 +395,6 @@ gotchas and conventions introduced in that phase.
   before the first name is kept in front ("حباية جلوكوفاج الصبح" → "حباية الصبح"). With no drug recognised the
   line-by-line fallback only shows matches ≥ `FALLBACK_MIN_SCORE` (90), else "مالقيتش اسم دوا". Measured on the full
   catalog: exact names next to a form word 99%, ر↔ل 98.5%, a dropped ي/ا ~90%, form word + everyday word 0/960.
-  `test_voice_robustness.py` removes a leftover "voice-robustness" org first (the test DB is reused).
+  `test_voice_robustness.py` removes a leftover "voice-robustness" org first (the test DB is reused). When a form is said
+  with an ingredient name and no match comes in that form ("كيس فوار باراسيتامول"), `_same_ingredient_in_form` adds
+  products with the same `generic_name` in that form, ranked by how many said forms they fit (كيس+فوار → EFF. SACHETS).
