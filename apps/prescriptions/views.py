@@ -112,6 +112,7 @@ def builder(request, visit_pk):
     visit = get_object_or_404(Visit.objects.for_org(request.organization), pk=visit_pk)
     if not settings.TESTING:
         engine.warm_up()  # Chromium starts while the doctor writes, so "اعتماد وطباعة" is fast
+        matching.warm(request.organization)  # the voice index too, so the first dictation doesn't wait for it
     return _builder(request, _current_for_visit(visit))
 
 

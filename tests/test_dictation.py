@@ -350,3 +350,16 @@ def test_filler_before_a_drug_does_not_borrow_its_dose(org):
     Drug.objects.create(organization=org, name="ANTINAL 200MG 24 CAPS.", aliases_ar=["انتينال"])
     items = extraction.extract(org, "ممكن حضرتك وهكتب لك انتينال تاخديه مره كل يوم لمده 5 ايام")
     assert [e.candidates[0].drug.name.upper()[:7] for e in items] == ["ANTINAL"]  # no ACT LIFE
+
+
+def test_learning_an_alias_does_not_rebuild_the_voice_index(org):
+    """Picking a drug used to rebuild the whole catalog index (~2 s on 25k drugs) before the next dictation."""
+    from apps.prescriptions import extraction
+
+    drug = Drug.objects.create(organization=org, name="ZYRTEC 10 MG 20 TABS.", aliases_ar=["زيرتك"])
+    extraction.extract(org, "زيرتك مرتين")
+    before = matching._INDEX[org.pk]
+    matching.learn_alias(drug, "زيرتيك جديد")
+    [item] = extraction.extract(org, "خدي زيرتيك جديد مرتين في اليوم")
+    assert matching._INDEX[org.pk] is before  # updated in place, not rebuilt
+    assert item.candidates[0].drug == drug

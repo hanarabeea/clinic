@@ -50,6 +50,7 @@
 
   const Provider = WebSpeechProvider;
   const SILENCE_MS = 3000;
+  const RX_SILENCE_MS = 2000;
   const ERRORS = {
     "not-allowed": "المايك مقفول — اسمح للمتصفح يستخدم المايك.",
     "service-not-allowed": "المايك مقفول — اسمح للمتصفح يستخدم المايك.",
@@ -126,7 +127,8 @@
     let failed = false; // an error message stays visible after the session ends (it used to be wiped at once)
     const resetSilence = () => {
       clearTimeout(silence);
-      silence = setTimeout(() => session.stop(), SILENCE_MS);
+      // prescription mode reacts faster: 2 s of silence ends it (a click on the mic ends it at once)
+      silence = setTimeout(() => session.stop(), el.dataset.dictate === "rx" ? RX_SILENCE_MS : SILENCE_MS);
     };
     const session = {
       el,
@@ -146,6 +148,13 @@
       else setTimeout(() => { if (!active) interimEl.textContent = ""; }, 8000);
       if (active === session) active = null;
       if (el.dataset.dictate === "rx" && collected.length && window.htmx) {
+        // immediate feedback: the analysis takes a moment, the doctor must see it's working
+        const target = document.querySelector(el.dataset.dictateTarget || "#rx-dictation");
+        if (target) {
+          target.innerHTML = '<div class="flex items-center gap-2 rounded-xl border border-brand/20 bg-brand-soft/50 px-4 py-3 text-sm font-semibold">'
+            + '<span class="inline-block size-4 animate-spin rounded-full border-2 border-brand border-t-transparent"></span>'
+            + "بيطلّع الأدوية من الكلام…</div>";
+        }
         window.htmx.ajax("POST", el.dataset.dictateUrl, {
           target: el.dataset.dictateTarget || "#rx-dictation",
           values: { text: collected.join("\n") },

@@ -185,4 +185,45 @@ def learn_alias(drug: Drug, spoken: str) -> bool:
         return False
     drug.aliases_ar = [*(drug.aliases_ar or []), spoken]
     drug.save(update_fields=["aliases_ar", "updated_at"])
+    _add_to_index(drug, spoken)
     return True
+
+
+def _add_to_index(drug: Drug, spoken: str) -> None:
+    """Teach the cached voice index one new spoken form in place — rebuilding all ~25k names after every pick made
+    the next dictation wait ~2 s. The cache key moves to the new catalog state so the next lookup doesn't rebuild."""
+    from django.db.models import Count, Max
+
+    idx = _INDEX.get(drug.organization_id)
+    if idx is None:
+        return
+    from .extraction import _sound  # the sound-alike cache (extraction.py) is extended the same way
+
+    words = spoken.split()
+    sounds = idx.__dict__.get("sound_heads", {})
+    for n in range(1, min(MAX_PREFIX_WORDS, len(words)) + 1):
+        head = " ".join(words[:n])
+        idx.heads[n].append(head)
+        idx.owners[n].append(drug.pk)
+        if n in sounds:
+            sounds[n].append(_sound(head))
+    # the skeleton cache holds English names only — a learned Arabic alias doesn't change it
+    stats = Drug.objects.filter(organization_id=drug.organization_id, is_active=True).aggregate(
+        n=Count("id"), t=Max("updated_at")
+    )
+    idx.key = (stats["n"], stats["t"])
+
+
+def warm(org) -> None:
+    """Build the voice index in the background (the prescription tab calls it) so the first dictation is fast."""
+    import threading
+
+    from django.db import close_old_connections
+
+    def run():
+        try:
+            _index(org)
+        finally:
+            close_old_connections()
+
+    threading.Thread(target=run, daemon=True).start()

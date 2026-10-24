@@ -2,6 +2,7 @@
 
 @source "../../templates";
 @source "../../apps";
+@source "./dictation.js";
 
 /* Poppins handles Latin letters and digits; Arabic falls through to Cairo (brand guideline). */
 @font-face { font-family: "Poppins"; font-weight: 400; font-display: swap; src: url("../fonts/poppins-latin-400.woff2") format("woff2"); unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2212; }
