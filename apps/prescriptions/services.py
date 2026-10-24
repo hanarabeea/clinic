@@ -165,7 +165,7 @@ def frequent_requests(doctor, limit=10):
         .order_by("-n", "name")[:limit]
     )
     own = [r["name"] for r in rows]
-    defaults = [*LABS[:6], *IMAGING[:3]]
+    defaults = [*LABS[:8], *IMAGING[:6]]
     return own + [d for d in defaults if d not in own][: max(0, limit - len(own))]
 
 

@@ -22,7 +22,8 @@ def _context(rx, mode):
     return {
         "rx": rx,
         "items": list(rx.items.all()),
-        "requests": list(rx.requests.all()),
+        # labs first, then imaging (the template groups them)
+        "requests": sorted(rx.requests.all(), key=lambda r: (r.is_imaging, r.order, r.pk)),
         "patient": patient,
         "doctor": doctor,
         "issued": issued,

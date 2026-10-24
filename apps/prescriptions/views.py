@@ -98,10 +98,20 @@ def _builder_ctx(request, rx, **extra):
     from .investigations import IMAGING, LABS
 
     ctx["requests"] = list(rx.requests.all())
+    ctx["lab_requests"] = [r for r in ctx["requests"] if r.kind != "imaging"]
+    ctx["imaging_requests"] = [r for r in ctx["requests"] if r.kind == "imaging"]
     asked = {r.name.lower() for r in ctx["requests"]}
-    ctx["frequent_requests"] = (
-        [n for n in services.frequent_requests(rx.doctor) if n.lower() not in asked] if rx.is_editable else []
+    frequent = (
+        [n for n in services.frequent_requests(rx.doctor, limit=16) if n.lower() not in asked] if rx.is_editable else []
     )
+    from .investigations import kind_for
+
+    ctx["frequent_labs"] = [n for n in frequent if kind_for(n) != "imaging" and n not in IMAGING][:8]
+    ctx["frequent_imaging"] = [n for n in frequent if kind_for(n) == "imaging" or n in IMAGING][:8]
+    ctx["request_groups"] = [
+        ("lab", ctx["lab_requests"], ctx["frequent_labs"], "🧪", _("تحاليل"), "Lab tests"),
+        ("imaging", ctx["imaging_requests"], ctx["frequent_imaging"], "🩻", _("أشعة"), "Imaging"),
+    ]
     ctx["request_suggestions"] = [*LABS, *IMAGING]
     # quick-add chips: hide what's already on this prescription
     have = {(it.drug_id or it.drug_name.strip().lower()) for it in ctx["items"]}
@@ -360,6 +370,31 @@ def request_add(request, pk):
     except services.PrescriptionError as e:
         return _error(request, rx, e)
     return _builder(request, rx)
+
+
+@require_POST
+@require_perm("prescription.write")
+@desk_unlocked
+def request_dictate(request, pk):
+    """Requests typed or said as a list ("صورة دم وسكر صايم وسونار على البطن") → each one in its section. A typed
+    entry nothing was recognised in is added as written."""
+    from .investigations import find_requests
+
+    rx = _rx(request, pk)
+    text = request.POST.get("text", "")[:1000].strip()
+    found, _unknown = find_requests(text)
+    try:
+        if not found and text and not request.POST.get("spoken"):
+            services.add_request(rx, text)  # typed: take it as written
+            return _builder(request, rx)
+        for name, kind in found:
+            services.add_request(rx, name, kind=kind)
+    except services.PrescriptionError as e:
+        return _error(request, rx, e)
+    if found:
+        notice = _("اتضاف: %(l)s") % {"l": "، ".join(n for n, _k in found)}
+        return _builder(request, rx, notice=notice)
+    return _builder(request, rx, error=_("مالقيتش تحاليل أو أشعة في الكلام — قول الاسم تاني أو اكتبه."))
 
 
 @require_POST

@@ -373,7 +373,7 @@ def test_requests_added_printed_under_the_medicines_and_frozen_when_final(client
     assert "الطلبات" in html and "Abdominal &amp; pelvic ultrasound" in html
     printed = rx_pdf.render_html(rx)
     printed = printed[printed.index("<body") :]  # (the embedded font data above can contain any letters)
-    assert printed.index("Panadol 500") < printed.index("الطلبات") < printed.index("CBC") and "صايم" in printed
+    assert printed.index("Panadol 500") < printed.index("التحاليل") < printed.index("CBC") and "صايم" in printed
     rx = services.finalize(rx, by=world["doc"])
     with pytest.raises(services.PrescriptionError):
         services.add_request(rx, "ESR")
@@ -398,3 +398,36 @@ def test_requests_permissions_and_tenancy(client, world):
         assert client.post(reverse("prescriptions:request_add", args=[rx.pk]), {"name": "ESR"}).status_code == status
         assert client.post(reverse("prescriptions:request_remove", args=[req.pk])).status_code == status
     assert [r.name for r in rx.requests.all()] == ["CBC"]
+
+
+def test_requests_said_as_a_list_are_split_into_labs_and_imaging(client, world):
+    from apps.prescriptions import pdf as rx_pdf
+
+    rx = _rx_with(world, "Panadol 500")
+    client.force_login(world["doc"])
+    url = reverse("prescriptions:request_dictate", args=[rx.pk])
+    said = "اعمل صورة دم وسكر صايم وتراكمي وسونار على البطن وأشعة على الركبة الشمال"
+    html = client.post(url, {"text": said, "spoken": "1"}).content.decode()
+    got = [(r.name, r.kind) for r in rx.requests.order_by("order")]
+    assert got == [
+        ("CBC", "lab"), ("FBS (سكر صايم)", "lab"), ("HbA1c (السكر التراكمي)", "lab"),
+        ("Abdominal & pelvic ultrasound", "imaging"), ("X-ray الركبة الشمال", "imaging"),
+    ]  # fmt: skip
+    assert "اتضاف" in html and "تحاليل" in html and "أشعة" in html
+    printed = rx_pdf.render_html(rx)
+    printed = printed[printed.index("<body") :]
+    assert printed.index("التحاليل") < printed.index("CBC") < printed.index("الأشعة") < printed.index("X-ray")
+    # nothing recognised in speech → nothing added, a message instead; typed text is taken as written
+    client.post(url, {"text": "عامل ايه النهارده", "spoken": "1"})
+    assert rx.requests.count() == 5
+    client.post(url, {"text": "Anti-TPO"})
+    assert rx.requests.filter(name="Anti-TPO").exists()
+
+
+def test_requests_voice_endpoint_permissions(client, world):
+    rx = _rx_with(world, "Panadol 500")
+    for user, status in ((world["reception"], 403), (world["other"], 404)):
+        client.force_login(user)
+        assert (
+            client.post(reverse("prescriptions:request_dictate", args=[rx.pk]), {"text": "CBC"}).status_code == status
+        )

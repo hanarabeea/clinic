@@ -33,6 +33,8 @@ ol.items li { margin-bottom: 3mm; page-break-inside: avoid; }
 .dose { padding-right: 0; padding-left: 6mm; text-align: right; }
 .advice { margin-top: 3mm; }
 .requests { margin-top: 3mm; padding-top: 2mm; border-top: 1px dashed #bbb; page-break-inside: avoid; }
+.requests { display: flex; gap: 8mm; flex-wrap: wrap; }
+.req-group { flex: 1; min-width: 60mm; }
 .req-title { font-weight: 700; font-size: 10.5pt; margin-bottom: 1mm; }
 .requests ul { margin: 0; padding: 0 5mm 0 0; }
 .requests li { margin-bottom: 1mm; font-size: 10.5pt; }
@@ -84,12 +86,17 @@ footer { margin-top: 3mm; border-top: 1px solid #ccc; padding-top: 2mm; font-siz
 
   {% if requests %}
   <div class="requests">
-    <div class="req-title">الطلبات <span class="ltr" style="font-weight:400;color:#777">(Investigations)</span></div>
-    <ul>
-      {% for r in requests %}
-      <li><span class="ltr req-name">{{ r.name }}</span>{% if r.notes %} <span class="rtl" dir="auto" style="color:#555">— {{ r.notes }}</span>{% endif %}</li>
-      {% endfor %}
-    </ul>
+    {% regroup requests by is_imaging as groups %}
+    {% for g in groups %}
+    <div class="req-group">
+      <div class="req-title">{% if g.grouper %}الأشعة <span class="ltr" style="font-weight:400;color:#777">(Imaging)</span>{% else %}التحاليل <span class="ltr" style="font-weight:400;color:#777">(Lab tests)</span>{% endif %}</div>
+      <ul>
+        {% for r in g.list %}
+        <li><span class="ltr req-name">{{ r.name }}</span>{% if r.notes %} <span class="rtl" dir="auto" style="color:#555">— {{ r.notes }}</span>{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
   </div>
   {% endif %}
 

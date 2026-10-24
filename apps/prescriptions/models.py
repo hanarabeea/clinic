@@ -251,6 +251,10 @@ class PrescriptionRequest(TenantScopedModel):
     def __str__(self):
         return self.name
 
+    @property
+    def is_imaging(self):
+        return self.kind == RequestKind.IMAGING
+
 
 class PrescriptionTemplate(TenantScopedModel):
     doctor = models.ForeignKey("doctors.Doctor", on_delete=models.CASCADE, related_name="rx_templates")

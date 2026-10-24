@@ -407,3 +407,9 @@ gotchas and conventions introduced in that phase.
   `repeat_last`/`repeat_from` bring them along. Suggestions: `investigations.LABS`/`IMAGING` (datalist) +
   `frequent_requests(doctor)` chips. Printed in `pdf/prescription.html` under the medicines (before the advice).
   URLs: `prescriptions:request_add` / `request_update` / `request_remove` (prescription.write).
+- Requests by voice / split (2026-10-24): one box (typed or 🎤, `data-dictate-url` = `prescriptions:request_dictate`,
+  `data-dictate-swap="outerHTML"` on `#rx-builder`) → `investigations.find_requests(text)` (Egyptian spoken names in
+  `SPOKEN`, fuzzy, longest phrase first, و/ال stripped; "<اشعه|سونار|رنين|مقطعيه> على <part>" → "X-ray الركبة") → each
+  added with its kind. Typed text with nothing recognised is added as written; speech with nothing recognised only shows
+  a message. Screen and print show two groups: تحاليل (Lab tests) | أشعة (Imaging). `dictation.js` collect-and-post mode
+  now applies to any field with `data-dictate-url` (was `data-dictate="rx"` only); the "analysing" banner stays rx-only.

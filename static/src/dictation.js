@@ -145,17 +145,18 @@
       if (!failed) interimEl.textContent = "";
       else setTimeout(() => { if (!active) interimEl.textContent = ""; }, 8000);
       if (active === session) active = null;
-      if (el.dataset.dictate === "rx" && collected.length && window.htmx) {
+      if (el.dataset.dictateUrl && collected.length && window.htmx) {
         // immediate feedback: the analysis takes a moment, the doctor must see it's working
         const target = document.querySelector(el.dataset.dictateTarget || "#rx-dictation");
-        if (target) {
+        if (target && el.dataset.dictate === "rx") {
           target.innerHTML = '<div class="flex items-center gap-2 rounded-xl border border-brand/20 bg-brand-soft/50 px-4 py-3 text-sm font-semibold">'
             + '<span class="inline-block size-4 animate-spin rounded-full border-2 border-brand border-t-transparent"></span>'
             + "بيطلّع الأدوية من الكلام…</div>";
         }
         window.htmx.ajax("POST", el.dataset.dictateUrl, {
           target: el.dataset.dictateTarget || "#rx-dictation",
-          values: { text: collected.join("\n") },
+          swap: el.dataset.dictateSwap || "innerHTML",
+          values: { text: collected.join("\n"), spoken: "1" },
         });
       }
     };
@@ -165,7 +166,7 @@
       provider.onFinal((text) => {
         restarts = 0;
         const clean = applyCommands(text);
-        if (el.dataset.dictate === "rx") collected.push(clean); // each pause = a new prescription line
+        if (el.dataset.dictateUrl) collected.push(clean); // sent to the server when the mic is pressed again
         else insertAtCursor(el, clean);
       });
       provider.onError((code) => {
