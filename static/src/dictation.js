@@ -2,7 +2,7 @@
  * DigiClinic voice dictation (docs/plan/13-voice-dictation.md).
  *
  * Any <textarea>/<input> with `data-dictate` gets a 🎤 button (+ ع/EN toggle). Click (or Ctrl+Space in the field)
- * starts; a second click or 3 s of silence stops. Interim text shows grey under the field; final text is inserted
+ * starts; it keeps recording (through silences) until the mic is pressed again. Interim text shows grey under the field; final text is inserted
  * at the cursor (never replaces what's written) and fires `input`, so the field's autosave runs.
  * Spoken commands: "سطر جديد" → new line, "نقطة" → ".".
  *
@@ -49,8 +49,8 @@
   }
 
   const Provider = WebSpeechProvider;
-  const SILENCE_MS = 3000;
-  const RX_SILENCE_MS = 2000;
+  // safety net only: after several minutes of total silence (mic forgotten on) the recording stops by itself
+  const MAX_QUIET_RESTARTS = 60;
   const ERRORS = {
     "not-allowed": "المايك مقفول — اسمح للمتصفح يستخدم المايك.",
     "service-not-allowed": "المايك مقفول — اسمح للمتصفح يستخدم المايك.",
@@ -121,29 +121,27 @@
   }
 
   function start(el, mic, interimEl) {
-    const provider = new Provider();
+    // Recording continues until the doctor presses the mic again (or another mic): silence never stops it. The browser
+    // ends a recognition session by itself after a quiet while, so a new one is started at once — the doctor sees
+    // one continuous recording. Real errors (mic blocked, no internet, no mic) do stop it, with the reason shown.
+    let provider = null;
     const collected = [];
-    let silence = null;
-    let failed = false; // an error message stays visible after the session ends (it used to be wiped at once)
-    const resetSilence = () => {
-      clearTimeout(silence);
-      // prescription mode reacts faster: 2 s of silence ends it (a click on the mic ends it at once)
-      silence = setTimeout(() => session.stop(), el.dataset.dictate === "rx" ? RX_SILENCE_MS : SILENCE_MS);
-    };
+    let failed = false; // an error message stays visible after the session ends
+    let restarts = 0;
     const session = {
       el,
       stopped: false,
       stop() {
         if (this.stopped) return;
         this.stopped = true;
-        clearTimeout(silence);
-        provider.stop();
+        if (provider) provider.stop();
         finish();
       },
     };
     const finish = () => {
       mic.style.background = "#fff";
       mic.style.color = "";
+      mic.title = "إملاء صوتي (Ctrl+Space)";
       if (!failed) interimEl.textContent = "";
       else setTimeout(() => { if (!active) interimEl.textContent = ""; }, 8000);
       if (active === session) active = null;
@@ -161,28 +159,39 @@
         });
       }
     };
-    provider.onInterim((text) => { interimEl.textContent = text; resetSilence(); });
-    provider.onFinal((text) => {
-      resetSilence();
-      const clean = applyCommands(text);
-      if (el.dataset.dictate === "rx") collected.push(clean); // each pause = a new prescription line
-      else insertAtCursor(el, clean);
-    });
-    provider.onError((code) => {
-      if (code !== "no-speech" && code !== "aborted") {
+    const listen = () => {
+      provider = new Provider();
+      provider.onInterim((text) => { interimEl.textContent = text; restarts = 0; });
+      provider.onFinal((text) => {
+        restarts = 0;
+        const clean = applyCommands(text);
+        if (el.dataset.dictate === "rx") collected.push(clean); // each pause = a new prescription line
+        else insertAtCursor(el, clean);
+      });
+      provider.onError((code) => {
+        if (code === "no-speech" || code === "aborted") return; // just quiet: the session restarts on "end"
         failed = true;
         interimEl.textContent = ERRORS[code] || "حصلت مشكلة في الإملاء.";
-      }
-      session.stop();
-    });
-    provider.onEnd(() => session.stop());
+        session.stop();
+      });
+      provider.onEnd(() => {
+        if (session.stopped) return;
+        // the browser closed the session on its own (silence / time limit): keep recording
+        if (++restarts > MAX_QUIET_RESTARTS) { session.stop(); return; }
+        setTimeout(() => {
+          if (session.stopped) return;
+          try { listen(); } catch (e) { session.stop(); }
+        }, 150);
+      });
+      provider.start(langPref());
+    };
     active = session;
     mic.style.background = "#dc2626";
     mic.style.color = "#fff";
+    mic.title = "بيسجل — دوس تاني عشان توقف";
     el.focus();
     try {
-      provider.start(langPref());
-      resetSilence();
+      listen();
     } catch (e) {
       failed = true;
       interimEl.textContent = "المايك مش راضي يبدأ — جرب تاني.";

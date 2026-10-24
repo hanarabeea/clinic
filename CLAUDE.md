@@ -398,3 +398,6 @@ gotchas and conventions introduced in that phase.
   `test_voice_robustness.py` removes a leftover "voice-robustness" org first (the test DB is reused). When a form is said
   with an ingredient name and no match comes in that form ("كيس فوار باراسيتامول"), `_same_ingredient_in_form` adds
   products with the same `generic_name` in that form, ranked by how many said forms they fit (كيس+فوار → EFF. SACHETS).
+- Mic stays on (2026-10-24): recording never stops on silence — only a second press (or another mic, or a real error).
+  The browser ends a recognition session by itself after quiet; `dictation.js` starts a new one at once (`listen()`),
+  keeping what was collected. Safety net: `MAX_QUIET_RESTARTS` consecutive empty sessions (several minutes) stop it.

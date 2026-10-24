@@ -381,3 +381,30 @@ def test_form_word_next_to_a_short_name_is_enough(org):
     [item] = extraction.extract(org, "بص خدي قطره بلنك تلات مرات في اليوم")
     assert item.candidates[0].drug.name.startswith("BLINK") and "3 مرات في اليوم" in item.instructions
     assert extraction.extract(org, "بص كده الحمد لله") == []
+
+
+def test_js_keeps_recording_through_silence_until_pressed_again():
+    """The browser ends a recognition session by itself after a quiet while; the mic must keep recording (a new
+    session starts) until the doctor presses it again."""
+
+    def scenario(page):
+        page.locator(".dictation-mic").click()
+        first = page.evaluate("window.__first = window.__rec; window.__rec.onerror({error: 'no-speech'}); "
+                              "window.__rec.onend(); 1")  # fmt: skip
+        page.wait_for_timeout(400)
+        out = {
+            "restarted": page.evaluate("window.__rec !== window.__first && window.__rec.started === true"),
+            "red": page.evaluate("document.querySelector('.dictation-mic').style.background"),
+        }
+        page.evaluate("window.__say('كحة من يومين')")
+        out["value"] = page.locator("#t").input_value()
+        page.locator(".dictation-mic").click()  # the doctor stops it
+        page.wait_for_timeout(400)
+        out["stopped"] = page.evaluate("window.__rec.started") is False and first == 1
+        out["white"] = page.evaluate("document.querySelector('.dictation-mic').style.background")
+        return out
+
+    out = _in_browser(FAKE_RECOGNITION, scenario)
+    assert out["restarted"] and "220, 38, 38" in out["red"]  # still recording (red mic) after the browser's own stop
+    assert "كحة من يومين" in out["value"]
+    assert out["stopped"] and "255, 255, 255" in out["white"]
