@@ -281,6 +281,9 @@ def item_to_catalog(request, item_pk):
 # --- voice dictation (13 §13.3) ---------------------------------------------------------------
 
 
+FALLBACK_MIN_SCORE = 90
+
+
 @require_POST
 @require_perm("prescription.write")
 @desk_unlocked
@@ -292,8 +295,11 @@ def dictate(request, pk):
     lines = extraction.extract(request.organization, text)
     extracted = bool(lines)
     if not extracted:
-        lines = matching.match_text(request.organization, text[:2000])
-    ctx = {"rx": rx, "lines": lines, "extracted": extracted}
+        # nothing recognised in the conversation: fall back to line by line, but only close matches — a loose first-word
+        # match ("بص" → BEE TONIC) is worse than saying nothing was found
+        lines = [ln for ln in matching.match_text(request.organization, text[:2000])
+                 if ln.candidates and ln.candidates[0].score >= FALLBACK_MIN_SCORE]  # fmt: skip
+    ctx = {"rx": rx, "lines": lines, "extracted": extracted, "heard": text.strip()}
     return render(request, "prescriptions/partials/dictation_results.html", ctx)
 
 

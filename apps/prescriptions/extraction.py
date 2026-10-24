@@ -36,6 +36,7 @@ FILLERS = {
 }  # skipped inside a regimen  # minimum similarity; between WEAK and STRONG a dose/frequency/duration must follow
 LOOKAHEAD = 45  # words after a drug name searched for its regimen (cut at the next drug name)
 MIN_CHARS = 4  # one-word mentions shorter than this are ignored ("كل", "ده"...)
+SHORT_NAME_CHARS = 3  # ...unless a form word is right next to it ("بخاخ ديب", "لوشن ماش") and it matches exactly
 
 # Common words of a consultation that must never start a drug-name match.
 STOPWORDS = set(
@@ -56,7 +57,7 @@ STOPWORDS = set(
 )
 
 DOSE_UNITS = (
-    r"قرصين|قرص|اقراص|كبسولتين|حبايتين|حبايه|حبايات|حبه|حبتين|كبسوله|كبسولات|معلقه|معالق|معلقتين|نقطه|نقط|نقطتين|بخه|بختين|بخات|"
+    r"قطرتين|قطره|قطرة|قرصين|قرص|اقراص|كبسولتين|حبايتين|حبايه|حبايات|حبه|حبتين|كبسوله|كبسولات|معلقه|معالق|معلقتين|نقطه|نقط|نقطتين|بخه|بختين|بخات|"
     r"حقنه|حقن|امبول|امبوله|كيس|اكياس|ظرف|اظرف|مل|سم|سي سي|cc|ml|وحده|وحدات|لبوسه|لبوس|فوار|لزقه|دهان|طبقه رقيقه"
 )
 NUM = r"(?:\d+(?:[.,]\d+)?|½|¼|و½|نص|ونص|ربع)"
@@ -73,6 +74,10 @@ PATTERNS = [
     ("freq", re.compile(r"طول اليوم|بعد (?:الشاور|الحمام|الاستحمام|الدش)")),
     ("freq", re.compile(r"عند اللزوم|عند الحاجه|قبل النوم|الصبح وبالليل|الصبح والليل")),
     # timing
+    # where / how it's used
+    ("route", re.compile(r"(?:في|ف)\s*(?:كل\s*)?(?:عين|العين|العينين|عينين|ودن|الودن|الودنين|ودنين|مناخير|المناخير|فتحه|فتحه انف|الانف|بق|البق|الفم|العضل|الوريد|الشرج|المهبل)|علي\s*(?:المكان|مكان الالم|الجلد|الجرح|المنطقه|الحته|الحتة)|تحت\s*اللسان|شرجي|مهبلي|موضعي|بالفم|عن طريق الفم|في العضل|في الوريد|مضمضه|غرغره")),
+    # a time of day said on its own ("حباية الصبح", "لبوس بالليل")
+    ("time", re.compile(r"الصبح|بالليل|بليل|المسا|بالمسا|الضهر|العصر|قبل النوم")),
     ("timing", re.compile(r"(?:قبل|بعد|مع)\s*(?:الاكل|الفطار|الفطور|الغدا|الغداء|العشا|العشاء|الوجبات|الاكل)(?:\s*ب(?:نص|ربع)\s*ساعه|\s*ب\d+\s*دقيقه)?|علي الريق|على الريق")),
     # duration
     ("duration", re.compile(r"(?:لمده|مده)\s*(?:\d+\s*(?:ايام|يوم|اسابيع|اسبوع|شهور|شهر)|يومين|يوم|اسبوعين|اسبوع|شهرين|شهر)")),
@@ -86,7 +91,7 @@ PATTERNS = [
 # Display polish for normalized phrases.
 PRETTY = [
     ("الاكل", "الأكل"), ("يوميا", "يوميًا"), ("اسبوعيا", "أسبوعيًا"), ("معلقه", "معلقة"), ("حبايه", "حباية"),
-    ("كبسوله", "كبسولة"), ("نقطه", "نقطة"), ("حقنه", "حقنة"), ("لمده", "لمدة"), ("اسبوع", "أسبوع"), ("مره", "مرة"), ("مرة 1", "مرة واحدة"), ("بخه", "بخة"), ("لبوسه", "لبوسة"), ("علي طول", "على طول"), ("صغيره", "صغيرة"),
+    ("كبسوله", "كبسولة"), ("نقطه", "نقطة"), ("حقنه", "حقنة"), ("لمده", "لمدة"), ("اسبوع", "أسبوع"), ("مره", "مرة"), ("مرة 1", "مرة واحدة"), ("بخه", "بخة"), ("قطره", "قطرة"), ("حبه", "حبة"), ("لبوسه", "لبوسة"), ("علي طول", "على طول"), ("صغيره", "صغيرة"),
     ("ساعه", "ساعة"), ("علي الريق", "على الريق"), ("ايام", "أيام"), ("اقراص", "أقراص"), ("اكياس", "أكياس"),
 ]  # fmt: skip
 
@@ -105,6 +110,28 @@ SPOKEN_EN = {normalize(k): v for k, v in {
 # Letters Arabic speech recognition confuses with each other → one "sound" letter.
 _SOUNDS = str.maketrans("رصطضذظقحثغ", "لستدززكهسخ")
 GUESS_PENALTY = 4
+CONTEXT_BONUS = 6
+FORM_PREF = 8  # "شراب سيتال": the syrup before the suppository even if the suppository's name is a bit closer
+# how each spoken form appears in catalog names
+FORM_NAMES = {
+    "syrup": ("syrup", "susp", "syr", "elixir"),
+    "drops": ("drop",),
+    "cream": ("cream",),
+    "oint": ("oint",),
+    "gel": ("gel",),
+    "amp": ("amp", "vial", "inj"),
+    "supp": ("supp",),
+    "spray": ("spray",),
+    "eff": ("eff", "sachet"),
+    "tab": ("tab",),
+    "cap": ("cap",),
+    "lotion": ("lotion",),
+    "shampoo": ("shampoo",),
+    "soap": ("soap",),
+    "powder": ("powder", "sachet"),
+    "wash": ("wash",),
+    "paste": ("paste",),
+}  # a form word (قطره / كريم / شراب…) next to the name
 WEAK_MIN_CHARS = 6  # a rough match on a short word ("ايدي", "تاني", "فلوس") is too often an everyday word
 SOUND_PENALTY = 7  # a 100% sound match = 93 (still "strong"), a weaker one needs a dose after it
 
@@ -138,7 +165,7 @@ def _glue(words: list[str]) -> str:
 # Product type words → the English word in catalog names; said next to a name they pick the right product.
 TYPES = {normalize(k): v for k, v in {
     "صابونه": "soap", "صابون": "soap", "كريم": "cream", "شامبو": "shampoo", "لوشن": "lotion", "جل": "gel",
-    "مرهم": "oint", "شراب": "syrup", "سيرب": "syrup", "نقط": "drops", "نقطه": "drops", "بخاخ": "spray",
+    "مرهم": "oint", "شراب": "syrup", "سيرب": "syrup", "نقط": "drops", "نقطه": "drops", "قطره": "drops", "كيس": "eff", "اكياس": "eff", "ظرف": "eff", "قطرة": "drops", "قطرتين": "drops", "قطور": "drops", "مرهم عين": "oint", "امبول": "amp", "اقراص فوار": "eff", "بخاخ": "spray",
     "لبوس": "supp", "حقن": "amp", "حقنه": "amp", "فوار": "eff", "بودره": "powder", "غسول": "wash", "اقراص": "tab",
     "كبسول": "cap", "كبسولات": "cap", "لبوسه": "supp", "معجون": "paste", "سبراي": "spray",
 }.items()}  # fmt: skip
@@ -234,6 +261,11 @@ def _bare(token: str) -> str:
     return token
 
 
+def _next_to_form(norm: list[str], i: int, n: int) -> bool:
+    """A form word (قطره / كريم / شراب…) directly before or after the window."""
+    return (i > 0 and norm[i - 1] in TYPES) or (i + n < len(norm) and norm[i + n] in TYPES)
+
+
 def _is_number(token: str) -> bool:
     return token.replace(".", "").replace(",", "").isdigit()
 
@@ -322,7 +354,7 @@ def extract(org, transcript: str) -> list[Extracted]:
             if norm[i] not in blocked and bare[i] not in blocked and not _is_number(norm[i])
             and not any(t in STOPWORDS or t in UNITS for t in norm[i + 1 : i + n])
             and not any(_is_number(t) or t in UNITS for t in norm[i + 1 : i + n])
-            and len("".join(bare[i : i + n])) >= MIN_CHARS
+            and len("".join(bare[i : i + n])) >= (SHORT_NAME_CHARS if _next_to_form(norm, i, n) else MIN_CHARS)
         ]  # fmt: skip
         if not idx.heads[n]:
             continue
@@ -334,7 +366,8 @@ def extract(org, transcript: str) -> list[Extracted]:
             for i in starts
             for v in _variants(norm[i])
         ]
-        qs = [(i, q, guess) for i, q, guess in qs if len(q.replace(" ", "")) >= MIN_CHARS]
+        qs = [(i, q, guess) for i, q, guess in qs
+              if len(q.replace(" ", "")) >= (SHORT_NAME_CHARS if _next_to_form(norm, i, n) else MIN_CHARS)]  # fmt: skip
         queries = [q for _i, q, _g in qs]
         scores = process.cdist(queries, idx.heads[n], scorer=fuzz.ratio, score_cutoff=WEAK, dtype=np.uint8,
                                workers=-1) if queries else []  # fmt: skip
@@ -371,6 +404,10 @@ def extract(org, transcript: str) -> list[Extracted]:
                     best[pk] = max(best.get(pk, 0), int(row[h]) - SKELETON_PENALTY)
         for i, best in found.items():
             if best:
+                # a form word right next to the name ("قطره بلنك", "كريم بيبانثين", "شراب ...") is strong evidence that a
+                # drug is being named: a near match there counts as clear even for a short word
+                if _next_to_form(norm, i, n):
+                    best = {pk: min(100, sc + CONTEXT_BONUS) if sc >= WEAK else sc for pk, sc in best.items()}
                 windows[(i, n)] = sorted(((s, pk) for pk, s in best.items()), reverse=True)
 
         # the same window heard as spoken English ("اي ون" / "اي 1" → "a one" / "a1"), when every word is a known
@@ -378,7 +415,7 @@ def extract(org, transcript: str) -> list[Extracted]:
         latin = []  # (start, query)
         for i in range(len(norm) - n + 1):
             ws = norm[i : i + n]
-            if not all(w in SPOKEN_EN or _is_number(w) for w in ws) or _is_number(ws[0]):
+            if not all(w in SPOKEN_EN or _is_number(w) for w in ws) or _is_number(ws[0]) or ws[0] in MODIFIERS:
                 continue
             words = [SPOKEN_EN.get(w, w) for w in ws]
             for q in {" ".join(DIGIT_WORDS.get(w, w) for w in words), _glue(words)}:
@@ -406,6 +443,8 @@ def extract(org, transcript: str) -> list[Extracted]:
         if span & used:
             continue
         top_score = hits[0][0]
+        if len("".join(bare[i : i + n])) < MIN_CHARS and hits[0][0] < 100:
+            continue  # a 3-letter name ("لوشن ماش") only counts when it is exactly a catalog name
         if top_score < STRONG and len("".join(bare[i : i + n])) < WEAK_MIN_CHARS:
             continue  # short words must match (almost) exactly
         if top_score < STRONG:
@@ -449,7 +488,8 @@ def extract(org, transcript: str) -> list[Extracted]:
         ins, dur = regimen(tail)
         if k == 0 and not (ins and dur):  # "خدي مرتين في اليوم من البروفين": dose said before the first name
             b_ins, b_dur = regimen(norm[max(0, i - 12) : i])
-            ins, dur = ins or b_ins, dur or b_dur
+            # "حباية جلوكوفاج الصبح": what was said before the name comes first, then what was said after it
+            ins, dur = _join([p for p in (b_ins, ins) if p]), dur or b_dur
 
         said_en = {SPOKEN_EN.get(w, w) for w in norm[i:j]}  # "الكور" alone → ALKOR, not ALKOR PLUS
         kinds = {TYPES[w] for w in norm[max(0, i - 2) : i] + norm[j : j + 3] if w in TYPES}  # "صابونه اي ون"
@@ -459,7 +499,10 @@ def extract(org, transcript: str) -> list[Extracted]:
             name = names.get(pk, "").lower()
             has = bool(strength) and strength in re.findall(r"\d+(?:\.\d+)?", name)
             unsaid = any(w in VARIANT_WORDS and w not in said_en for w in re.split(r"[^a-z]+", name))
-            return (-score, not any(k in name for k in kinds), not has, unsaid, -idx.usage[pk], idx.name_len[pk])
+            form_ok = any(any(f in name for f in FORM_NAMES.get(k, (k,))) for k in kinds)
+            said_variant = any(v in name for v in said_en & VARIANT_WORDS)  # "panadol اكسترا" → Panadol Extra
+            return (-(score + (FORM_PREF if form_ok else 0) + (FORM_PREF if said_variant else 0)), not has, unsaid,
+                    -idx.usage[pk], idx.name_len[pk])  # fmt: skip
 
         ranked = sorted(hits, key=rank)[:TOP_N]
         spoken = " ".join(tokens[i:j])

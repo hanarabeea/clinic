@@ -113,14 +113,28 @@ CASES = [  # (said after "بنادول", must-be-in-dose, must-be-in-duration)
 ]
 
 
+def _drop_org(slug):
+    from apps.organizations.models import Organization, OrganizationSettings
+    from apps.prescriptions.models import DrugCategory
+
+    for org in Organization.objects.filter(slug=slug):
+        Drug.categories.through.objects.filter(drug__organization=org).delete()
+        Drug.objects.filter(organization=org).delete()
+        DrugCategory.objects.filter(organization=org).delete()
+        OrganizationSettings.objects.filter(organization=org).delete()
+        org.delete()
+
+
 @pytest.fixture(scope="module")
 def catalog(django_db_setup, django_db_blocker):
-    """The full catalog, imported once for this file (committed, removed at the end)."""
+    """The full catalog, imported once for this file (committed, removed at the end — and any leftover from an
+    interrupted earlier run is removed first, since the test DB is reused)."""
     import io
 
     from apps.organizations.models import Organization, OrganizationSettings
 
     with django_db_blocker.unblock():
+        _drop_org("voice-robustness")
         org = Organization.objects.create(slug="voice-robustness", name_ar="فحص الصوت")
         OrganizationSettings.objects.create(organization=org)
         call_command("import_egyptian_drugs", "--org", org.slug, stdout=io.StringIO())
@@ -128,13 +142,7 @@ def catalog(django_db_setup, django_db_blocker):
         extraction._index(org)  # build the voice index once
     yield org
     with django_db_blocker.unblock():
-        Drug.categories.through.objects.filter(drug__organization=org).delete()
-        Drug.objects.filter(organization=org).delete()
-        from apps.prescriptions.models import DrugCategory
-
-        DrugCategory.objects.filter(organization=org).delete()
-        OrganizationSettings.objects.filter(organization=org).delete()
-        org.delete()
+        _drop_org("voice-robustness")
 
 
 def test_everyday_words_never_become_drugs(catalog, db):
@@ -170,3 +178,68 @@ def test_dose_and_duration_phrasings(catalog, db, said, dose, duration):
     [item] = extraction.extract(catalog, "خدي بنادول " + said)
     assert dose in item.instructions
     assert duration in item.duration
+
+
+FORM_WORDS = {
+    "DROPS": "قطره", "SYRUP": "شراب", "CREAM": "كريم", "OINT": "مرهم", "AMP": "حقنه", "SUPP": "لبوس",
+    "SPRAY": "بخاخ", "SACHET": "كيس", "LOTION": "لوشن", "SHAMPOO": "شامبو", "GEL": "جل", "CAPS": "كبسوله",
+}  # fmt: skip
+
+
+def test_form_word_next_to_the_name(catalog, db):
+    """'قطره بلنك' / 'لوشن ماش': a form word next to a (short or slightly misheard) name finds it."""
+    total = hits = 0
+    for key, word in FORM_WORDS.items():
+        picks = (
+            Drug.objects.filter(organization=catalog, source="eg-db", name__icontains=key)
+            .exclude(aliases_ar=[])
+            .order_by("pk")
+            .values_list("name", "aliases_ar")[:15]
+        )
+        for name, aliases in picks:
+            said = aliases[0].replace("-", " ").split()[0]
+            brand = name.replace("-", " ").replace(".", " ").split()[0].upper()
+            for text in (f"بص خدي {word} {said}", f"خدي {said} {word} مرتين في اليوم"):
+                res = extraction.extract(catalog, text)
+                total += 1
+                hits += bool(res) and any(c.drug.name.upper().startswith(brand) for c in res[0].candidates)
+    assert hits / total >= 0.95, f"{hits}/{total}"
+
+
+def test_form_word_with_everyday_word_is_not_a_drug(catalog, db):
+    bad = [
+        f"{fw} {w}"
+        for fw in FORM_WORDS.values()
+        for w in EVERYDAY_SAMPLE[::6]
+        if w not in STILL_MEDICINES and extraction.extract(catalog, f"{fw} {w}")
+    ]
+    assert bad == []
+
+
+@pytest.mark.parametrize(
+    ("said", "brand", "in_dose"),
+    [
+        ("قطره بلنك نقطتين في كل عين 3 مرات", "BLINK", "في كل عين"),
+        ("كريم فيوسيدين على المكان مرتين في اليوم", "FUCIDIN", "المكان"),
+        ("حقنه ديكلاك في العضل مره واحده", "DICLAC", "في العضل"),
+        ("لبوس فولتارين شرجي بالليل", "VOLTAREN", "شرجي بالليل"),
+        ("بخاخ اوتريفين في كل فتحه مرتين", "OTRIVIN", "في كل فتحه"),
+        ("نقط اوتال في الودن 3 مرات", "OTAL", "في الودن"),
+        ("شراب سيتال معلقه كل 6 ساعات", "CETAL", "معلقة"),
+        ("خدي panadol اكسترا مرتين", "PANADOL EXTRA", "مرتين"),
+    ],
+)  # fmt: skip
+def test_route_time_and_form(catalog, db, said, brand, in_dose):
+    [item] = extraction.extract(catalog, said)
+    assert item.candidates[0].drug.name.upper().startswith(brand), item.candidates[0].drug.name
+    assert in_dose in item.instructions
+
+
+def test_said_form_picks_the_product_form(catalog, db):
+    [item] = extraction.extract(catalog, "شراب سيتال معلقه كل 6 ساعات")
+    assert any(f in item.candidates[0].drug.name.upper() for f in ("SYRUP", "SUSP"))
+
+
+def test_dose_word_before_the_name_is_kept(catalog, db):
+    [item] = extraction.extract(catalog, "حبايه جلوكوفاج الصبح")
+    assert item.instructions == "حباية الصبح"

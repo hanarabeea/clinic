@@ -388,3 +388,11 @@ gotchas and conventions introduced in that phase.
   with its own mic); "أضف"/"أضف الكل" send those values and **that press is the 13 §13.4 confirmation** — `dictate_add`
   now saves `needs_review=False` (lines added any other way are unaffected; `confirm_item` stays for old drafts). A number
   before "مرات/ساعات/ايام" is never the strength ("انتينال 5 مرات"), but before "مرة" it is ("كونكور 5 مرة الصبح").
+- Form words & context (2026-10-24): a form word right next to a name (`TYPES`: قطره/شراب/كريم/مرهم/حقنه/لبوس/بخاخ/كيس…)
+  adds `CONTEXT_BONUS` (so "قطره بلنك" finds BLINK), lets an exact 3-letter name count (`SHORT_NAME_CHARS`, "لوشن
+  ماش"), and the said form ranks that product form first (`FORM_NAMES`/`FORM_PREF`, "شراب سيتال" → the syrup). New
+  regimen kinds: `route` (في كل عين، على المكان، في العضل، تحت اللسان، شرجي…) and `time` (الصبح، بالليل…). A dose word said
+  before the first name is kept in front ("حباية جلوكوفاج الصبح" → "حباية الصبح"). With no drug recognised the
+  line-by-line fallback only shows matches ≥ `FALLBACK_MIN_SCORE` (90), else "مالقيتش اسم دوا". Measured on the full
+  catalog: exact names next to a form word 99%, ر↔ل 98.5%, a dropped ي/ا ~90%, form word + everyday word 0/960.
+  `test_voice_robustness.py` removes a leftover "voice-robustness" org first (the test DB is reused).

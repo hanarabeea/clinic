@@ -69,4 +69,11 @@ every row's best match with what's in its boxes. Kept across re-renders with hx-
   {% endwith %}
   {% endfor %}
 </div>
+{% elif heard %}
+<div class="flex flex-wrap items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm" id="dictation-box">
+  <span>🎤</span>
+  <p class="min-w-0 flex-1"><b>{% translate "مالقيتش اسم دوا في الكلام." %}</b>
+    <span class="text-stone-600">{% translate "سمعت:" %} <bdi dir="auto">«{{ heard|truncatechars:90 }}»</bdi> — {% translate "قول اسم الدوا تاني بوضوح، أو اكتبه في البحث." %}</span></p>
+  <button type="button" class="btn-ghost px-2 py-1 text-xs" onclick="document.getElementById('rx-dictation').innerHTML = ''">✕ {% translate "قفل" %}</button>
+</div>
 {% endif %}

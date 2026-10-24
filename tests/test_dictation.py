@@ -372,3 +372,12 @@ def test_frequency_number_is_not_taken_as_strength(org):
     assert "5 مرات في اليوم" in item.instructions
     [item] = extraction.extract(org, "بنادول مره عندي اللزوم")
     assert "عند اللزوم" in item.instructions
+
+
+def test_form_word_next_to_a_short_name_is_enough(org):
+    from apps.prescriptions import extraction
+
+    Drug.objects.create(organization=org, name="BLINK INTENSIVE TEARS EYE DROPS 10 ML", aliases_ar=["بلينك انتينسيفي"])
+    [item] = extraction.extract(org, "بص خدي قطره بلنك تلات مرات في اليوم")
+    assert item.candidates[0].drug.name.startswith("BLINK") and "3 مرات في اليوم" in item.instructions
+    assert extraction.extract(org, "بص كده الحمد لله") == []
