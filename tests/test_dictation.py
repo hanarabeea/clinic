@@ -429,3 +429,19 @@ def test_vitamin_d_is_a_drug_unless_a_test_word_comes_before(org):
     assert split_requests("اعمل تحليل فيتامين د")[0] == [("Vitamin D (25-OH)", "lab")]
     reqs, rest = split_requests("اوجمنتين كل 12 ساعه واعمل وظائف كلى")
     assert reqs == [("Kidney function tests (Urea, Creatinine)", "lab")] and "كلي" not in rest
+
+
+def test_js_words_still_being_recognised_when_stopped_are_kept():
+    """Chrome finalises only at a pause; pressing stop mid-flow used to drop everything since the last pause (so the
+    prescription mic returned only the first drug). The unfinished part is now kept."""
+
+    def scenario(page):
+        page.locator(".dictation-mic").click()
+        page.evaluate("window.__say('اوجمنتين كل 12 ساعه')")  # finalised after a pause
+        page.evaluate("window.__say('وبنادول عند اللزوم وكونكور 5 الصبح', false)")  # still interim
+        page.locator(".dictation-mic").click()  # the doctor stops right away
+        page.wait_for_timeout(300)
+        return page.locator("#t").input_value()
+
+    value = _in_browser(FAKE_RECOGNITION, scenario)
+    assert "اوجمنتين" in value and "بنادول عند اللزوم" in value and "كونكور 5 الصبح" in value

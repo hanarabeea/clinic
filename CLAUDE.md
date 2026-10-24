@@ -418,3 +418,7 @@ gotchas and conventions introduced in that phase.
   "أضف الكل") and removed from the text before the medicine extraction. `AMBIGUOUS` names (Vitamin D, B12, iron,
   ferritin, calcium, prolactin) count as a test only after a cue word (`_CUES`: تحليل/اعمل/مستوى…) — "فيتامين د نقط" stays
   a medicine.
+- Stop keeps the last words (2026-10-24): Chrome finalises only at a pause, so on the stop press `dictation.js` calls
+  `stop()`, waits for `onend` (≤ `STOP_GRACE_MS`, mic amber meanwhile) and then flushes the still-interim text
+  (`pending`) as a final. A session the browser closes by itself also flushes `pending` before restarting. Before this,
+  talking straight through and pressing stop sent only what was finalised (often just the first drug).

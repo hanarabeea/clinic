@@ -51,6 +51,7 @@
   const Provider = WebSpeechProvider;
   // safety net only: after several minutes of total silence (mic forgotten on) the recording stops by itself
   const MAX_QUIET_RESTARTS = 60;
+  const STOP_GRACE_MS = 1500;  // after the stop press, how long to wait for Chrome's last result
   const ERRORS = {
     "not-allowed": "المايك مقفول — اسمح للمتصفح يستخدم المايك.",
     "service-not-allowed": "المايك مقفول — اسمح للمتصفح يستخدم المايك.",
@@ -128,14 +129,36 @@
     const collected = [];
     let failed = false; // an error message stays visible after the session ends
     let restarts = 0;
+    // What Chrome has heard but not finalised yet. Chrome only finalises at a pause: if the doctor talks on and then
+    // presses stop, everything since the last pause is still "interim" — it used to be dropped, so only the first
+    // drug reached the server. Now it's kept: we wait for Chrome's last result, and fall back to the interim text.
+    let pending = "";
+    const takeText = (text) => {
+      const clean = applyCommands(text);
+      if (!clean) return;
+      if (el.dataset.dictateUrl) collected.push(clean); // sent to the server when the mic is pressed again
+      else insertAtCursor(el, clean);
+    };
+    const flushPending = () => {
+      if (pending.trim()) takeText(pending);
+      pending = "";
+    };
+    let finished = false;
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      flushPending();
+      finish();
+    };
     const session = {
       el,
       stopped: false,
       stop() {
         if (this.stopped) return;
         this.stopped = true;
+        mic.style.background = "#f59e0b";  // amber: finishing (Chrome delivers the last words)
         if (provider) provider.stop();
-        finish();
+        setTimeout(done, STOP_GRACE_MS);  // Chrome usually ends sooner (onEnd → done)
       },
     };
     const finish = () => {
@@ -162,21 +185,22 @@
     };
     const listen = () => {
       provider = new Provider();
-      provider.onInterim((text) => { interimEl.textContent = text; restarts = 0; });
+      provider.onInterim((text) => { interimEl.textContent = text; pending = text; if (text) restarts = 0; });
       provider.onFinal((text) => {
         restarts = 0;
-        const clean = applyCommands(text);
-        if (el.dataset.dictateUrl) collected.push(clean); // sent to the server when the mic is pressed again
-        else insertAtCursor(el, clean);
+        pending = "";
+        takeText(text);
       });
       provider.onError((code) => {
         if (code === "no-speech" || code === "aborted") return; // just quiet: the session restarts on "end"
         failed = true;
         interimEl.textContent = ERRORS[code] || "حصلت مشكلة في الإملاء.";
         session.stop();
+        done();
       });
       provider.onEnd(() => {
-        if (session.stopped) return;
+        if (session.stopped) { done(); return; }
+        flushPending(); // a session closed by the browser mid-sentence: keep what was heard
         // the browser closed the session on its own (silence / time limit): keep recording
         if (++restarts > MAX_QUIET_RESTARTS) { session.stop(); return; }
         setTimeout(() => {
@@ -197,6 +221,7 @@
       failed = true;
       interimEl.textContent = "المايك مش راضي يبدأ — جرب تاني.";
       session.stop();
+      done();
     }
   }
 
