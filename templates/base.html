@@ -85,7 +85,7 @@
       <div class="px-3 pb-1 pt-4 text-xs font-semibold text-stone-400">{% translate "الإدارة" %}</div>
       {% endif %}
       {% if can.user_manage %}
-      <a href="{% url 'accounts:users' %}" class="nav-link {% if url_name == 'accounts:users' %}active{% endif %}">
+      <a href="{% url 'accounts:users' %}" class="nav-link {% if url_name == 'accounts:users' or url_name|slice:':14' == 'accounts:role' or url_name == 'accounts:membership_permissions' %}active{% endif %}">
         <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16 20v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 20v-1a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         {% translate "المستخدمين" %}
       </a>
