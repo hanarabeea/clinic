@@ -46,6 +46,22 @@ def make_member(db):
 
 
 @pytest.fixture
+def role_choice(db):
+    """The role-select value of one of the clinic's default roles ("reception" → its ClinicRole pk), as the users
+    screen posts it."""
+    from apps.accounts.roles import ensure_defaults
+    from apps.organizations.models import ClinicRole
+
+    def _value(org, key):
+        if key == "owner":
+            return "owner"
+        ensure_defaults(org)
+        return str(ClinicRole.objects.get(organization=org, key=key).pk)
+
+    return _value
+
+
+@pytest.fixture
 def org_a(make_org):
     return make_org("demo-clinic")
 

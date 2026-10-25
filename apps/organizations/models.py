@@ -53,12 +53,37 @@ class Role(models.TextChoices):
     DOCTOR = "doctor", _("دكتور")
     RECEPTION = "reception", _("استقبال")
     VIEWER = "viewer", _("مشاهد")
+    MEMBER = "member", _("موظف")  # permissions come from the clinic's own role (`Membership.clinic_role`)
+
+
+class ClinicRole(BaseModel):
+    """A role the clinic defines itself: a name + a set of permissions (apps/accounts/roles.py). Every employee except
+    the owner has one. `key` remembers which built-in role it started from (blank for roles the clinic created)."""
+
+    organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="roles")
+    name = models.CharField(_("اسم الدور"), max_length=60)
+    description = models.CharField(_("وصف"), max_length=200, blank=True)
+    permissions = models.JSONField(_("الصلاحيات"), default=list, blank=True)
+    key = models.CharField(max_length=20, blank=True)
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        verbose_name = _("دور")
+        verbose_name_plural = _("الأدوار")
+        ordering = ["order", "id"]
+        constraints = [models.UniqueConstraint(fields=["organization", "name"], name="uniq_role_name")]
+
+    def __str__(self):
+        return self.name
 
 
 class Membership(BaseModel):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="memberships")
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="memberships")
     role = models.CharField(_("الدور"), max_length=20, choices=Role.choices, default=Role.RECEPTION)
+    clinic_role = models.ForeignKey(
+        ClinicRole, null=True, blank=True, on_delete=models.PROTECT, related_name="members", verbose_name=_("الدور")
+    )
     is_active = models.BooleanField(_("نشط"), default=True)
     # Per-employee adjustments on top of the role's permissions (apps/accounts/permissions.py):
     # effective = (role's ∪ granted − revoked), closed over IMPLIES.
@@ -71,4 +96,8 @@ class Membership(BaseModel):
         constraints = [models.UniqueConstraint(fields=["user", "organization"], name="uniq_membership")]
 
     def __str__(self):
-        return f"{self.user} @ {self.organization} ({self.role})"
+        return f"{self.user} @ {self.organization} ({self.role_name})"
+
+    @property
+    def role_name(self):
+        return self.clinic_role.name if self.clinic_role_id else self.get_role_display()

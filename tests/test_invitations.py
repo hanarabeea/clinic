@@ -11,9 +11,14 @@ PASSWORD = "Strong-Pass-2026!"
 
 
 def _invite(client, org, make_member, role="reception"):
+    from apps.accounts.roles import ensure_defaults
+    from apps.organizations.models import ClinicRole
+
+    ensure_defaults(org)
+    value = "owner" if role == "owner" else str(ClinicRole.objects.get(organization=org, key=role).pk)
     client.force_login(make_member(org, "owner"))
     resp = client.post(
-        reverse("accounts:invite_create"), {"full_name": "Mona Ali", "email": "Mona@Example.com", "role": role}
+        reverse("accounts:invite_create"), {"full_name": "Mona Ali", "email": "Mona@Example.com", "role": value}
     )
     assert resp.status_code == 302
     link = client.session["new_invite_link"]
@@ -35,7 +40,8 @@ def test_invite_flow_creates_user_and_membership(client, org_a, make_member):
     assert resp.status_code == 302
 
     user = User.objects.get(email="mona@example.com")
-    assert Membership.objects.get(user=user, organization=org_a).role == "reception"
+    m = Membership.objects.get(user=user, organization=org_a)
+    assert m.role == "member" and m.clinic_role.key == "reception" and m.role_name == "استقبال"
     resp = client.post(reverse("accounts:login"), {"username": "mona@example.com", "password": PASSWORD})
     assert resp.status_code == 302
 
@@ -82,7 +88,8 @@ def test_create_user_command(org_a):
     user.refresh_from_db()
     assert user.full_name == "Owner 2"
     assert user.memberships.count() == 1
-    assert user.memberships.get().role == "admin"
+    m = user.memberships.get()
+    assert m.role == "member" and m.clinic_role.key == "admin"
 
 
 def test_seed_org_is_idempotent(db):

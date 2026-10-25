@@ -4,7 +4,7 @@ from django.contrib.auth import password_validation
 from django.contrib.auth.forms import AuthenticationForm
 from django.utils.translation import gettext_lazy as _
 
-from apps.organizations.models import Role
+from apps.organizations.models import ClinicRole, Role
 
 from .models import User
 
@@ -34,11 +34,17 @@ class InviteForm(forms.Form):
     email = forms.EmailField(label=_("الإيميل"), widget=forms.EmailInput(attrs={"dir": "ltr"}))
     role = forms.ChoiceField(label=_("الدور"), choices=())
 
-    def __init__(self, *args, organization, allowed_roles, **kwargs):
+    def __init__(self, *args, organization, choices, **kwargs):
         super().__init__(*args, **kwargs)
         self.organization = organization
-        self.fields["role"].choices = [(r.value, r.label) for r in allowed_roles]
-        self.fields["role"].initial = Role.RECEPTION
+        self.fields["role"].choices = choices  # roles.choices_for(): only what the inviter may give
+        # default: the clinic's reception role if offered, else the first one
+        reception = ClinicRole.objects.filter(organization=organization, key=Role.RECEPTION).first()
+        offered = [v for v, _l in choices]
+        if reception and str(reception.pk) in offered:
+            self.fields["role"].initial = str(reception.pk)
+        elif offered:
+            self.fields["role"].initial = offered[-1] if offered[0] == "owner" else offered[0]
 
     def clean_email(self):
         email = self.cleaned_data["email"].lower()
@@ -82,6 +88,23 @@ class AcceptInviteForm(forms.Form):
 class RoleForm(forms.Form):
     role = forms.ChoiceField(label=_("الدور"), choices=())
 
-    def __init__(self, *args, allowed_roles, **kwargs):
+    def __init__(self, *args, choices, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["role"].choices = [(r.value, r.label) for r in allowed_roles]
+        self.fields["role"].choices = choices
+
+
+class ClinicRoleForm(forms.ModelForm):
+    class Meta:
+        model = ClinicRole
+        fields = ["name", "description"]
+
+    def clean_name(self):
+        name = " ".join(self.cleaned_data["name"].split())
+        taken = ClinicRole.objects.filter(organization=self.instance.organization, name__iexact=name)
+        if self.instance.pk:
+            taken = taken.exclude(pk=self.instance.pk)
+        if taken.exists():
+            raise forms.ValidationError(_("فيه دور بالاسم ده بالفعل."))
+        if name == str(Role.OWNER.label):
+            raise forms.ValidationError(_("الاسم ده محجوز للمالك."))
+        return name

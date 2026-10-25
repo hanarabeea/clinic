@@ -450,3 +450,24 @@ gotchas and conventions introduced in that phase.
   gated by its view's permission. Home's "today" numbers need appointment.view. The medical file's prescriptions list
   is open to clinical.view (print buttons only with print/reprint). The visit page without clinical.edit is read-only
   (no autosave URL, no finish/reuse forms).
+
+## Clinic-defined roles (2026-10-25)
+- Roles are the clinic's own: `organizations.ClinicRole` (org, name unique per org, description, `permissions` list,
+  `key` = built-in role it started from or blank, order). `Membership.clinic_role` / `Invitation.clinic_role`; such
+  members have `role="member"` (new `Role.MEMBER`). Only `Role.OWNER` stays fixed (everything, always). Display a
+  role with `.role_name` (never `get_role_display`). `permissions.base_permissions(m)` = clinic role's perms (closed
+  over IMPLIES), falling back to `ROLE_PERMISSIONS[m.role]` for a member still on a built-in role (tests create those
+  with `make_member(org, "doctor")`; the screens convert them via `roles.ensure_defaults`).
+- `apps/accounts/roles.py`: `DEFAULT_ROLES` (مدير النظام/دكتور/استقبال/مشاهد), `ensure_defaults(org)` (creates them only
+  when the org has no roles + moves built-in-role members onto them; called by seed_org, create_user and the users/
+  roles screens), `choices_for(editor, org)` (role-select values: `"owner"` for the owner only, else ClinicRole pk —
+  only roles within the editor's permissions), `resolve`, `save_role` (drops members' now-redundant adjustments),
+  `in_use` (delete refused while members or pending invites use it). Data migration `accounts/0004_clinic_roles_data`
+  froze the defaults as of today and moved every existing member/invitation.
+- Screens: المستخدمين | الأدوار tabs. `/accounts/roles/` (cards: permission count, members, تعديل/نسخة),
+  `roles/new/[?from=<pk>]`, `roles/<pk>/`, `roles/<pk>/delete/` — all user.manage; the checkbox grid is the shared
+  `accounts/partials/perm_groups.html`. A non-owner can't open/edit/delete a role holding permissions they don't have,
+  and can only manage members whose permissions they all have (so the default مدير النظام can't manage doctors or
+  reception unless the owner gives him those permissions). Audit: `role.created/updated/deleted`.
+- Tests: `tests/test_roles.py`; `role_choice(org, key)` fixture gives the select value of a default role;
+  `test_permission_matrix._member(..., clinic_perms=...)` puts a crawl profile on a custom role.

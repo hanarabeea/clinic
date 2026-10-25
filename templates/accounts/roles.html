@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "الأدوار" %}{% endblock %}
+{% block content %}
+{% include "accounts/partials/users_tabs.html" with tab="roles" %}
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+  <p class="max-w-2xl text-sm text-stone-600">
+    {% translate "الدور = اسم + مجموعة صلاحيات. اعمل الأدوار اللي تناسب عيادتك (مثلاً: ممرضة، محاسب، سكرتارية) وادّي كل موظف دوره. أي تعديل في الدور بيوصل لكل اللي عليه على طول." %}
+    <br><span class="text-xs text-stone-500">{% translate "«المالك» ثابت ومعاه كل حاجة دايمًا." %}</span>
+  </p>
+  <a href="{% url 'accounts:role_new' %}" class="btn-primary">＋ {% translate "دور جديد" %}</a>
+</div>
+
+<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+  <article class="card flex flex-col gap-2 border-dashed p-4">
+    <div class="flex items-center gap-2">
+      <h2 class="text-lg font-bold">{% translate "مالك" %}</h2>
+      <span class="badge bg-sand text-stone-600">{% translate "ثابت" %}</span>
+    </div>
+    <p class="text-sm text-stone-500">{% translate "كل الصلاحيات دايمًا — مايتعدلش ولا يتمسح." %}</p>
+  </article>
+  {% for r in roles %}
+  <article class="card flex min-w-0 flex-col gap-2 p-4">
+    <div class="flex flex-wrap items-center gap-2">
+      <h2 class="min-w-0 truncate text-lg font-bold">{{ r.name }}</h2>
+      <span class="badge bg-brand-soft text-brand">{% blocktranslate count n=r.perm_count %}{{ n }} صلاحية{% plural %}{{ n }} صلاحية{% endblocktranslate %}</span>
+    </div>
+    {% if r.description %}<p class="text-sm text-stone-500">{{ r.description }}</p>{% endif %}
+    <p class="text-xs text-stone-500">{% if r.n_members %}{% blocktranslate count n=r.n_members %}موظف واحد{% plural %}{{ n }} موظفين{% endblocktranslate %}{% else %}{% translate "مفيش حد عليه" %}{% endif %}</p>
+    <div class="mt-auto flex flex-wrap gap-2 pt-2">
+      {% if r.can_edit %}
+      <a href="{% url 'accounts:role_edit' r.pk %}" class="btn-secondary px-3 py-1.5 text-sm">✎ {% translate "تعديل" %}</a>
+      {% else %}
+      <span class="text-xs text-stone-400">{% translate "فيه صلاحيات مش معاك — مش هتقدر تعدّله" %}</span>
+      {% endif %}
+      <a href="{% url 'accounts:role_new' %}?from={{ r.pk }}" class="btn-ghost px-3 py-1.5 text-sm">⧉ {% translate "نسخة" %}</a>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% endblock %}

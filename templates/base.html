@@ -108,7 +108,7 @@
     <div class="border-t border-stone-100 p-3">
       <div class="px-3 pb-2">
         <div class="truncate text-sm font-semibold">{{ request.user.full_name }}</div>
-        <div class="text-xs text-stone-500">{{ current_membership.get_role_display }}</div>
+        <div class="text-xs text-stone-500">{{ current_membership.role_name }}</div>
       </div>
       <form method="post" action="{% url 'accounts:logout' %}">
         {% csrf_token %}

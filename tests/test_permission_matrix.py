@@ -35,13 +35,26 @@ from apps.organizations.models import Membership, Role
 PASSWORD = "Strong-Pass-2026!"
 
 
-def _member(org, role, *, grant=(), revoke=(), email=None):
+def _member(org, role, *, grant=(), revoke=(), email=None, clinic_perms=None):
+    """`clinic_perms`: put the member on a role the clinic made itself, with exactly these permissions."""
     from apps.accounts.models import User
+    from apps.organizations.models import ClinicRole
 
     email = email or f"m{User.objects.count()}-{role}@example.com"
     user = User.objects.create_user(email=email, password=PASSWORD, full_name=email.split("@")[0])
+    clinic_role = None
+    if clinic_perms is not None:
+        role = Role.MEMBER
+        clinic_role = ClinicRole.objects.create(
+            organization=org, name=f"custom {email}", permissions=sorted(clinic_perms)
+        )
     Membership.objects.create(
-        user=user, organization=org, role=role, granted_permissions=sorted(grant), revoked_permissions=sorted(revoke)
+        user=user,
+        organization=org,
+        role=role,
+        clinic_role=clinic_role,
+        granted_permissions=sorted(grant),
+        revoked_permissions=sorted(revoke),
     )
     return user
 
@@ -283,7 +296,13 @@ def _visit_as(client, user, max_pages=MAX_PAGES):
 def _crawl_profiles(client, org, profiles, max_pages=MAX_PAGES):
     report = {}
     for label, spec in profiles.items():
-        user = _member(org, spec["role"], grant=spec.get("grant", ()), revoke=spec.get("revoke", ()))
+        user = _member(
+            org,
+            spec["role"],
+            grant=spec.get("grant", ()),
+            revoke=spec.get("revoke", ()),
+            clinic_perms=spec.get("clinic_perms"),
+        )
         pages, problems = _visit_as(client, user, max_pages)
         print(f"[perm-crawl] {label}: {pages} pages")
         assert pages >= 1, label
@@ -325,6 +344,14 @@ def test_adjusted_roles_see_only_what_they_may_use(client, clinic):
     }
     profiles["admin + clinical.edit"] = {"role": Role.ADMIN, "grant": {"clinical.edit"}}
     profiles["admin - settings.manage"] = {"role": Role.ADMIN, "revoke": {"settings.manage"}}
+    # roles the clinic made itself
+    profiles["custom: nurse"] = {"role": Role.MEMBER, "clinic_perms": {"vitals.record", "clinical.view"}}
+    profiles["custom: accountant"] = {"role": Role.MEMBER, "clinic_perms": {"payment.record", "report.finance"}}
+    profiles["custom: secretary + rx print"] = {
+        "role": Role.MEMBER,
+        "clinic_perms": {"appointment.book", "reception.operate", "prescription.print"},
+        "grant": {"messages.view"},
+    }
     assert _crawl_profiles(client, clinic, profiles, max_pages=300) == ""
 
 
@@ -463,8 +490,9 @@ def test_unknown_permission_posted_is_ignored(client, org_a, owner):
 
 
 def test_editor_cannot_give_what_they_do_not_have(client, org_a):
-    """An admin has no clinical permissions: they can't hand them out, and can't take them from a doctor either."""
-    admin = _member(org_a, Role.ADMIN)
+    """An admin (no clinical permissions) given the reception permissions can manage a receptionist, but can't hand
+    out clinical permissions; a doctor (who has permissions the admin lacks) is out of their reach entirely."""
+    admin = _member(org_a, Role.ADMIN, grant=ROLE_PERMISSIONS[Role.RECEPTION])
     rec = _membership(_member(org_a, Role.RECEPTION))
     doc = _membership(_member(org_a, Role.DOCTOR))
     client.force_login(admin)
@@ -477,11 +505,12 @@ def test_editor_cannot_give_what_they_do_not_have(client, org_a):
     rec.refresh_from_db()
     assert rec.granted_permissions == ["audit.view"]  # the only one of the three the admin has
 
-    client.post(reverse("accounts:membership_permissions", args=[doc.pk]), {"perms": ["appointment.view"]})
+    url = reverse("accounts:membership_permissions", args=[doc.pk])
+    assert client.get(url).status_code == 403
+    assert client.post(url, {"perms": ["appointment.view"]}).status_code == 403
+    assert client.post(reverse("accounts:membership_toggle", args=[doc.pk])).status_code == 403
     doc.refresh_from_db()
-    kept = effective_permissions(doc)
-    assert {"clinical.edit", "prescription.write", "report.finance", "drug.manage"} <= kept
-    assert "patient.merge" not in kept  # this one the admin has, so they could take it away
+    assert doc.is_active and "clinical.edit" in effective_permissions(doc)
 
 
 @pytest.mark.parametrize("target", ["self", "owner"])
@@ -507,12 +536,12 @@ def test_other_clinic_member_is_404(client, org_a, org_b, owner):
     assert client.post(reverse("accounts:membership_permissions", args=[stranger.pk]), {}).status_code == 404
 
 
-def test_changing_role_resets_adjustments(client, org_a, owner):
+def test_changing_role_resets_adjustments(client, org_a, owner, role_choice):
     m = _membership(_member(org_a, Role.RECEPTION, grant={"report.finance"}, revoke={"payment.record"}))
     client.force_login(owner)
-    client.post(reverse("accounts:membership_role", args=[m.pk]), {"role": Role.DOCTOR})
+    client.post(reverse("accounts:membership_role", args=[m.pk]), {"role": role_choice(org_a, "doctor")})
     m.refresh_from_db()
-    assert m.role == Role.DOCTOR and m.granted_permissions == [] and m.revoked_permissions == []
+    assert m.clinic_role.key == "doctor" and m.granted_permissions == [] and m.revoked_permissions == []
 
 
 def test_screen_needs_user_manage(client, org_a):
@@ -524,7 +553,7 @@ def test_screen_needs_user_manage(client, org_a):
     assert client.get(reverse("accounts:membership_permissions", args=[m.pk])).status_code == 200
 
 
-def test_employee_given_user_manage_cannot_go_above_themselves(client, org_a):
+def test_employee_given_user_manage_cannot_go_above_themselves(client, org_a, role_choice):
     """A receptionist given "user.manage" manages only people whose permissions they all have, assigns only roles
     that don't exceed theirs, and can't touch admins / doctors."""
     boss = _member(org_a, Role.RECEPTION, grant={"user.manage"})
@@ -535,13 +564,16 @@ def test_employee_given_user_manage_cannot_go_above_themselves(client, org_a):
     assert reverse("accounts:membership_permissions", args=[viewer.pk]) in html
     assert reverse("accounts:membership_permissions", args=[admin.pk]) not in html
     assert reverse("accounts:membership_toggle", args=[admin.pk]) not in html
-    assert 'value="doctor"' not in html and 'value="admin"' not in html and 'value="reception"' in html
+    doctor, admin_role, reception = (role_choice(org_a, k) for k in ("doctor", "admin", "reception"))
+    assert f'value="{doctor}"' not in html and f'value="{admin_role}"' not in html
+    assert f'value="{reception}"' in html and 'value="owner"' not in html
 
     for name in ("membership_permissions", "membership_toggle", "membership_role"):
-        assert client.post(reverse(f"accounts:{name}", args=[admin.pk]), {"role": "viewer"}).status_code == 403
-    assert client.post(reverse("accounts:membership_role", args=[viewer.pk]), {"role": "admin"}).status_code == 302
+        resp = client.post(reverse(f"accounts:{name}", args=[admin.pk]), {"role": role_choice(org_a, "viewer")})
+        assert resp.status_code == 403
+    assert client.post(reverse("accounts:membership_role", args=[viewer.pk]), {"role": admin_role}).status_code == 302
     viewer.refresh_from_db()
-    assert viewer.role == Role.VIEWER  # admin isn't an allowed role for them
+    assert viewer.clinic_role.key == "viewer"  # admin isn't an allowed role for them
     client.post(
         reverse("accounts:membership_permissions", args=[viewer.pk]), {"perms": ["payment.record", "audit.view"]}
     )
@@ -549,7 +581,7 @@ def test_employee_given_user_manage_cannot_go_above_themselves(client, org_a):
     assert viewer.granted_permissions == ["payment.record"]
     assert (
         client.post(
-            reverse("accounts:invite_create"), {"full_name": "x", "email": "x@example.com", "role": "admin"}
+            reverse("accounts:invite_create"), {"full_name": "x", "email": "x@example.com", "role": admin_role}
         ).status_code
         == 400
     )

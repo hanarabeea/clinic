@@ -18,4 +18,8 @@ urlpatterns = [
     path("users/<int:pk>/role/", views.membership_role, name="membership_role"),
     path("users/<int:pk>/toggle/", views.membership_toggle, name="membership_toggle"),
     path("users/<int:pk>/permissions/", views.membership_permissions, name="membership_permissions"),
+    path("roles/", views.roles_list, name="roles"),
+    path("roles/new/", views.role_edit, name="role_new"),
+    path("roles/<int:pk>/", views.role_edit, name="role_edit"),
+    path("roles/<int:pk>/delete/", views.role_delete, name="role_delete"),
 ]

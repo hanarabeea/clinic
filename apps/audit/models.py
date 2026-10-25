@@ -30,6 +30,9 @@ ACTION_LABELS = {
     "user.joined": _("مستخدم انضم"),
     "user.role": _("تغيير دور"),
     "user.permissions": _("تغيير صلاحيات موظف"),
+    "role.created": _("دور جديد"),
+    "role.updated": _("تعديل دور"),
+    "role.deleted": _("مسح دور"),
     "user.toggled": _("تفعيل/إيقاف مستخدم"),
 }
 
@@ -39,6 +42,7 @@ ACTION_GROUPS = {
     "delivery": _("الإرسال"),
     "auth": _("الدخول"),
     "user": _("المستخدمين"),
+    "role": _("الأدوار"),
     "settings": _("الإعدادات"),
     "whatsapp": _("واتساب"),
 }

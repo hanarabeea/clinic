@@ -83,6 +83,9 @@ class Invitation(TenantScopedModel):
     email = models.EmailField(_("الإيميل"))
     full_name = models.CharField(_("الاسم"), max_length=150)
     role = models.CharField(_("الدور"), max_length=20, choices=Role.choices, default=Role.RECEPTION)
+    clinic_role = models.ForeignKey(
+        "organizations.ClinicRole", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
     token_hash = models.CharField(max_length=64, unique=True)
     expires_at = models.DateTimeField()
     invited_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
@@ -99,13 +102,14 @@ class Invitation(TenantScopedModel):
         return f"{self.email} → {self.organization}"
 
     @classmethod
-    def create_for(cls, *, organization, email, full_name, role, invited_by):
+    def create_for(cls, *, organization, email, full_name, role, invited_by, clinic_role=None):
         token = secrets.token_urlsafe(32)
         inv = cls.objects.create(
             organization=organization,
             email=email.lower(),
             full_name=full_name,
             role=role,
+            clinic_role=clinic_role,
             token_hash=hash_token(token),
             expires_at=timezone.now() + timedelta(hours=settings.INVITATION_VALID_HOURS),
             invited_by=invited_by,
@@ -115,6 +119,10 @@ class Invitation(TenantScopedModel):
     @classmethod
     def from_token(cls, token: str):
         return cls.objects.pending().select_related("organization").filter(token_hash=hash_token(token)).first()
+
+    @property
+    def role_name(self):
+        return self.clinic_role.name if self.clinic_role_id else self.get_role_display()
 
     @property
     def is_pending(self):

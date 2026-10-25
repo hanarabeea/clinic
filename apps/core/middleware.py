@@ -16,7 +16,7 @@ class CurrentOrganizationMiddleware:
         if user is not None and user.is_authenticated:
             memberships = (
                 Membership.objects.filter(user=user, is_active=True, organization__is_active=True)
-                .select_related("organization")
+                .select_related("organization", "clinic_role")
                 .order_by("id")
             )
             chosen = None

@@ -5,6 +5,7 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
+from apps.accounts.roles import ensure_defaults
 from apps.doctors.models import Doctor, VisitType, WorkingPeriod
 from apps.organizations.models import Organization, OrganizationSettings
 
@@ -28,6 +29,7 @@ class Command(BaseCommand):
             slug=o["slug"], defaults={"name_ar": o["name_ar"], "name_en": o.get("name_en", "")}
         )
         s, settings_created = OrganizationSettings.objects.get_or_create(organization=org)
+        ensure_defaults(org)  # the clinic's editable roles (idempotent)
         if not (created or settings_created or opts["force"]):
             # run.bat calls this on every start: never clobber what was edited in the settings UI.
             self.stdout.write(f"Organization '{org.slug}' already set up (use --force to reapply clinic.json)")

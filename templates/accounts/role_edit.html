@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% if role.pk %}{{ role.name }}{% else %}{% translate "دور جديد" %}{% endif %}{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center gap-3">
+  <a href="{% url 'accounts:roles' %}" class="btn-ghost px-2 py-1 text-sm">→ {% translate "الأدوار" %}</a>
+  <h1 class="text-2xl font-bold">{% if role.pk %}{% translate "الدور:" %} {{ role.name }}{% else %}{% translate "دور جديد" %}{% endif %}</h1>
+</div>
+
+<form method="post" class="space-y-4" novalidate>
+  {% csrf_token %}
+  <section class="card grid gap-4 p-4 sm:grid-cols-2">
+    {% include "partials/field.html" with field=form.name %}
+    {% include "partials/field.html" with field=form.description %}
+  </section>
+  {% if role.pk and members %}
+  <p class="text-sm text-stone-600">
+    {% translate "التعديل هيوصل على طول لـ:" %}
+    {% for m in members %}<span class="badge bg-sand text-stone-700">{{ m.user.full_name }}</span> {% endfor %}
+  </p>
+  {% endif %}
+  <p class="text-sm text-stone-600">{% translate "علّم اللي الدور ده يقدر يعمله — اللي مش متعلم مش هيظهر لصاحب الدور خالص (لا صفحة ولا زرار)." %}</p>
+  {% include "accounts/partials/perm_groups.html" with badges=False %}
+  <div class="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-stone-200 bg-white/95 py-3">
+    <button type="submit" class="btn-primary px-6">{% translate "حفظ الدور" %}</button>
+    <a href="{% url 'accounts:roles' %}" class="btn-ghost">{% translate "رجوع" %}</a>
+    {% if role.pk %}
+    <button type="submit" form="role-delete" class="btn-danger ms-auto">{% translate "مسح الدور" %}</button>
+    {% endif %}
+  </div>
+</form>
+{% if role.pk %}
+<form method="post" id="role-delete" action="{% url 'accounts:role_delete' role.pk %}"
+      onsubmit="return confirm('{% translate 'تمسح الدور ده؟' %}')">{% csrf_token %}</form>
+{% endif %}
+{% endblock %}

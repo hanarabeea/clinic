@@ -2,9 +2,10 @@
 {% load i18n %}
 {% block title %}{% translate "المستخدمين" %}{% endblock %}
 {% block content %}
-<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
   <h1 class="text-2xl font-bold">{% translate "المستخدمين" %}</h1>
 </div>
+{% include "accounts/partials/users_tabs.html" with tab="users" %}
 
 {% if new_link %}
 <div class="card mb-6 border-brand/30 bg-brand-soft p-4" x-data="{ copied: false }">
@@ -40,10 +41,10 @@
                 onsubmit="return {% if m.granted_permissions or m.revoked_permissions %}confirm('{% translate 'تغيير الدور هيرجّع الصلاحيات لصلاحيات الدور الجديد. تكمل؟' %}'){% else %}true{% endif %}">
             {% csrf_token %}
             <select name="role" onchange="this.form.requestSubmit()" class="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm" aria-label="{% translate 'الدور' %}">
-              {% for r in allowed_roles %}<option value="{{ r.value }}" {% if r.value == m.role %}selected{% endif %}>{{ r.label }}</option>{% endfor %}
+              {% for value, label in role_choices %}<option value="{{ value }}" {% if value == m.role_value %}selected{% endif %}>{{ label }}</option>{% endfor %}
             </select>
           </form>
-          {% else %}<span class="badge bg-sand text-stone-700">{{ m.get_role_display }}</span>{% endif %}
+          {% else %}<span class="badge bg-sand text-stone-700">{{ m.role_name }}</span>{% endif %}
           {% if m.role != 'owner' %}<a href="{% url 'accounts:membership_permissions' m.pk %}" class="btn-secondary px-3 py-1.5 text-sm">🔑 {% translate "الصلاحيات" %}</a>{% endif %}
           <form method="post" action="{% url 'accounts:membership_toggle' m.pk %}"
                 onsubmit="return confirm('{% if m.is_active %}{% translate 'متأكد إنك عايز توقف الحساب ده؟' %}{% else %}{% translate 'تفعيل الحساب ده تاني؟' %}{% endif %}')">
@@ -54,7 +55,7 @@
           </form>
         </div>
         {% else %}
-        <span class="badge bg-sand text-stone-700">{{ m.get_role_display }}</span>
+        <span class="badge bg-sand text-stone-700">{{ m.role_name }}</span>
         {% endif %}
       </li>
       {% endfor %}
@@ -66,7 +67,7 @@
       {% for inv in invitations %}
       <li class="flex items-center gap-3 px-4 py-3">
         <div class="min-w-0 flex-1">
-          <div class="truncate font-semibold">{{ inv.full_name }} <span class="badge bg-sand text-stone-600">{{ inv.get_role_display }}</span></div>
+          <div class="truncate font-semibold">{{ inv.full_name }} <span class="badge bg-sand text-stone-600">{{ inv.role_name }}</span></div>
           <div class="truncate text-xs text-stone-500"><span dir="ltr">{{ inv.email }}</span> · {% translate "تنتهي" %} {{ inv.expires_at|date:"Y/m/d H:i" }}</div>
         </div>
         {% if inv.can_revoke %}
@@ -81,7 +82,7 @@
     {% endif %}
   </section>
 
-  {% if allowed_roles %}
+  {% if role_choices %}
   <section class="card h-fit p-4">
     <h2 class="mb-4 font-bold">{% translate "دعوة مستخدم جديد" %}</h2>
     <form method="post" action="{% url 'accounts:invite_create' %}" class="space-y-4" novalidate>

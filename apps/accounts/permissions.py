@@ -154,6 +154,16 @@ def role_permissions(role) -> frozenset[str]:
     return ROLE_PERMISSIONS.get(role, frozenset())
 
 
+def base_permissions(membership) -> frozenset[str]:
+    """What the member's role gives: the clinic's own role (ClinicRole, apps/accounts/roles.py), or — for a member
+    still on a built-in role — that role's defaults."""
+    if membership.role == Role.OWNER:
+        return ROLE_PERMISSIONS[Role.OWNER]
+    if membership.clinic_role_id:
+        return with_implied(set(membership.clinic_role.permissions or ()) & ALL_PERMISSIONS)
+    return role_permissions(membership.role)
+
+
 def effective_permissions(membership) -> frozenset[str]:
     """The role's permissions, plus what was granted to this person, minus what was taken away. The owner always has
     everything (the clinic can never lock itself out)."""
@@ -161,21 +171,21 @@ def effective_permissions(membership) -> frozenset[str]:
         return frozenset()
     if membership.role == Role.OWNER:
         return ROLE_PERMISSIONS[Role.OWNER]
-    key = (membership.role, tuple(membership.granted_permissions or ()), tuple(membership.revoked_permissions or ()))
+    role_perms = tuple(membership.clinic_role.permissions or ()) if membership.clinic_role_id else ()
+    key = (
+        membership.role,
+        membership.clinic_role_id,
+        role_perms,
+        tuple(membership.granted_permissions or ()),
+        tuple(membership.revoked_permissions or ()),
+    )
     cached = getattr(membership, "_perm_cache", None)
     if cached and cached[0] == key:
         return cached[1]
-    base = set(role_permissions(membership.role)) | set(membership.granted_permissions or ())
+    base = set(base_permissions(membership)) | set(membership.granted_permissions or ())
     perms = with_implied(base - set(membership.revoked_permissions or ()))
     membership._perm_cache = (key, perms)
     return perms
-
-
-# Roles an admin may assign. Only an owner can create or promote another owner.
-ASSIGNABLE_ROLES = {
-    Role.OWNER: [Role.OWNER, Role.ADMIN, Role.DOCTOR, Role.RECEPTION, Role.VIEWER],
-    Role.ADMIN: [Role.ADMIN, Role.DOCTOR, Role.RECEPTION, Role.VIEWER],
-}
 
 
 def has_perm(membership, perm: str) -> bool:

@@ -6,6 +6,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 
 from apps.accounts.models import User
+from apps.accounts.roles import ensure_defaults
 from apps.organizations.models import Membership, Organization, Role
 
 
@@ -58,4 +59,5 @@ class Command(BaseCommand):
             Membership.objects.update_or_create(
                 user=user, organization=org, defaults={"role": o["role"], "is_active": True}
             )
+        ensure_defaults(org)  # a built-in role becomes the clinic's own (editable) role of the same kind
         self.stdout.write(self.style.SUCCESS(f"{action} {email} as {o['role']} in {org.slug}"))
