@@ -484,3 +484,13 @@ gotchas and conventions introduced in that phase.
   regex). `UserManager.create_user(username=None, email=None, password=None, ...)` uses the email as username when none
   is given (tests' `make_member(..., email=...)` rely on that). Login = `accounts.backends.UsernameOrEmailBackend`
   (username or email, case-insensitive; axes still first). `create_user --username [--email]` (one of them).
+
+## Branded sign-in pages (2026-10-25)
+- `organizations.branding.public_brand()` = the only active organization's settings + first doctor, or None when the
+  install has 0 or 2+ clinics (a shared server never reveals its clinics). Context: `public_brand` (always a dict with
+  org/settings/doctor, values None when unbranded — filter args and `{% with %}` fail on missing keys) and
+  `brand_settings` (signed in: the org's settings, else the public brand's) — `base_page.html` takes colours + tab icon
+  from `brand_settings`. `organizations:public_logo` (`/org/brand-logo/`, no login) serves the logo only in that
+  single-clinic case — a deliberate exception to "logos are private media" (the clinic logo is public on its sign and
+  prescriptions anyway). `base_auth.html`: brand panel (gradient brand → brand-dark, logo, clinic name, doctor, hours,
+  phones) beside the form on wide screens; logo + name above it on phones.

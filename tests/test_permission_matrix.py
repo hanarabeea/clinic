@@ -194,6 +194,7 @@ def test_almost_every_url_is_gated():
             "accounts:password_reset_confirm",
             "accounts:password_reset_complete",
             "messaging:whatsapp_webhook",
+            "organizations:public_logo",
         ]
     )
     assert len(GATED) > 100

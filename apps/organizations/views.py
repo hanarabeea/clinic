@@ -9,6 +9,7 @@ from django.utils.translation import gettext as _
 from apps.accounts.permissions import require_membership, require_perm
 from apps.audit import services as audit
 
+from .branding import public_brand
 from .forms import CompanySettingsForm, OrganizationForm
 from .models import OrganizationSettings
 
@@ -29,6 +30,19 @@ def settings_company(request):
         messages.success(request, _("بيانات الشركة اتحفظت."))
         return redirect("organizations:settings")
     return render(request, "organizations/settings_company.html", {"org_form": org_form, "form": form})
+
+
+def public_logo(request):
+    """The logo on the sign-in pages — only for a single-clinic install (branding.public_brand), so a shared server
+    never shows one clinic's logo to another's staff. The clinic's logo is public anyway (sign, prescriptions)."""
+    brand = public_brand()
+    if brand is None or not brand["settings"].logo:
+        raise Http404
+    logo_file = brand["settings"].logo
+    content_type = mimetypes.guess_type(logo_file.name)[0] or "application/octet-stream"
+    resp = FileResponse(logo_file.open("rb"), content_type=content_type)
+    resp["Cache-Control"] = "public, max-age=86400"  # the URL carries ?v=<updated_at>
+    return resp
 
 
 @require_membership
