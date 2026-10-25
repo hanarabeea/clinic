@@ -161,6 +161,18 @@ class Recognizer:
         return " ".join(text.replace("⁇", " ").split())
 
 
+def keep_sample(body: bytes, text: str):
+    """Testing only, never in a clinic: with SPEECH_KEEP_SAMPLES=1 each utterance (WAV + what was heard) is kept in
+    <data>/samples on this computer, to tune the recogniser on real voices (tools/asr_bench). Off by default."""
+    if os.environ.get("SPEECH_KEEP_SAMPLES") != "1":
+        return
+    folder = data_dir() / "samples"
+    folder.mkdir(exist_ok=True)
+    stem = time.strftime("%Y%m%d-%H%M%S") + f"-{int(time.time() * 1000) % 1000:03d}"
+    (folder / f"{stem}.wav").write_bytes(body)
+    (folder / f"{stem}.txt").write_text(text, encoding="utf-8")
+
+
 def make_handler(recognizer, key: str):
     class Handler(BaseHTTPRequestHandler):
         server_version = "DigiClinicSpeech/1"
@@ -221,6 +233,7 @@ def make_handler(recognizer, key: str):
             text = recognizer.transcribe(audio)
             seconds = round(time.perf_counter() - started, 2)
             log.info("utterance %.1fs audio → %.2fs", len(audio) / SAMPLE_RATE, seconds)  # never the words
+            keep_sample(body, text)
             return self._send(200, {"text": text, "seconds": seconds})
 
     return Handler

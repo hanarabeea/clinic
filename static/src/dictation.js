@@ -84,8 +84,11 @@
     }
 
     async _openMic() {
+      // the raw mic: the browser's echo cancellation / noise suppression / gain control are tuned for calls and cut
+      // the high frequencies (س ش ف ت…) — on a real voice they left ~0.2% of the energy above 3 kHz (≈3% is normal)
+      // and both local models misheard almost every drug name. The browser's own recogniser copes; these don't.
       this.stream = await navigator.mediaDevices.getUserMedia({
-        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
       });
       const Ctx = window.AudioContext || window.webkitAudioContext;
       try { this.ctx = new Ctx({ sampleRate: LocalSpeechProvider.RATE }); } catch (e) { this.ctx = new Ctx(); }
@@ -349,7 +352,20 @@
     const listen = () => {
       provider = new (pickProvider())();
       if (el.dataset.dictateUrl && provider.silenceMs) provider.silenceMs = LocalSpeechProvider.COLLECT_SILENCE_MS;
-      if (provider.onStatus) provider.onStatus((t) => { if (!failed) interimEl.textContent = t; });
+      if (provider.onStatus) {
+        // the local recorder needs a moment to open the mic: the button stays amber ("wait") until it really records —
+        // words said before that were lost (a real test: "بانادول" became "دول")
+        mic.style.background = "#f59e0b";
+        mic.title = "ثانية — بيفتح المايك…";
+        interimEl.textContent = "ثانية…";
+        provider.onStatus((t) => {
+          if (t === "🎙" && !session.stopped) {
+            mic.style.background = "#dc2626";
+            mic.title = "بيسجل — دوس تاني عشان توقف";
+          }
+          if (!failed) interimEl.textContent = t === "🎙" ? "🎙 اتكلم" : t;
+        });
+      }
       provider.onInterim((text) => { interimEl.textContent = text; pending = text; if (text) lastSpeech = Date.now(); });
       provider.onFinal((text) => {
         lastSpeech = Date.now();
