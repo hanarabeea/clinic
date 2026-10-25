@@ -1,4 +1,5 @@
 from django.contrib import messages
+from django.contrib.auth import login, logout
 from django.contrib.auth import views as auth_views
 from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
@@ -32,6 +33,16 @@ class LoginView(auth_views.LoginView):
     template_name = "accounts/login.html"
     authentication_form = EmailAuthenticationForm
     redirect_authenticated_user = True
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated and request.method == "GET":
+            # already signed in: say so, instead of silently landing on that account's home page
+            messages.info(
+                request,
+                _("إنت داخل بالفعل بحساب %(email)s — اعمل «تسجيل الخروج» الأول لو عايز تدخل بحساب تاني.")
+                % {"email": request.user.email},
+            )
+        return super().dispatch(request, *args, **kwargs)
 
 
 class LogoutView(auth_views.LogoutView):
@@ -336,6 +347,12 @@ def accept_invite(request, token):
     inv = Invitation.from_token(token)
     if inv is None:
         return render(request, "accounts/invite_invalid.html", status=404)
+    if request.user.is_authenticated and request.user.email.lower() != inv.email:
+        # someone else is signed in in this browser (often the owner opening the link to try it): sign them out,
+        # or the new employee would end up looking at the owner's account
+        other = request.user.email
+        logout(request)
+        messages.info(request, _("اتعمل خروج من حساب %(email)s عشان تكمل الدعوة.") % {"email": other})
 
     existing = User.objects.filter(email=inv.email).first()
     if existing is not None:
@@ -348,7 +365,10 @@ def accept_invite(request, token):
                 )
                 inv.accepted_at = timezone.now()
                 inv.save(update_fields=["accepted_at", "updated_at"])
-            messages.success(request, _("اتضافت للشركة. ادخل بحسابك."))
+            if request.user.is_authenticated:  # it's them
+                messages.success(request, _("اتضافت للعيادة."))
+                return redirect("dashboard:home")
+            messages.success(request, _("اتضافت للعيادة. ادخل بحسابك."))
             return redirect("accounts:login")
         return render(request, "accounts/accept_invite.html", {"invitation": inv, "existing": True})
 
@@ -364,6 +384,8 @@ def accept_invite(request, token):
             audit.log("user.joined", request=request, org=inv.organization, actor=user, summary=user.email)
             inv.accepted_at = timezone.now()
             inv.save(update_fields=["accepted_at", "updated_at"])
-        messages.success(request, _("الحساب اتعمل. ادخل بالإيميل وكلمة المرور."))
-        return redirect("accounts:login")
+        # signed in as the new employee right away: they land on their own home page, with only what's opened to them
+        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+        messages.success(request, _("أهلًا! الحساب اتعمل. المرة الجاية ادخل بالإيميل وكلمة المرور."))
+        return redirect("dashboard:home")
     return render(request, "accounts/accept_invite.html", {"invitation": inv, "form": form})
