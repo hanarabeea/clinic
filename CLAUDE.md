@@ -492,5 +492,5 @@ gotchas and conventions introduced in that phase.
   `brand_settings` (signed in: the org's settings, else the public brand's) — `base_page.html` takes colours + tab icon
   from `brand_settings`. `organizations:public_logo` (`/org/brand-logo/`, no login) serves the logo only in that
   single-clinic case — a deliberate exception to "logos are private media" (the clinic logo is public on its sign and
-  prescriptions anyway). `base_auth.html`: brand panel (gradient brand → brand-dark, logo, clinic name, doctor, hours,
-  phones) beside the form on wide screens; logo + name above it on phones.
+  prescriptions anyway). `base_auth.html`: the system's light background (`bg-sand`) with faint brand-coloured circles;
+  logo, clinic name and doctor above a centred form card (brand top border) — same on every screen size.
