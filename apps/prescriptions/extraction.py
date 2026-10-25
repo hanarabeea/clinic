@@ -189,7 +189,7 @@ TYPES = {normalize(k): v for k, v in {
     "صابونه": "soap", "صابون": "soap", "كريم": "cream", "شامبو": "shampoo", "لوشن": "lotion", "جل": "gel",
     "مرهم": "oint", "شراب": "syrup", "سيرب": "syrup", "نقط": "drops", "نقطه": "drops", "قطره": "drops", "كيس": "sachet", "اكياس": "sachet", "ظرف": "sachet", "قطرة": "drops", "قطرتين": "drops", "قطور": "drops", "مرهم عين": "oint", "امبول": "amp", "اقراص فوار": "eff", "بخاخ": "spray",
     "لبوس": "supp", "حقن": "amp", "حقنه": "amp", "فوار": "eff", "بودره": "powder", "غسول": "wash", "اقراص": "tab",
-    "كبسول": "cap", "كبسولات": "cap", "لبوسه": "supp", "معجون": "paste", "سبراي": "spray",
+    "كبسول": "cap", "كبسوله": "cap", "كبسولات": "cap", "لبوسه": "supp", "معجون": "paste", "سبراي": "spray",
 }.items()}  # fmt: skip
 from .everyday_words import EVERYDAY  # noqa: E402
 
@@ -220,11 +220,30 @@ _COMPOUND = re.compile(r"\b([1-9]00)\s+و([1-9]\d?)\b")  # "200 و50" (ميتي�
 _UNITS_TENS = re.compile(r"\b([1-9])\s+و([2-9]0)\b")  # "4 و20" (اربعه وعشرين) → 24 (Arabic says the units first)
 
 
+# Dose / form words a recogniser can glue onto the name before them ("بلينكنقطتين" = "بلينك نقطتين"). Only long ones,
+# after at least GLUED_NAME_MIN letters, so short endings that are part of real names are never cut off.
+GLUED_WORDS = sorted(
+    {normalize(w) for w in "نقطتين نقطه قطره شراب كبسوله كبسولات حقنه لبوس مرهم بخاخ بخاخه حبايه اقراص".split()},
+    key=len,
+    reverse=True,
+)
+GLUED_NAME_MIN = 4
+
+
+def _unglue(token: str) -> str:
+    n = normalize(token)
+    if len(n) == len(token):  # a plain spelling (no diacritics): positions line up with the normalised form
+        for w in GLUED_WORDS:
+            if n.endswith(w) and len(n) - len(w) >= GLUED_NAME_MIN:
+                return f"{token[: -len(w)]} {token[-len(w) :]}"
+    return token
+
+
 def _prepare(transcript: str) -> str:
     text = _PUNCT.sub(" ", words_to_numbers(transcript or ""))
     text = _COMPOUND.sub(lambda m: str(int(m[1]) + int(m[2])), text)
     text = _UNITS_TENS.sub(lambda m: str(int(m[1]) + int(m[2])), text)
-    return _GLUED.sub(" ", text)
+    return " ".join(_unglue(t) for t in _GLUED.sub(" ", text).split())
 
 
 def _variants(token: str) -> set[str]:
@@ -416,6 +435,13 @@ def extract(org, transcript: str) -> list[Extracted]:
             for i in starts
             for v in _variants(norm[i])
         ]
+        if n == 1:  # the recogniser moved the name's last "ال" onto the next word ("انتين الكبسوله" = "انتينال كبسوله")
+            qs += [
+                (i, bare[i] + "ال", True)
+                for i in starts
+                if i + 1 < len(norm) and norm[i + 1].startswith("ال") and len(norm[i + 1]) > 4
+                and (norm[i + 1][2:] in TYPES or norm[i + 1][2:] in STOPWORDS)
+            ]  # fmt: skip
         qs = [(i, q, guess) for i, q, guess in qs
               if len(q.replace(" ", "")) >= (SHORT_NAME_CHARS if _next_to_form(norm, i, n) else MIN_CHARS)]  # fmt: skip
         queries = [q for _i, q, _g in qs]

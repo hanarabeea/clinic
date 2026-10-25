@@ -18,6 +18,7 @@ class PrescriptionSettingsForm(forms.ModelForm):
             "margin_right_mm",
             "margin_left_mm",
             "voice_dictation_enabled",
+            "voice_engine",
             "reception_can_reprint",
         ]
 

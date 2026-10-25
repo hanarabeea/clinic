@@ -494,3 +494,36 @@ gotchas and conventions introduced in that phase.
   single-clinic case — a deliberate exception to "logos are private media" (the clinic logo is public on its sign and
   prescriptions anyway). `base_auth.html`: the system's light background (`bg-sand`) with faint brand-coloured circles;
   logo, clinic name and doctor above a centred form card (brand top border) — same on every screen size.
+
+## Offline voice (2026-10-26)
+- Why: the browser recogniser (Web Speech) needs internet and doesn't work inside an exe / Electron / WebView2; Chrome's
+  on-device mode has no Arabic. Researched + benchmarked (tools/asr_bench: synthetic ar-EG prescriptions through the real
+  pipeline): lemura-arabic-asr (NeMo FastConformer-CTC, 115M, CC-BY-4.0) + beam 8 + the catalog's drug names as a
+  boosting tree (α 1.3) = 75% drugs found at ~0.1× real time on a laptop CPU; Whisper large-v3-turbo 77% but 3.6× real
+  time (too slow without a GPU); Whisper small/medium worse and slow; picking among n-best readings didn't help.
+  Re-run the bench on real recordings before changing the model or the numbers (`tools/asr_bench/README.md`).
+- `speech/server.py`: separate process + its own env (`%LOCALAPPDATA%\digiclinic\speech\.venv`, torch CPU + NeMo,
+  ~2.5 GB; `speech\setup.bat` once, needs internet; model cached in `...\speech\models`). 127.0.0.1:3321, `X-Api-Key`
+  (SPEECH_KEY, default WA_GATEWAY_KEY, read from .env like the gateway). `GET /health`, `POST /transcribe` (16-bit WAV ≤
+  60 s, any rate → 16 kHz). Never logs words, only durations. Re-reads `boost.txt` when its mtime changes. No torch/NeMo
+  at import time, so `tests/test_speech.py` runs its HTTP handler with a stand-in recogniser. run.bat starts it if the
+  env exists (after `build_speech_boost`).
+- Django: `apps/prescriptions/speech.py` (`status()`, `engine(rx_settings)`, `transcribe()`,
+  `boost_phrases()`/`write_boost()` = every active drug alias's first word + first two words, normalised like the model
+  writes: ة→ه, أإآ→ا, no marks). `PrescriptionSettings.voice_engine` auto/local/browser (Rx settings → "الإملاء الصوتي",
+  shows the service's state). `prescriptions:transcribe` (POST WAV; member with clinical.edit or prescription.write;
+  503 JSON when the service is down). `status()`: 3 s timeout, "ready" cached 60 s, failures 5 s (a busy moment must not
+  flip a page to the online recogniser). Scheduler job `speech_boost` every 6 h (file rewritten only on change). Test
+  settings point SPEECH_DATA_DIR at tmp/ and SPEECH_URL at a closed port; mock with `settings.SPEECH_TRANSPORT`.
+- `dictation.js` `LocalSpeechProvider`: getUserMedia → ScriptProcessor (2048-sample blocks) → energy VAD with
+  hysteresis (start above max(0.01, 3× noise floor), keep going above half of it — the browser's noise suppression dips
+  inside words and once cut a sentence in two, the second half then misheard) → cut after 800 ms quiet (1.5 s for the
+  prescription mic: collect-and-post, nothing shown live, longer utterances = more context), max 15 s, < 0.3 s of *voiced*
+  time is dropped (a cough + the quiet after it is not a sentence), 4-block pre-roll → 16 kHz 16-bit WAV → POST one
+  utterance at a time (texts arrive in order) → `final`. Through Chrome's mic processing the model sometimes writes
+  أ/ة/periods (it doesn't on clean files) — matching normalises them, nothing to do. `pickProvider()`: local when `#voice-config[data-engine=local]` (desk_base) and the language is
+  Arabic; English keeps the browser's. Status icon (🎙 / ⏳) via `onStatus`; `graceMs` 15 s lets the last utterance
+  come back after the stop press. Browser tests drive it with synthetic frames (`_openMic` replaced).
+- Extraction fixes found by the bench (help every engine): a dose/form word glued to the name is split off (`_unglue`,
+  "بلينكنقطتين"), a name's last "ال" moved onto the next form/dose word is tried back ("انتين الكبسوله" → انتينال),
+  dose nouns (اللزوم/قرصه/الكبسوله/حبايه...) can never start or sit inside a name (everyday_words), "كبسوله" is a form.

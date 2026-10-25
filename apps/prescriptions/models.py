@@ -109,6 +109,12 @@ class PrintMode(models.TextChoices):
     PREPRINTED = "preprinted", _("ورق العيادة المطبوع")
 
 
+class VoiceEngine(models.TextChoices):
+    AUTO = "auto", _("تلقائي — على الجهاز لو متسطب، وإلا المتصفح")
+    LOCAL = "local", _("على الجهاز بس (من غير إنترنت)")
+    BROWSER = "browser", _("المتصفح بس (Chrome / Edge — محتاج إنترنت)")
+
+
 class PrescriptionSettings(TenantScopedModel):
     page_size = models.CharField(_("مقاس الورق"), max_length=2, choices=PageSize.choices, default=PageSize.A5)
     print_mode = models.CharField(_("وضع الطباعة"), max_length=10, choices=PrintMode.choices, default=PrintMode.FULL)
@@ -117,6 +123,13 @@ class PrescriptionSettings(TenantScopedModel):
     margin_right_mm = models.PositiveSmallIntegerField(_("هامش يمين (مم)"), default=12)
     margin_left_mm = models.PositiveSmallIntegerField(_("هامش شمال (مم)"), default=12)
     voice_dictation_enabled = models.BooleanField(_("الإملاء الصوتي"), default=True)
+    voice_engine = models.CharField(
+        _("محرك الصوت"),
+        max_length=10,
+        choices=VoiceEngine.choices,
+        default=VoiceEngine.AUTO,
+        help_text=_("على الجهاز: من غير إنترنت (لازم يتسطب مرة واحدة). المتصفح: Chrome / Edge ومحتاج إنترنت."),
+    )
     reception_can_reprint = models.BooleanField(_("الاستقبال تقدر تعيد طباعة الروشتات"), default=False)
 
     history = HistoricalRecords()

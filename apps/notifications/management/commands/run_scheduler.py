@@ -45,7 +45,15 @@ JOBS = [
     ("dispatch", timedelta(seconds=0), lambda now: dispatch.dispatcher.run_once(now)),
     ("cleanup", timedelta(days=1), lambda now: dispatch.cleanup(now)),
     ("backup", timedelta(hours=1), lambda now: _daily_backup(now)),
+    # drugs added / spoken forms learned since: the offline voice listens for them (file only rewritten on change)
+    ("speech_boost", timedelta(hours=6), lambda now: _speech_boost()),
 ]
+
+
+def _speech_boost():
+    from apps.prescriptions import speech
+
+    speech.write_boost()
 
 
 def tick(last_run: dict, now=None):

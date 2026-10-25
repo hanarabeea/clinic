@@ -6,7 +6,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count
-from django.http import Http404, HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
@@ -20,7 +20,7 @@ from apps.documents import pdf as engine
 from apps.notifications.models import NotificationSettings
 
 from . import categories as cats
-from . import extraction, matching, pdf, safety, services
+from . import extraction, matching, pdf, safety, services, speech
 from .forms import DrugForm, PrescriptionSettingsForm, RxNotifyForm
 from .models import (
     DRUG_FORMS,
@@ -483,6 +483,29 @@ def calibration_pdf(request):
     return resp
 
 
+# --- offline speech (speech.py) --------------------------------------------------------------
+
+
+MAX_AUDIO_BYTES = 2 * 1024 * 1024  # ~60 s of 16 kHz mono 16-bit WAV (dictation.js cuts utterances well before that)
+
+
+@require_POST
+@require_membership
+def transcribe(request):
+    """The offline recogniser: the mic posts each utterance (a WAV) here and gets the text back. Anyone who can write
+    in a visit or a prescription may dictate. Nothing said is stored or logged."""
+    m = request.membership
+    if not (has_perm(m, "clinical.edit") or has_perm(m, "prescription.write")):
+        raise PermissionDenied
+    if int(request.headers.get("Content-Length") or 0) > MAX_AUDIO_BYTES:
+        return JsonResponse({"error": "too_long"}, status=413)
+    try:
+        text = speech.transcribe(request.body)
+    except speech.SpeechError as e:
+        return JsonResponse({"error": str(e)}, status=503)
+    return JsonResponse({"text": text})
+
+
 # --- patient's prescriptions (desk tab + reception reprint) ----------------------------------
 
 
@@ -524,7 +547,13 @@ def settings_prescription(request):
         audit.log("settings.prescription", request=request)
         messages.success(request, _("إعدادات الروشتة اتحفظت."))
         return redirect("prescriptions:settings")
-    return render(request, "prescriptions/settings.html", {"form": form, "notify_form": notify_form, "tab": "rx"})
+    from . import speech
+
+    return render(
+        request,
+        "prescriptions/settings.html",
+        {"form": form, "notify_form": notify_form, "tab": "rx", "speech_status": speech.status()},
+    )
 
 
 @require_perm("drug.manage")

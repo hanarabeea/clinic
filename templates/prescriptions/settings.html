@@ -31,9 +31,19 @@
       <label class="flex items-center gap-2 text-sm font-semibold">{{ notify_form.send_prescription_after_visit }} {{ notify_form.send_prescription_after_visit.label }}</label>
       {% include "partials/field.html" with field=notify_form.prescription_channel %}
       <label class="flex items-center gap-2 text-sm font-semibold">{{ form.reception_can_reprint }} {{ form.reception_can_reprint.label }}</label>
-      <label class="flex items-center gap-2 text-sm font-semibold">{{ form.voice_dictation_enabled }} {{ form.voice_dictation_enabled.label }}</label>
     </div>
     <p class="text-xs text-stone-500">{% translate "النسخة اللي بتتبعت للمريض دايمًا بالتصميم الكامل، حتى لو الطباعة على ورق مطبوع." %}</p>
+  </section>
+
+  <section class="card space-y-4 p-4 sm:p-6" id="voice-settings">
+    <h2 class="font-bold">🎤 {% translate "الإملاء الصوتي" %}</h2>
+    <label class="flex items-center gap-2 text-sm font-semibold">{{ form.voice_dictation_enabled }} {{ form.voice_dictation_enabled.label }}</label>
+    <div class="max-w-xl">{% include "partials/field.html" with field=form.voice_engine %}</div>
+    <p class="rounded-lg px-3 py-2 text-sm {% if speech_status.ready %}bg-emerald-50 text-emerald-800{% else %}bg-stone-50 text-stone-600{% endif %}">
+      {% if speech_status.ready %}🟢 {% translate "الصوت على الجهاز شغال — مش محتاج إنترنت." %}
+      {% elif speech_status.loading %}🟡 {% translate "الصوت على الجهاز بيحمّل دلوقتي (أول تشغيل بياخد دقيقة)." %}
+      {% else %}⚪ {% translate "الصوت على الجهاز مش متسطب أو مش شغال. عشان يشتغل من غير إنترنت: شغّل speech\setup.bat مرة واحدة، وبعدين run.bat." %}{% endif %}
+    </p>
   </section>
 
   <div class="flex justify-end"><button class="btn-primary">{% translate "حفظ" %}</button></div>

@@ -22,5 +22,7 @@ STORAGES["staticfiles"] = {"BACKEND": "django.contrib.staticfiles.storage.Static
 MEDIA_ROOT = BASE_DIR / "tmp" / "test-media"
 PRIVATE_MEDIA_ROOT = MEDIA_ROOT / "private"
 STORAGES["default"]["OPTIONS"]["location"] = PRIVATE_MEDIA_ROOT
+SPEECH_DATA_DIR = BASE_DIR / "tmp" / "test-speech"  # never the real offline-voice folder
+SPEECH_URL = "http://127.0.0.1:9"  # nothing listens there: tests that need the service mock it (SPEECH_TRANSPORT)
 TESTING = True
 AUTO_BACKUP = False

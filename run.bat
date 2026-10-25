@@ -20,8 +20,10 @@ echo [4/6] Updating database...
 .venv\Scripts\python manage.py seed_notifications || goto :error
 .venv\Scripts\python manage.py import_drugs || goto :error
 .venv\Scripts\python manage.py import_egyptian_drugs || goto :error
-echo [5/6] Starting WhatsApp gateway and message scheduler...
+.venv\Scripts\python manage.py build_speech_boost
+echo [5/6] Starting WhatsApp gateway, offline voice and message scheduler...
 call :whatsapp
+call :speech
 start "DigiClinic Scheduler" /min .venv\Scripts\python manage.py run_scheduler
 echo.
 echo   [6/6] DigiClinic is running:  http://127.0.0.1:8010
@@ -52,6 +54,20 @@ if not exist whatsapp-gateway\node_modules (
 )
 start "DigiClinic WhatsApp" /min "%NODE_EXE%" whatsapp-gateway\server.js
 echo   WhatsApp gateway started.
+goto :eof
+
+:speech
+set "SPEECH_PY=%LOCALAPPDATA%\digiclinic\speech\.venv\Scripts\python.exe"
+if not exist "%SPEECH_PY%" (
+  echo   Offline voice not installed ^(speech\setup.bat^) - the mic uses Chrome / Edge ^(needs internet^).
+  goto :eof
+)
+curl -s -o nul http://127.0.0.1:3321/health && (
+  echo   Offline voice already running.
+  goto :eof
+)
+start "DigiClinic Voice" /min "%SPEECH_PY%" speech\server.py
+echo   Offline voice started ^(the model takes about a minute to load^).
 goto :eof
 
 :error

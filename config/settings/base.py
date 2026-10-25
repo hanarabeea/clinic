@@ -171,6 +171,12 @@ WA_GATEWAY_URL = env("WA_GATEWAY_URL", default="http://127.0.0.1:3320")
 WA_GATEWAY_KEY = env("WA_GATEWAY_KEY", default="")
 WA_WEBHOOK_SECRET = env("WA_WEBHOOK_SECRET", default="")  # defaults to WA_GATEWAY_KEY
 
+# Local offline speech-to-text service (speech/server.py). Only Django talks to it, over localhost; it reads the
+# drug-name list Django writes into SPEECH_DATA_DIR (manage.py build_speech_boost).
+SPEECH_URL = env("SPEECH_URL", default="http://127.0.0.1:3321")
+SPEECH_KEY = env("SPEECH_KEY", default="")  # defaults to WA_GATEWAY_KEY (as in speech/server.py)
+SPEECH_DATA_DIR = Path(env("SPEECH_DATA_DIR", default=str(_LOCAL_DATA / "speech")))
+
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

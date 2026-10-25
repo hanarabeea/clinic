@@ -381,7 +381,7 @@ def test_form_word_next_to_a_short_name_is_enough(org):
 
     Drug.objects.create(organization=org, name="BLINK INTENSIVE TEARS EYE DROPS 10 ML", aliases_ar=["بلينك انتينسيفي"])
     [item] = extraction.extract(org, "بص خدي قطره بلنك تلات مرات في اليوم")
-    assert item.candidates[0].drug.name.startswith("BLINK") and "3 مرات في اليوم" in item.instructions
+    assert item.candidates[0].drug.name.upper().startswith("BLINK") and "3 مرات في اليوم" in item.instructions
     assert extraction.extract(org, "بص كده الحمد لله") == []
 
 
@@ -468,3 +468,142 @@ def test_js_survives_the_browser_ending_sessions_repeatedly():
     recording, value = _in_browser(FAKE_RECOGNITION, scenario)
     assert "220, 38, 38" in recording  # still red = still recording
     assert "كونكور 5 الصبح" in value and "بنادول عند اللزوم" in value
+
+
+def test_offline_recogniser_quirks(org):
+    """The offline (local) recogniser glues a dose word onto the name, moves a name's last "ال" onto the next word,
+    and writes the dose noun with a suffix ("قرصه") — none of that may lose the drug or turn the regimen into a name."""
+    from apps.prescriptions import extraction
+
+    for name, alias in (("BLINK INTENSIVE TEARS EYE DROPS 10 ML", "بلينك"), ("ANTINAL 200MG 24 CAPS.", "انتينال"),
+                        ("PANADOL EXTRA 24 F.C. TABS.", "بانادول اكسترا"),
+                        ("LINEZOMENTIN 200MG/100ML I.V. INF.", "لينيزومينتين")):  # fmt: skip
+        Drug.objects.create(organization=org, name=name, aliases_ar=[alias])
+
+    [item] = extraction.extract(org, "قطره بلينكنقطتين في كل عين اربع مرات")
+    assert item.candidates[0].drug.name.upper().startswith("BLINK")
+    assert item.instructions.startswith("قطرة نقطتين في كل عين")
+
+    panadol, antinal = extraction.extract(org, "بانادول اكسترا قرصه عند اللزوم وانتين الكبسوله ثلاث مرات في اليوم")
+    assert panadol.candidates[0].drug.name.upper().startswith("PANADOL") and panadol.instructions == "عند اللزوم"
+    assert antinal.candidates[0].drug.name.upper().startswith("ANTINAL")  # not "اللزوم وانتين" glued into LINEZOMENTIN
+    assert antinal.instructions == "3 مرات في اليوم"
+
+    # a long name that only happens to end like a form word is never cut ("...شراب" needs 4+ letters before it)
+    assert extraction._unglue("شراب") == "شراب" and extraction._unglue("كبسوله") == "كبسوله"
+
+
+# --- the offline recogniser (LocalSpeechProvider → prescriptions:transcribe → speech/server.py) -------------------
+
+FAKE_LOCAL = """
+Object.defineProperty(window, "isSecureContext", { value: true });
+delete window.webkitSpeechRecognition; delete window.SpeechRecognition;  // e.g. Firefox: only the local engine
+// the test page isn't a secure origin, so the browser hides the mic API; the real app (localhost) has it
+Object.defineProperty(navigator, "mediaDevices", { value: { getUserMedia: async () => ({}) } });
+const cfg = document.createElement("div");
+cfg.id = "voice-config"; cfg.hidden = true; cfg.dataset.engine = "local"; cfg.dataset.transcribeUrl = "/speech/t/";
+document.body.appendChild(cfg);
+window.__posts = []; window.__replies = []; window.__status = 200;
+window.fetch = async (url, opts) => {
+  const bytes = new Uint8Array(await opts.body.arrayBuffer());
+  const view = new DataView(bytes.buffer);
+  window.__posts.push({ url, size: bytes.length, riff: String.fromCharCode(...bytes.slice(0, 4)),
+                        rate: view.getUint32(24, true), bits: view.getUint16(34, true) });
+  const text = window.__replies.shift() || "";
+  return { ok: window.__status === 200, status: window.__status, json: async () => ({ text }) };
+};
+window.__frame = (amp) => {
+  const a = new Float32Array(2048);  // the size the real recorder uses (~0.13 s)
+  for (let i = 0; i < a.length; i++) a[i] = amp * Math.sin(i / 5);
+  return a;
+};
+window.__feed = (amp, seconds) => {
+  for (let k = 0; k < Math.round(seconds * 16000 / 2048); k++) window.__prov._onFrame(window.__frame(amp), 16000);
+};
+window.__say = (seconds) => window.__feed(0.3, seconds);
+window.__pause = (seconds) => window.__feed(0, seconds);
+"""
+
+# the mic itself is replaced: the provider records whatever frames the test feeds it
+_OPEN_MIC = """
+window.DigiDictation.providers.local.prototype._openMic = function () {
+  window.__prov = this;
+  return Promise.resolve();
+};
+"""
+
+
+def test_local_engine_sends_each_utterance_and_inserts_the_text():
+    def scenario(page):
+        out = {
+            "mics": page.locator(".dictation-mic").count(),
+            "picked": page.evaluate("window.DigiDictation.pickProvider() === window.DigiDictation.providers.local"),
+        }
+        page.evaluate(_OPEN_MIC)
+        page.evaluate("window.__replies = ['كحة من يومين', 'وحرارة']")
+        page.evaluate("const t = document.getElementById('t'); t.focus(); t.setSelectionRange(4, 4);")
+        page.locator(".dictation-mic").click()
+        page.evaluate("window.__pause(0.5); window.__say(1.0); window.__pause(1.0)")  # an utterance + a pause → sent
+        page.wait_for_function("window.__posts.length === 1")
+        page.wait_for_function("document.getElementById('t').value.includes('كحة')")
+        page.evaluate("window.__say(0.8)")  # talking when the mic is pressed again: those words are sent too
+        page.locator(".dictation-mic").click()
+        page.wait_for_function("window.__posts.length === 2 && document.getElementById('t').value.includes('حرارة')")
+        page.wait_for_function("!document.querySelector('.dictation-interim').textContent")
+        out["value"] = page.locator("#t").input_value()
+        out["posts"] = page.evaluate("window.__posts")
+        return out
+
+    out = _in_browser(FAKE_LOCAL, scenario)
+    assert out["mics"] == 1 and out["picked"]  # the mic works without the browser's recogniser
+    assert out["value"] == "أهلا كحة من يومين وحرارة"
+    first = out["posts"][0]
+    assert (first["url"], first["riff"], first["rate"], first["bits"]) == ("/speech/t/", "RIFF", 16000, 16)
+    # ~1 s of speech + the half second before it + the pause that ended it — not the whole silence around it
+    assert 1.0 * 32000 < first["size"] < 2.5 * 32000
+
+
+def test_local_engine_ignores_short_noises_and_reports_a_stopped_service():
+    def scenario(page):
+        page.evaluate(_OPEN_MIC)
+        page.locator(".dictation-mic").click()
+        page.evaluate("window.__say(0.2); window.__pause(1.0)")  # a click / cough: not sent
+        out = {"posts_after_noise": page.evaluate("window.__posts.length")}
+        page.evaluate("window.__status = 503; window.__say(1.0); window.__pause(1.0)")
+        page.wait_for_function("document.querySelector('.dictation-interim').textContent.includes('مش شغال')")
+        out["message"] = page.locator(".dictation-interim").inner_text()
+        return out
+
+    out = _in_browser(FAKE_LOCAL, scenario)
+    assert out["posts_after_noise"] == 0
+    assert "الصوت على الجهاز مش شغال" in out["message"]
+
+
+def test_english_dictation_keeps_the_browser_engine():
+    # the doctor switched the mic to English (ع/EN toggle, remembered in localStorage)
+    english = "Object.defineProperty(window, 'localStorage', { value: { getItem: () => 'en-US', setItem() {} } });"
+    fake = FAKE_LOCAL.replace("delete window.webkitSpeechRecognition; delete window.SpeechRecognition;", english)
+    fake += FAKE_RECOGNITION.split("window.__say")[0]
+
+    def scenario(page):
+        d = "window.DigiDictation"
+        return page.evaluate(f"[{d}.providers.local.isSupported(), {d}.pickProvider() === {d}.providers.webspeech]")
+
+    assert _in_browser(fake, scenario) == [True, True]  # the local engine is there, but English goes to the browser
+
+
+def test_local_engine_keeps_a_sentence_with_short_pauses_whole():
+    """A breath between words (or the browser's noise suppression dipping) must not cut a sentence in two: the second
+    half heard alone loses its context ("كبسوله" → "كابسوليس" → a wrong drug, seen end-to-end)."""
+
+    def scenario(page):
+        page.evaluate(_OPEN_MIC)
+        page.evaluate("window.__replies = ['بانادول اكسترا وانتينال كبسوله']")
+        page.locator(".dictation-mic").click()
+        page.evaluate("window.__say(0.7); window.__pause(0.4); window.__say(0.7); window.__feed(0.006, 0.3);"
+                      "window.__say(0.5); window.__pause(1.0)")  # fmt: skip
+        page.wait_for_function("window.__posts.length >= 1")
+        page.wait_for_timeout(300)
+        return page.evaluate("window.__posts.length")
+
+    assert _in_browser(FAKE_LOCAL, scenario) == 1

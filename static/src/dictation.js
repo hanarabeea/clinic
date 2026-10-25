@@ -9,9 +9,10 @@
  * `data-dictate="rx"` (prescription): finals are collected instead of inserted; on stop the text is POSTed to
  * `data-dictate-url` and the server's line-by-line drug suggestions are shown in `data-dictate-target`.
  *
- * Providers implement: isSupported(), start(lang), stop(), onInterim(cb), onFinal(cb), onError(cb), onEnd(cb).
- * v1 = WebSpeechProvider (Chrome/Edge). A WhisperProvider (MediaRecorder → /api/transcribe/) can be added later
- * without touching the UI code.
+ * Providers implement: isSupported(), start(lang), stop(), onInterim(cb), onFinal(cb), onError(cb), onEnd(cb)
+ * (+ optional onStatus(cb), graceMs). WebSpeechProvider = the browser's recogniser (Chrome / Edge, online);
+ * LocalSpeechProvider = the offline service on this computer (speech/server.py), used when the desk's
+ * #voice-config says engine "local" (PrescriptionSettings.voice_engine + the service running).
  */
 (() => {
   "use strict";
@@ -48,7 +49,164 @@
     onEnd(cb) { this.handlers.end = cb; }
   }
 
-  const Provider = WebSpeechProvider;
+  /*
+   * The offline recogniser (speech/server.py on this computer — no internet). The mic is recorded here; a simple
+   * voice-activity detector cuts it at each pause, and every utterance is posted as a 16 kHz WAV to
+   * #voice-config[data-transcribe-url]; its text comes back as a "final". Utterances are sent one after another, so
+   * their texts arrive in the order they were said. Arabic only (the English toggle uses the browser's recogniser).
+   */
+  class LocalSpeechProvider {
+    static isSupported() {
+      return Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia
+        && (window.AudioContext || window.webkitAudioContext)) && window.isSecureContext !== false;
+    }
+
+    constructor() {
+      this.handlers = { interim: () => {}, final: () => {}, error: () => {}, end: () => {}, status: () => {} };
+      this.url = (document.getElementById("voice-config") || {}).dataset?.transcribeUrl;
+      this.graceMs = 15000;  // after stop: wait for the last utterances to come back from the service
+      this.queue = Promise.resolve();
+      this.speech = [];  // frames of the utterance being said
+      this.preroll = [];  // the moment just before speech starts (first syllable)
+      this.speaking = false;
+      this.quietMs = 0;
+      this.floor = 0.005;  // running estimate of the room's noise level
+      this.stopped = false;
+      this.rate = LocalSpeechProvider.RATE;
+      this.silenceMs = LocalSpeechProvider.SILENCE_MS;  // longer for the prescription mic (more context, nothing shown live)
+    }
+
+    start() {
+      this._openMic().catch((e) => {
+        const name = (e && e.name) || "";
+        this.handlers.error(name === "NotAllowedError" || name === "SecurityError" ? "not-allowed" : "audio-capture");
+      });
+    }
+
+    async _openMic() {
+      this.stream = await navigator.mediaDevices.getUserMedia({
+        audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+      });
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      try { this.ctx = new Ctx({ sampleRate: LocalSpeechProvider.RATE }); } catch (e) { this.ctx = new Ctx(); }
+      this.rate = this.ctx.sampleRate;
+      const source = this.ctx.createMediaStreamSource(this.stream);
+      this.node = this.ctx.createScriptProcessor(2048, 1, 1);  // ~0.13 s blocks: pauses measured finely
+      this.node.onaudioprocess = (ev) => this._onFrame(new Float32Array(ev.inputBuffer.getChannelData(0)), this.rate);
+      source.connect(this.node);
+      this.node.connect(this.ctx.destination);
+      this.handlers.status("🎙");
+    }
+
+    // one block of audio (~0.25 s): speech or silence? cut the utterance after SILENCE_MS of quiet
+    _onFrame(frame, rate) {
+      if (this.stopped) return;
+      let sum = 0;
+      for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i];
+      const rms = Math.sqrt(sum / frame.length);
+      const ms = (frame.length / rate) * 1000;
+      // hysteresis: starting needs a clear level; once talking, half of it keeps the utterance going (the browser's
+      // noise suppression / gain control make short dips inside words that must not cut a sentence in two)
+      const start = Math.max(LocalSpeechProvider.MIN_LEVEL, this.floor * 3);
+      const loud = rms > (this.speaking ? start / 2 : start);
+      if (!loud) this.floor = this.floor * 0.95 + rms * 0.05;
+      if (loud) {
+        if (!this.speaking) { this.speaking = true; this.speech = [...this.preroll]; this.voicedMs = 0; }
+        this.voicedMs += ms;
+        this.quietMs = 0;
+      } else if (this.speaking) {
+        this.quietMs += ms;
+      }
+      if (this.speaking) {
+        this.speech.push(frame);
+        const length = this.speech.reduce((n, f) => n + f.length, 0) / rate * 1000;
+        if (this.quietMs >= this.silenceMs || length >= LocalSpeechProvider.MAX_UTTERANCE_MS) {
+          this._cut(rate);
+        }
+      } else {
+        this.preroll = [...this.preroll, frame].slice(-4);
+      }
+    }
+
+    _cut(rate) {
+      const frames = this.speech;
+      const voiced = this.voicedMs;
+      this.speech = []; this.speaking = false; this.quietMs = 0; this.voicedMs = 0;
+      if (voiced < LocalSpeechProvider.MIN_UTTERANCE_S * 1000) return;  // a cough / click (the quiet after it doesn't count)
+      const wav = LocalSpeechProvider.wav(frames, rate);
+      this.handlers.status("⏳");
+      this.queue = this.queue.then(() => this._send(wav));
+    }
+
+    async _send(wav) {
+      let token = "";
+      try { token = (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || ""; } catch (e) { /* no cookie access */ }
+      token = token || document.querySelector("[name=csrfmiddlewaretoken]")?.value
+        || (JSON.parse(document.body.getAttribute("hx-headers") || "{}")["X-CSRFToken"] || "");
+      try {
+        const r = await fetch(this.url, { method: "POST", body: wav, headers: { "Content-Type": "audio/wav", "X-CSRFToken": token } });
+        if (!r.ok) { this.handlers.error(r.status === 503 ? "local-offline" : "local-error"); return; }
+        const data = await r.json();
+        if (data.text) this.handlers.final(data.text);
+        if (!this.stopped) this.handlers.status("🎙");
+      } catch (e) {
+        this.handlers.error("local-offline");
+      }
+    }
+
+    stop() {
+      if (this.stopped) return;
+      if (this.speaking) this._cut(this.rate);  // the words said just before the stop press
+      this.stopped = true;
+      try { this.node && this.node.disconnect(); } catch (e) { /* already */ }
+      try { this.stream && this.stream.getTracks().forEach((t) => t.stop()); } catch (e) { /* already */ }
+      try { this.ctx && this.ctx.close(); } catch (e) { /* already */ }
+      this.queue.then(() => this.handlers.end());
+    }
+
+    // mono 16-bit PCM WAV at 16 kHz (resampled when the browser recorded at another rate)
+    static wav(frames, rate) {
+      const total = frames.reduce((n, f) => n + f.length, 0);
+      const joined = new Float32Array(total);
+      let at = 0;
+      frames.forEach((f) => { joined.set(f, at); at += f.length; });
+      const out = LocalSpeechProvider.RATE;
+      const n = rate === out ? total : Math.floor(total * out / rate);
+      const view = new DataView(new ArrayBuffer(44 + n * 2));
+      const text = (o, s) => [...s].forEach((c, i) => view.setUint8(o + i, c.charCodeAt(0)));
+      text(0, "RIFF"); view.setUint32(4, 36 + n * 2, true); text(8, "WAVE"); text(12, "fmt ");
+      view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+      view.setUint32(24, out, true); view.setUint32(28, out * 2, true); view.setUint16(32, 2, true);
+      view.setUint16(34, 16, true); text(36, "data"); view.setUint32(40, n * 2, true);
+      for (let i = 0; i < n; i++) {
+        const v = rate === out ? joined[i] : joined[Math.min(total - 1, Math.floor(i * rate / out))];
+        view.setInt16(44 + i * 2, Math.max(-1, Math.min(1, v)) * 0x7fff, true);
+      }
+      return new Blob([view], { type: "audio/wav" });
+    }
+
+    onInterim(cb) { this.handlers.interim = cb; }
+    onFinal(cb) { this.handlers.final = cb; }
+    onError(cb) { this.handlers.error = cb; }
+    onEnd(cb) { this.handlers.end = cb; }
+    onStatus(cb) { this.handlers.status = cb; }
+  }
+  LocalSpeechProvider.RATE = 16000;
+  LocalSpeechProvider.SILENCE_MS = 800;  // a pause this long ends an utterance (sent at once: text appears while talking)
+  LocalSpeechProvider.COLLECT_SILENCE_MS = 1500;  // the prescription mic (collect-and-post): fewer, longer utterances
+  LocalSpeechProvider.MAX_UTTERANCE_MS = 15000;  // a long run without pauses is cut anyway
+  LocalSpeechProvider.MIN_UTTERANCE_S = 0.3;  // a cough / click is not sent
+  LocalSpeechProvider.MIN_LEVEL = 0.01;  // quieter than this is never speech
+
+  // "local" (the offline service) when the desk says so — for Arabic; the browser's recogniser otherwise
+  function pickProvider() {
+    const cfg = document.getElementById("voice-config");
+    if (cfg && cfg.dataset.engine === "local" && LocalSpeechProvider.isSupported() && langPref() === "ar-EG") {
+      return LocalSpeechProvider;
+    }
+    return WebSpeechProvider;
+  }
+
   const MAX_QUIET_MS = 5 * 60 * 1000;  // safety net: 5 minutes with nothing heard (mic forgotten on) stops it
   const RESTART_DELAY_MS = 250;  // Chrome needs a moment between two sessions
   const STOP_GRACE_MS = 1500;  // after the stop press, how long to wait for Chrome's last result
@@ -57,6 +215,8 @@
     "service-not-allowed": "المايك مقفول — اسمح للمتصفح يستخدم المايك.",
     network: "الإملاء الصوتي محتاج إنترنت.",
     "audio-capture": "مفيش مايك متوصل.",
+    "local-offline": "الصوت على الجهاز مش شغال — شغّل run.bat تاني، أو اختار «المتصفح» من إعدادات الروشتة.",
+    "local-error": "مقدرتش أفهم التسجيل ده — جرّب تاني.",
   };
 
   function applyCommands(text) {
@@ -160,7 +320,8 @@
         this.stopped = true;
         mic.style.background = "#f59e0b";  // amber: finishing (Chrome delivers the last words)
         if (provider) provider.stop();
-        setTimeout(done, STOP_GRACE_MS);  // Chrome usually ends sooner (onEnd → done)
+        // Chrome usually ends sooner (onEnd → done); the offline recogniser may still be transcribing the last words
+        setTimeout(done, (provider && provider.graceMs) || STOP_GRACE_MS);
       },
     };
     const finish = () => {
@@ -186,7 +347,9 @@
       }
     };
     const listen = () => {
-      provider = new Provider();
+      provider = new (pickProvider())();
+      if (el.dataset.dictateUrl && provider.silenceMs) provider.silenceMs = LocalSpeechProvider.COLLECT_SILENCE_MS;
+      if (provider.onStatus) provider.onStatus((t) => { if (!failed) interimEl.textContent = t; });
       provider.onInterim((text) => { interimEl.textContent = text; pending = text; if (text) lastSpeech = Date.now(); });
       provider.onFinal((text) => {
         lastSpeech = Date.now();
@@ -239,7 +402,7 @@
   }
 
   function scan(root) {
-    if (!Provider.isSupported()) {
+    if (!pickProvider().isSupported()) {
       (root.querySelectorAll ? root : document).querySelectorAll("[data-dictation-unsupported]").forEach((n) => {
         n.hidden = false;
       });
@@ -260,6 +423,9 @@
   document.addEventListener("DOMContentLoaded", () => scan(document));
   document.addEventListener("htmx:afterSettle", (e) => scan(e.target));
 
-  window.DigiDictation = { providers: { webspeech: WebSpeechProvider }, applyCommands, insertAtCursor, scan, attach };
+  window.DigiDictation = {
+    providers: { webspeech: WebSpeechProvider, local: LocalSpeechProvider }, pickProvider, applyCommands, insertAtCursor,
+    scan, attach,
+  };
   if (document.readyState !== "loading") scan(document);
 })();

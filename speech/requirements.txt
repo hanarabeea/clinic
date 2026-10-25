@@ -1,0 +1,7 @@
+# The offline speech service's own environment (speech\setup.bat) — never the project's .venv: torch + NeMo are large.
+# torch / torchaudio come from the CPU-only index (setup.bat): a clinic PC rarely has a GPU, and the CPU build is ~10x
+# smaller than the CUDA one.
+nemo_toolkit[asr]==3.0.0
+numpy
+huggingface_hub
+truststore

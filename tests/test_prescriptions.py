@@ -317,7 +317,7 @@ def test_settings_and_catalog_permissions(client, world, make_member):
     resp = client.post(reverse("prescriptions:settings"), {
         "page_size": "A5", "print_mode": "preprinted", "margin_top_mm": 50, "margin_bottom_mm": 25,
         "margin_right_mm": 10, "margin_left_mm": 10, "prescription_channel": "whatsapp",
-        "send_prescription_after_visit": "on",
+        "send_prescription_after_visit": "on", "voice_engine": "auto",
     })  # fmt: skip
     assert resp.status_code == 302
     assert PrescriptionSettings.objects.get(organization=world["org"]).margin_top_mm == 50

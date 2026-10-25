@@ -11,6 +11,7 @@ urlpatterns = [
     path("rx/<int:pk>/fields/", views.rx_fields, name="fields"),
     path("rx/<int:pk>/pdf/", views.rx_pdf, name="pdf"),
     path("rx/<int:pk>/dictate/", views.dictate, name="dictate"),
+    path("speech/transcribe/", views.transcribe, name="transcribe"),
     path("rx/<int:pk>/dictate/add/", views.dictate_add, name="dictate_add"),
     path("rx/<int:pk>/<str:action>/", views.rx_action, name="action"),
     path("rx/items/<int:item_pk>/", views.item_update, name="item_update"),

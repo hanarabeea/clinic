@@ -82,10 +82,13 @@ def _header_ctx(patient, current=None):
 def _queue_ctx(request):
     doctor = get_doctor(request.organization)
     current, waiting, not_arrived = services.today_queue(doctor)
+    from apps.prescriptions import speech
     from apps.prescriptions.models import PrescriptionSettings
 
-    voice = PrescriptionSettings.for_org(request.organization).voice_dictation_enabled
+    rx_settings = PrescriptionSettings.for_org(request.organization)
+    voice = rx_settings.voice_dictation_enabled
     return {
+        "voice_engine": speech.engine(rx_settings) if voice else "",
         "doctor": doctor,
         "q_current": current,
         "q_waiting": waiting,
