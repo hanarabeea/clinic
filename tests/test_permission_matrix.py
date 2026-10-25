@@ -176,7 +176,7 @@ GATED = sorted(
 
 
 def test_almost_every_url_is_gated():
-    """Only login/reset/invite pages, the health check, the gateway webhook and a few "any member" pages (home, logo,
+    """Only login/reset pages, the health check, the gateway webhook and a few "any member" pages (home, logo,
     prescription PDF/list — which check permissions inside) are not behind a named permission."""
     ungated = sorted(
         name
@@ -193,7 +193,6 @@ def test_almost_every_url_is_gated():
             "accounts:password_reset_done",
             "accounts:password_reset_confirm",
             "accounts:password_reset_complete",
-            "accounts:accept_invite",
             "messaging:whatsapp_webhook",
         ]
     )
@@ -581,7 +580,8 @@ def test_employee_given_user_manage_cannot_go_above_themselves(client, org_a, ro
     assert viewer.granted_permissions == ["payment.record"]
     assert (
         client.post(
-            reverse("accounts:invite_create"), {"full_name": "x", "email": "x@example.com", "role": admin_role}
+            reverse("accounts:member_create"),
+            {"full_name": "x", "username": "x", "password1": PASSWORD, "password2": PASSWORD, "role": admin_role},
         ).status_code
         == 400
     )

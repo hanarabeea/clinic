@@ -1,10 +1,7 @@
 """The clinic's own roles (apps/accounts/roles.py): created / renamed / copied / edited / deleted from the screen,
-assigned to employees and invitations, and an employee's pages and buttons follow their role at once."""
-
-import importlib
+assigned to employees, and an employee's pages and buttons follow their role at once."""
 
 import pytest
-from django.apps import apps as django_apps
 from django.urls import reverse
 
 from apps.accounts.permissions import ROLE_PERMISSIONS, effective_permissions
@@ -50,24 +47,6 @@ def test_a_deleted_default_role_is_not_recreated(org_a):
     _roles(org_a)["viewer"].delete()
     ensure_defaults(org_a)
     assert not ClinicRole.objects.filter(organization=org_a, key="viewer").exists()
-
-
-def test_data_migration_moves_existing_members_and_invitations(org_a, make_member):
-    from apps.accounts.models import Invitation
-
-    m = Membership.objects.get(user=make_member(org_a, "doctor"))
-    own = Membership.objects.get(user=make_member(org_a, "owner"))
-    inv, _token = Invitation.create_for(organization=org_a, email="n@example.com", full_name="N", role="viewer",
-                                        invited_by=None)  # fmt: skip
-    migration = importlib.import_module("apps.accounts.migrations.0004_clinic_roles_data")
-    migration.forwards(django_apps, None)
-    m.refresh_from_db()
-    own.refresh_from_db()
-    inv.refresh_from_db()
-    assert m.role == "member" and m.clinic_role.key == "doctor"
-    assert set(m.clinic_role.permissions) == ROLE_PERMISSIONS[Role.DOCTOR]
-    assert own.role == Role.OWNER and own.clinic_role is None
-    assert inv.role == "member" and inv.clinic_role.key == "viewer"
 
 
 # ---------------------------------------------------------------- the roles screen
@@ -155,8 +134,6 @@ def test_implied_permissions_are_added_to_a_role(client, org_a, owner):
 
 
 def test_delete_only_when_nobody_uses_it(client, org_a, owner, make_member):
-    from apps.accounts.models import Invitation
-
     roles = _roles(org_a)
     client.force_login(owner)
     m = Membership.objects.get(user=make_member(org_a, "viewer"))
@@ -165,28 +142,20 @@ def test_delete_only_when_nobody_uses_it(client, org_a, owner, make_member):
     assert "انقلهم لدور تاني" in resp.content.decode()
     assert ClinicRole.objects.filter(pk=roles["viewer"].pk).exists()
 
-    Invitation.create_for(organization=org_a, email="z@example.com", full_name="Z", role=Role.MEMBER,
-                          clinic_role=roles["admin"], invited_by=None)  # fmt: skip
-    client.post(reverse("accounts:role_delete", args=[roles["admin"].pk]))
-    assert ClinicRole.objects.filter(pk=roles["admin"].pk).exists()
-
     m.clinic_role = roles["reception"]
     m.save()
     client.post(reverse("accounts:role_delete", args=[roles["viewer"].pk]))
     assert not ClinicRole.objects.filter(pk=roles["viewer"].pk).exists()
 
 
-def test_invite_with_a_custom_role(client, org_a, owner):
+def test_add_a_user_on_a_custom_role(client, org_a, owner):
     client.force_login(owner)
     _save_role(client, reverse("accounts:role_new"), "محاسب", {"payment.record", "report.finance"})
     role = ClinicRole.objects.get(organization=org_a, name="محاسب")
-    client.post(reverse("accounts:invite_create"), {"full_name": "Sara", "email": "sara@example.com", "role": role.pk})
-    link = client.session["new_invite_link"]
-    client.logout()
-    path = "/" + link.split("/", 3)[3]
-    assert "محاسب" in client.get(path).content.decode()
-    client.post(path, {"full_name": "Sara", "password1": PASSWORD, "password2": PASSWORD})
-    m = Membership.objects.get(user__email="sara@example.com")
+    data = {"full_name": "Sara", "username": "sara", "password1": PASSWORD, "password2": PASSWORD, "role": role.pk}
+    assert client.post(reverse("accounts:member_create"), data).status_code == 302
+    m = Membership.objects.get(user__username="sara")
+    assert "محاسب" in client.get(reverse("accounts:users")).content.decode()
     assert m.clinic_role == role
     assert effective_permissions(m) == {"payment.record", "report.finance"}
 

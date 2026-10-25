@@ -48,6 +48,7 @@ class Command(BaseCommand):
         owners = list(
             Membership.objects.filter(organization=org, role=Role.OWNER, is_active=True)
             .exclude(user__email="")
+            .exclude(user__email__isnull=True)
             .values_list("user__email", flat=True)
         )
         if not owners:

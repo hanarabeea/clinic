@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "تعديل" %} — {{ member.user.full_name }}{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center gap-3">
+  <a href="{% url 'accounts:users' %}" class="btn-ghost px-2 py-1 text-sm">→ {% translate "المستخدمين" %}</a>
+  <h1 class="text-2xl font-bold">{{ member.user.full_name }}</h1>
+  <span class="badge bg-sand text-stone-700">{{ member.role_name }}</span>
+</div>
+<form method="post" class="card max-w-xl space-y-4 p-4 sm:p-6" novalidate autocomplete="off">
+  {% csrf_token %}
+  {% include "partials/field.html" with field=form.full_name %}
+  {% include "partials/field.html" with field=form.username %}
+  {% include "partials/field.html" with field=form.email %}
+  <div class="border-t border-stone-100 pt-4">
+    <p class="mb-3 text-sm text-stone-600">{% translate "نسي كلمة السر؟ اكتب له واحدة جديدة هنا وادّيهاله." %}</p>
+    <div class="space-y-4">
+      {% include "partials/field.html" with field=form.password1 %}
+      {% include "partials/field.html" with field=form.password2 %}
+    </div>
+  </div>
+  <div class="flex gap-2">
+    <button type="submit" class="btn-primary px-6">{% translate "حفظ" %}</button>
+    <a href="{% url 'accounts:users' %}" class="btn-ghost">{% translate "رجوع" %}</a>
+  </div>
+</form>
+{% endblock %}

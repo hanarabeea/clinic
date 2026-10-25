@@ -7,21 +7,9 @@
 </div>
 {% include "accounts/partials/users_tabs.html" with tab="users" %}
 
-{% if new_link %}
-<div class="card mb-6 border-brand/30 bg-brand-soft p-4" x-data="{ copied: false }">
-  <div class="mb-2 text-sm font-semibold">{% translate "رابط الدعوة (ابعته للمستخدم — مش هيظهر تاني):" %}</div>
-  <div class="flex flex-col gap-2 sm:flex-row">
-    <input type="text" readonly value="{{ new_link }}" dir="ltr" x-ref="link" class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs">
-    <button type="button" class="btn-secondary shrink-0" @click="navigator.clipboard.writeText($refs.link.value); copied = true">
-      <span x-show="!copied">{% translate "نسخ" %}</span><span x-cloak x-show="copied">{% translate "اتنسخ ✓" %}</span>
-    </button>
-  </div>
-</div>
-{% endif %}
-
 <div class="grid gap-6 lg:grid-cols-3">
   <section class="card overflow-hidden lg:col-span-2">
-    <div class="border-b border-stone-100 px-4 py-3 font-bold">{% translate "أعضاء الشركة" %}</div>
+    <div class="border-b border-stone-100 px-4 py-3 font-bold">{% translate "موظفين العيادة" %}</div>
     <ul class="divide-y divide-stone-100">
       {% for m in memberships %}
       <li class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
@@ -32,7 +20,7 @@
             {% if m.user == request.user %}<span class="badge bg-sand text-stone-600">{% translate "أنت" %}</span>{% endif %}
             {% if m.granted_permissions or m.revoked_permissions %}<span class="badge bg-amber-100 text-amber-800">{% translate "صلاحيات متعدّلة" %}</span>{% endif %}
           </div>
-          <div class="truncate text-xs text-stone-500" dir="ltr">{{ m.user.email }}</div>
+          <div class="truncate text-xs text-stone-500"><span dir="ltr">{{ m.user.username }}</span>{% if m.user.email and m.user.email != m.user.username %} · <span dir="ltr">{{ m.user.email }}</span>{% endif %}</div>
         </div>
         {% if m.can_edit %}
         <div class="flex flex-wrap items-center gap-2">
@@ -45,6 +33,7 @@
             </select>
           </form>
           {% else %}<span class="badge bg-sand text-stone-700">{{ m.role_name }}</span>{% endif %}
+          <a href="{% url 'accounts:member_edit' m.pk %}" class="btn-ghost px-3 py-1.5 text-sm" title="{% translate 'الاسم واسم المستخدم والإيميل وكلمة السر' %}">✎ {% translate "تعديل" %}</a>
           {% if m.role != 'owner' %}<a href="{% url 'accounts:membership_permissions' m.pk %}" class="btn-secondary px-3 py-1.5 text-sm">🔑 {% translate "الصلاحيات" %}</a>{% endif %}
           <form method="post" action="{% url 'accounts:membership_toggle' m.pk %}"
                 onsubmit="return confirm('{% if m.is_active %}{% translate 'متأكد إنك عايز توقف الحساب ده؟' %}{% else %}{% translate 'تفعيل الحساب ده تاني؟' %}{% endif %}')">
@@ -61,36 +50,21 @@
       {% endfor %}
     </ul>
 
-    {% if invitations %}
-    <div class="border-y border-stone-100 bg-stone-50 px-4 py-2 text-sm font-bold">{% translate "دعوات لسه متقبلتش" %}</div>
-    <ul class="divide-y divide-stone-100">
-      {% for inv in invitations %}
-      <li class="flex items-center gap-3 px-4 py-3">
-        <div class="min-w-0 flex-1">
-          <div class="truncate font-semibold">{{ inv.full_name }} <span class="badge bg-sand text-stone-600">{{ inv.role_name }}</span></div>
-          <div class="truncate text-xs text-stone-500"><span dir="ltr">{{ inv.email }}</span> · {% translate "تنتهي" %} {{ inv.expires_at|date:"Y/m/d H:i" }}</div>
-        </div>
-        {% if inv.can_revoke %}
-        <form method="post" action="{% url 'accounts:invite_revoke' inv.pk %}" onsubmit="return confirm('{% translate 'إلغاء الدعوة دي؟' %}')">
-          {% csrf_token %}
-          <button type="submit" class="btn-ghost px-3 py-1.5 text-sm">{% translate "إلغاء" %}</button>
-        </form>
-        {% endif %}
-      </li>
-      {% endfor %}
-    </ul>
-    {% endif %}
   </section>
 
   {% if role_choices %}
   <section class="card h-fit p-4">
-    <h2 class="mb-4 font-bold">{% translate "دعوة مستخدم جديد" %}</h2>
-    <form method="post" action="{% url 'accounts:invite_create' %}" class="space-y-4" novalidate>
+    <h2 class="mb-1 font-bold">{% translate "إضافة مستخدم" %}</h2>
+    <p class="mb-4 text-xs text-stone-500">{% translate "يقدر يدخل على طول باسم المستخدم (أو الإيميل لو كتبته) وكلمة السر — ادّيهم له." %}</p>
+    <form method="post" action="{% url 'accounts:member_create' %}" class="space-y-4" novalidate autocomplete="off">
       {% csrf_token %}
       {% include "partials/field.html" with field=form.full_name %}
+      {% include "partials/field.html" with field=form.username %}
+      {% include "partials/field.html" with field=form.password1 %}
+      {% include "partials/field.html" with field=form.password2 %}
       {% include "partials/field.html" with field=form.email %}
       {% include "partials/field.html" with field=form.role %}
-      <button type="submit" class="btn-primary w-full">{% translate "إنشاء رابط دعوة" %}</button>
+      <button type="submit" class="btn-primary w-full">＋ {% translate "إضافة المستخدم" %}</button>
     </form>
   </section>
   {% endif %}

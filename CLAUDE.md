@@ -471,3 +471,16 @@ gotchas and conventions introduced in that phase.
   reception unless the owner gives him those permissions). Audit: `role.created/updated/deleted`.
 - Tests: `tests/test_roles.py`; `role_choice(org, key)` fixture gives the select value of a default role;
   `test_permission_matrix._member(..., clinic_perms=...)` puts a crawl profile on a custom role.
+
+## Users without invitations (2026-10-25)
+- Invitations are gone (model deleted in `accounts/0005_username_optional_email`, no invite links/e-mails). Users →
+  "إضافة مستخدم" (`accounts:member_create`, user.manage): name, **username** (required, `USERNAME_RE` = letters incl.
+  Arabic, digits, `. _ -`, never "@"), password ×2 (validators), optional email, role → they sign in right away.
+  `accounts:member_edit` changes name/username/email and sets a new password (the only reset for users without an
+  email; the e-mail reset page still works for those with one). Same `_can_edit` rules as the rest of the screen.
+  Audit: `user.created`, `user.edited`.
+- `User.USERNAME_FIELD = "username"`; email nullable + unique (stored lowercase, "" saved as NULL). Existing users got
+  their email as username (it contains "@", so the edit form accepts an unchanged username that doesn't match the
+  regex). `UserManager.create_user(username=None, email=None, password=None, ...)` uses the email as username when none
+  is given (tests' `make_member(..., email=...)` rely on that). Login = `accounts.backends.UsernameOrEmailBackend`
+  (username or email, case-insensitive; axes still first). `create_user --username [--email]` (one of them).

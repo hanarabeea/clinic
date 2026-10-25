@@ -1,4 +1,5 @@
 from django.contrib.auth.signals import user_logged_in, user_logged_out, user_login_failed
+from django.db.models import Q
 from django.dispatch import receiver
 
 from apps.organizations.models import Membership
@@ -13,24 +14,24 @@ def _org_of(user):
 
 @receiver(user_logged_in)
 def on_login(sender, request, user, **kwargs):
-    log("auth.login", request=request, org=_org_of(user), actor=user, summary=user.email)
+    log("auth.login", request=request, org=_org_of(user), actor=user, summary=user.username)
 
 
 @receiver(user_logged_out)
 def on_logout(sender, request, user, **kwargs):
     if user is not None:
-        log("auth.logout", request=request, org=_org_of(user), actor=user, summary=user.email)
+        log("auth.logout", request=request, org=_org_of(user), actor=user, summary=user.username)
 
 
 @receiver(user_login_failed)
 def on_login_failed(sender, credentials, request=None, **kwargs):
     from apps.accounts.models import User
 
-    email = (credentials or {}).get("username", "") or ""
-    user = User.objects.filter(email=email.lower()).first() if email else None
+    login = ((credentials or {}).get("username", "") or "").strip()
+    user = User.objects.filter(Q(username__iexact=login) | Q(email__iexact=login)).first() if login else None
     log(
         "auth.login_failed",
         request=request,
         org=_org_of(user) if user else None,
-        summary=email[:150],  # the attempted email only, never the password
+        summary=login[:150],  # the attempted username / email only, never the password
     )

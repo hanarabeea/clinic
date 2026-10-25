@@ -36,7 +36,7 @@
       <h2 class="mb-2 font-bold">{% translate "ابعت إيميل تجربة" %}</h2>
       <form method="post" action="{% url 'messaging:email_test' %}" class="space-y-2">
         {% csrf_token %}
-        <input type="email" name="to" value="{{ request.user.email }}" dir="ltr" class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">
+        <input type="email" name="to" value="{{ request.user.email|default:'' }}" dir="ltr" class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm">
         <button class="btn-secondary w-full">{% translate "ابعت" %}</button>
       </form>
     </section>

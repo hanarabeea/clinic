@@ -67,7 +67,7 @@ def choices_for(editor, org):
 
 
 def value_of(m) -> str:
-    """The choice value a member / invitation currently has (for the role select)."""
+    """The choice value a member currently has (for the role select)."""
     if m.role == Role.OWNER:
         return OWNER_CHOICE
     return str(m.clinic_role_id) if m.clinic_role_id else ""
@@ -102,11 +102,7 @@ def save_role(role, *, name, description, perms):
 
 def in_use(role) -> str:
     """Why a role can't be deleted ("" when it can)."""
-    from .models import Invitation
-
     n = Membership.objects.filter(clinic_role=role).count()
     if n:
         return _("فيه %(n)s موظف على الدور ده — انقلهم لدور تاني الأول.") % {"n": n}
-    if Invitation.objects.filter(clinic_role=role).pending().exists():
-        return _("فيه دعوة لسه متقبلتش بالدور ده — الغيها الأول.")
     return ""

@@ -63,7 +63,10 @@ def email_test(request):
             messages.error(request, _("احفظ الإعدادات الأول."))
             return redirect("messaging:email_settings")
         provider = services.SmtpEmailProvider(cfg.config, cfg.display_name)
-    to = request.POST.get("to") or request.user.email
+    to = (request.POST.get("to") or request.user.email or "").strip()
+    if not to:
+        messages.error(request, _("اكتب الإيميل اللي هتبعتله التجربة."))
+        return redirect("messaging:email_settings")
     result = provider.send_test(to)
     cfg.status = ChannelStatus.CONNECTED if result.ok else ChannelStatus.ERROR
     cfg.last_error = "" if result.ok else result.error

@@ -28,6 +28,8 @@ ACTION_LABELS = {
     "user.invited": _("دعوة مستخدم"),
     "user.invite_revoked": _("إلغاء دعوة"),
     "user.joined": _("مستخدم انضم"),
+    "user.created": _("إضافة مستخدم"),
+    "user.edited": _("تعديل بيانات مستخدم"),
     "user.role": _("تغيير دور"),
     "user.permissions": _("تغيير صلاحيات موظف"),
     "role.created": _("دور جديد"),

@@ -1,14 +1,10 @@
 from django.contrib import messages
-from django.contrib.auth import login, logout
 from django.contrib.auth import views as auth_views
 from django.core.exceptions import PermissionDenied
-from django.core.mail import send_mail
 from django.db import transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404, redirect, render
-from django.template.loader import render_to_string
-from django.urls import reverse, reverse_lazy
-from django.utils import timezone
+from django.urls import reverse_lazy
 from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
@@ -16,8 +12,8 @@ from apps.audit import services as audit
 from apps.organizations.models import ClinicRole, Membership, Role
 
 from . import roles
-from .forms import AcceptInviteForm, ClinicRoleForm, EmailAuthenticationForm, InviteForm, RoleForm
-from .models import Invitation, User
+from .forms import ClinicRoleForm, EmailAuthenticationForm, RoleForm, UserCreateForm, UserDetailsForm
+from .models import User
 from .permissions import (
     IMPLIES,
     PERMISSION_GROUPS,
@@ -39,8 +35,8 @@ class LoginView(auth_views.LoginView):
             # already signed in: say so, instead of silently landing on that account's home page
             messages.info(
                 request,
-                _("إنت داخل بالفعل بحساب %(email)s — اعمل «تسجيل الخروج» الأول لو عايز تدخل بحساب تاني.")
-                % {"email": request.user.email},
+                _("إنت داخل بالفعل بحساب %(name)s — اعمل «تسجيل الخروج» الأول لو عايز تدخل بحساب تاني.")
+                % {"name": request.user.username},
             )
         return super().dispatch(request, *args, **kwargs)
 
@@ -80,14 +76,6 @@ def _can_edit(request, m) -> bool:
     return m.role != Role.OWNER and effective_permissions(m) <= effective_permissions(editor)
 
 
-def _send_invite_email(request, invitation, link):
-    body = render_to_string(
-        "accounts/emails/invitation.txt",
-        {"invitation": invitation, "link": link, "org": invitation.organization},
-    )
-    send_mail(_("دعوة للانضمام إلى DigiClinic"), body, None, [invitation.email])
-
-
 def _users_ctx(request, form=None):
     org = request.organization
     roles.ensure_defaults(org)
@@ -102,60 +90,45 @@ def _users_ctx(request, form=None):
         m.can_edit = _can_edit(request, m)
         m.role_value = roles.value_of(m)
         m.role_editable = m.role_value in allowed
-    invitations = list(Invitation.objects.for_org(org).pending().select_related("clinic_role").order_by("-created_at"))
-    for inv in invitations:
-        inv.can_revoke = roles.value_of(inv) in allowed
     return {
         "memberships": memberships,
-        "invitations": invitations,
-        "form": form or InviteForm(organization=org, choices=choices),
+        "form": form or UserCreateForm(organization=org, choices=choices),
         "role_choices": choices,
     }
 
 
 @require_perm("user.manage")
 def users_list(request):
-    ctx = _users_ctx(request)
-    ctx["new_link"] = request.session.pop("new_invite_link", None)
-    return render(request, "accounts/users.html", ctx)
+    return render(request, "accounts/users.html", _users_ctx(request))
 
 
 @require_POST
 @require_perm("user.manage")
-def invite_create(request):
+def member_create(request):
+    """Add an employee directly: they can sign in right away with the username (or the email, if given)."""
     org = request.organization
     roles.ensure_defaults(org)
-    form = InviteForm(request.POST, organization=org, choices=roles.choices_for(request.membership, org))
+    form = UserCreateForm(request.POST, organization=org, choices=roles.choices_for(request.membership, org))
     if not form.is_valid():
         return render(request, "accounts/users.html", _users_ctx(request, form), status=400)
-    role, clinic_role = roles.resolve(org, form.cleaned_data["role"])
-    inv, token = Invitation.create_for(
-        organization=org,
-        email=form.cleaned_data["email"],
-        full_name=form.cleaned_data["full_name"],
-        role=role,
-        clinic_role=clinic_role,
-        invited_by=request.user,
+    d = form.cleaned_data
+    role, clinic_role = roles.resolve(org, d["role"])
+    with transaction.atomic():
+        user = User.objects.create_user(
+            username=d["username"], email=d["email"], password=d["password1"], full_name=d["full_name"]
+        )
+        Membership.objects.create(user=user, organization=org, role=role, clinic_role=clinic_role)
+    audit.log(
+        "user.created",
+        request=request,
+        target=user,
+        summary=f"{user.full_name} ({user.username}) — {clinic_role or role.label}",
     )
-    link = request.build_absolute_uri(reverse("accounts:accept_invite", args=[token]))
-    _send_invite_email(request, inv, link)
-    request.session["new_invite_link"] = link
-    audit.log("user.invited", request=request, summary=f"{inv.full_name} <{inv.email}> — {inv.role_name}")
-    messages.success(request, _("اتعملت الدعوة. ابعت الرابط للمستخدم، وصالح لمدة 48 ساعة."))
-    return redirect("accounts:users")
-
-
-@require_POST
-@require_perm("user.manage")
-def invite_revoke(request, pk):
-    org = request.organization
-    inv = get_object_or_404(Invitation.objects.for_org(org).pending(), pk=pk)
-    if roles.value_of(inv) not in {v for v, _l in roles.choices_for(request.membership, org)}:
-        raise PermissionDenied
-    inv.revoked_at = timezone.now()
-    inv.save(update_fields=["revoked_at", "updated_at"])
-    audit.log("user.invite_revoked", request=request, summary=inv.email)
-    messages.success(request, _("الدعوة اتلغت."))
+    messages.success(
+        request,
+        _("اتضاف %(name)s. يقدر يدخل دلوقتي باسم المستخدم «%(username)s» وكلمة السر.")
+        % {"name": user.full_name, "username": user.username},
+    )
     return redirect("accounts:users")
 
 
@@ -168,6 +141,29 @@ def _editable_membership(request, pk):
     return m
 
 
+@require_perm("user.manage")
+def member_edit(request, pk):
+    """Name, username, email and (optionally) a new password for an employee — how a forgotten password is reset for
+    someone without an email."""
+    m = _editable_membership(request, pk)
+    user = m.user
+    form = UserDetailsForm(request.POST or None, user=user)
+    if request.method == "POST" and form.is_valid():
+        d = form.cleaned_data
+        changed = [f for f in ("full_name", "username", "email") if getattr(user, f) != d[f]]
+        user.full_name, user.username, user.email = d["full_name"], d["username"], d["email"]
+        if d["password1"]:
+            user.set_password(d["password1"])
+            changed.append("password")
+        user.save()
+        audit.log("user.edited", request=request, target=user, summary=f"{user.username}: {', '.join(changed) or '—'}")
+        messages.success(
+            request, _("البيانات اتحفظت.") if "password" not in changed else _("البيانات وكلمة السر اتحفظوا.")
+        )
+        return redirect("accounts:users")
+    return render(request, "accounts/member_edit.html", {"member": m, "form": form}, status=400 if form.errors else 200)
+
+
 @require_POST
 @require_perm("user.manage")
 def membership_role(request, pk):
@@ -178,7 +174,7 @@ def membership_role(request, pk):
         # a new role starts from that role's permissions: what was added / taken away for the old role is dropped
         m.granted_permissions, m.revoked_permissions = [], []
         m.save(update_fields=["role", "clinic_role", "granted_permissions", "revoked_permissions", "updated_at"])
-        audit.log("user.role", request=request, summary=f"{m.user.email} → {m.role_name}")
+        audit.log("user.role", request=request, summary=f"{m.user.username} → {m.role_name}")
         messages.success(request, _("الدور اتغير."))
     else:
         messages.error(request, _("الدور ده مش مسموح."))
@@ -240,7 +236,7 @@ def membership_permissions(request, pk):
             m.revoked_permissions = sorted(base - wanted)
             summary = _change_summary(current, wanted)
         m.save(update_fields=["granted_permissions", "revoked_permissions", "updated_at"])
-        audit.log("user.permissions", request=request, summary=f"{m.user.email}: {summary or 'من غير تغيير'}")
+        audit.log("user.permissions", request=request, summary=f"{m.user.username}: {summary or 'من غير تغيير'}")
         messages.success(request, _("الصلاحيات اتحفظت."))
         return redirect("accounts:membership_permissions", pk=m.pk)
     return render(
@@ -260,7 +256,7 @@ def membership_toggle(request, pk):
     m = _editable_membership(request, pk)
     m.is_active = not m.is_active
     m.save(update_fields=["is_active", "updated_at"])
-    audit.log("user.toggled", request=request, summary=f"{m.user.email}: {'مفعّل' if m.is_active else 'موقوف'}")
+    audit.log("user.toggled", request=request, summary=f"{m.user.username}: {'مفعّل' if m.is_active else 'موقوف'}")
     messages.success(request, _("الحساب اتفعّل.") if m.is_active else _("الحساب اتوقف."))
     return redirect("accounts:users")
 
@@ -341,51 +337,3 @@ def role_delete(request, pk):
     audit.log("role.deleted", request=request, summary=name)
     messages.success(request, _("الدور اتمسح."))
     return redirect("accounts:roles")
-
-
-def accept_invite(request, token):
-    inv = Invitation.from_token(token)
-    if inv is None:
-        return render(request, "accounts/invite_invalid.html", status=404)
-    if request.user.is_authenticated and request.user.email.lower() != inv.email:
-        # someone else is signed in in this browser (often the owner opening the link to try it): sign them out,
-        # or the new employee would end up looking at the owner's account
-        other = request.user.email
-        logout(request)
-        messages.info(request, _("اتعمل خروج من حساب %(email)s عشان تكمل الدعوة.") % {"email": other})
-
-    existing = User.objects.filter(email=inv.email).first()
-    if existing is not None:
-        if request.method == "POST":
-            with transaction.atomic():
-                Membership.objects.update_or_create(
-                    user=existing,
-                    organization=inv.organization,
-                    defaults={"role": inv.role, "clinic_role": inv.clinic_role, "is_active": True},
-                )
-                inv.accepted_at = timezone.now()
-                inv.save(update_fields=["accepted_at", "updated_at"])
-            if request.user.is_authenticated:  # it's them
-                messages.success(request, _("اتضافت للعيادة."))
-                return redirect("dashboard:home")
-            messages.success(request, _("اتضافت للعيادة. ادخل بحسابك."))
-            return redirect("accounts:login")
-        return render(request, "accounts/accept_invite.html", {"invitation": inv, "existing": True})
-
-    form = AcceptInviteForm(request.POST or None, email=inv.email, initial={"full_name": inv.full_name})
-    if request.method == "POST" and form.is_valid():
-        with transaction.atomic():
-            user = User.objects.create_user(
-                email=inv.email, password=form.cleaned_data["password1"], full_name=form.cleaned_data["full_name"]
-            )
-            Membership.objects.create(
-                user=user, organization=inv.organization, role=inv.role, clinic_role=inv.clinic_role
-            )
-            audit.log("user.joined", request=request, org=inv.organization, actor=user, summary=user.email)
-            inv.accepted_at = timezone.now()
-            inv.save(update_fields=["accepted_at", "updated_at"])
-        # signed in as the new employee right away: they land on their own home page, with only what's opened to them
-        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
-        messages.success(request, _("أهلًا! الحساب اتعمل. المرة الجاية ادخل بالإيميل وكلمة المرور."))
-        return redirect("dashboard:home")
-    return render(request, "accounts/accept_invite.html", {"invitation": inv, "form": form})

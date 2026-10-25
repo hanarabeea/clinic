@@ -27,7 +27,7 @@ def test_reception_cannot_post_settings_directly(client, org_a, make_member):
 def test_users_page_forbidden_below_admin(client, org_a, make_member, role):
     client.force_login(make_member(org_a, role))
     assert client.get(reverse("accounts:users")).status_code == 403
-    assert client.post(reverse("accounts:invite_create"), {}).status_code == 403
+    assert client.post(reverse("accounts:member_create"), {}).status_code == 403
 
 
 def test_sidebar_hides_admin_links_for_reception(client, org_a, make_member):

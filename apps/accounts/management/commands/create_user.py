@@ -13,12 +13,13 @@ from apps.organizations.models import Membership, Organization, Role
 class Command(BaseCommand):
     help = (
         "Create (or update) a user and their membership from the terminal.\n"
-        "  python manage.py create_user --email a@b.com --name 'Name' --role owner [--org demo-clinic]\n"
+        "  manage.py create_user --username mona [--email a@b.com] --name 'Name' --role owner [--org demo-clinic]\n"
         "The password is asked interactively unless --password is given."
     )
 
     def add_arguments(self, parser):
-        parser.add_argument("--email", required=True)
+        parser.add_argument("--username", help="Defaults to the email.")
+        parser.add_argument("--email", help="Optional.")
         parser.add_argument("--name", required=True)
         parser.add_argument("--role", required=True, choices=Role.values)
         parser.add_argument("--org", default="demo-clinic")
@@ -31,8 +32,13 @@ class Command(BaseCommand):
         except Organization.DoesNotExist as e:
             raise CommandError(f"Organization '{o['org']}' not found. Run `manage.py seed_org` first.") from e
 
-        email = o["email"].strip().lower()
-        user = User.objects.filter(email=email).first()
+        email = (o["email"] or "").strip().lower() or None
+        username = (o["username"] or email or "").strip().lower()
+        if not username:
+            raise CommandError("Give --username or --email.")
+        user = User.objects.filter(username=username).first() or (
+            User.objects.filter(email=email).first() if email else None
+        )
         password = o["password"]
         if user is None and not password:
             password = getpass.getpass("Password: ")
@@ -41,12 +47,12 @@ class Command(BaseCommand):
 
         with transaction.atomic():
             if user is None:
-                candidate = User(email=email, full_name=o["name"])
+                candidate = User(username=username, email=email, full_name=o["name"])
                 try:
                     password_validation.validate_password(password, candidate)
                 except ValidationError as e:
                     raise CommandError(" ".join(e.messages)) from e
-                user = User.objects.create_user(email=email, password=password, full_name=o["name"])
+                user = User.objects.create_user(username=username, email=email, password=password, full_name=o["name"])
                 action = "Created"
             else:
                 user.full_name = o["name"]
@@ -60,4 +66,4 @@ class Command(BaseCommand):
                 user=user, organization=org, defaults={"role": o["role"], "is_active": True}
             )
         ensure_defaults(org)  # a built-in role becomes the clinic's own (editable) role of the same kind
-        self.stdout.write(self.style.SUCCESS(f"{action} {email} as {o['role']} in {org.slug}"))
+        self.stdout.write(self.style.SUCCESS(f"{action} {user.username} as {o['role']} in {org.slug}"))

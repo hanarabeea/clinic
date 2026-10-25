@@ -1,50 +1,55 @@
-import hashlib
-import secrets
-from datetime import timedelta
-
-from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
+from django.core.validators import RegexValidator
 from django.db import models
-from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
-from apps.core.models import TenantScopedModel
-from apps.organizations.models import Role
+USERNAME_RE = r"^[\w.\-]+\Z"  # letters (Arabic too), digits, . _ - — never "@", so it can't look like an email
 
 
 class UserManager(BaseUserManager):
     use_in_migrations = True
 
-    def _create_user(self, email, password, **extra):
-        if not email:
-            raise ValueError("Email is required")
-        user = self.model(email=self.normalize_email(email).lower(), **extra)
+    def _create_user(self, username, email, password, **extra):
+        email = self.normalize_email(email).lower() if email else None
+        username = (username or email or "").strip().lower()
+        if not username:
+            raise ValueError("A username or an email is required")
+        user = self.model(username=username, email=email, **extra)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_user(self, email, password=None, **extra):
+    def create_user(self, username=None, email=None, password=None, **extra):
         extra.setdefault("is_staff", False)
         extra.setdefault("is_superuser", False)
-        return self._create_user(email, password, **extra)
+        return self._create_user(username, email, password, **extra)
 
-    def create_superuser(self, email, password=None, **extra):
+    def create_superuser(self, username=None, email=None, password=None, **extra):
         extra.setdefault("is_staff", True)
         extra.setdefault("is_superuser", True)
-        return self._create_user(email, password, **extra)
+        return self._create_user(username, email, password, **extra)
+
+    def get_by_natural_key(self, username):
+        return self.get(username__iexact=username)
 
 
 class User(AbstractUser):
-    """Login is by email. `username` is removed."""
+    """Signs in with the username **or** the email (accounts.backends). Every user has a username; the email is
+    optional (users created before 2026-10-25 got their email as username)."""
 
-    username = None
+    username = models.CharField(
+        _("اسم المستخدم"),
+        max_length=150,
+        unique=True,
+        validators=[RegexValidator(USERNAME_RE, _("حروف وأرقام و . _ - بس، من غير مسافات ولا @."))],
+    )
     first_name = None
     last_name = None
-    email = models.EmailField(_("الإيميل"), unique=True)
+    email = models.EmailField(_("الإيميل"), unique=True, null=True, blank=True)
     full_name = models.CharField(_("الاسم"), max_length=150)
     phone = models.CharField(_("الموبايل"), max_length=20, blank=True)
 
-    USERNAME_FIELD = "email"
+    USERNAME_FIELD = "username"
     REQUIRED_FIELDS = ["full_name"]
 
     objects = UserManager()
@@ -54,76 +59,15 @@ class User(AbstractUser):
         verbose_name_plural = _("المستخدمين")
 
     def __str__(self):
-        return self.full_name or self.email
+        return self.full_name or self.username
+
+    def save(self, *args, **kwargs):
+        self.username = (self.username or "").strip().lower()
+        self.email = (self.email or "").strip().lower() or None  # "" would clash with the unique constraint
+        super().save(*args, **kwargs)
 
     def get_full_name(self):
         return self.full_name
 
     def get_short_name(self):
-        return self.full_name.split(" ")[0] if self.full_name else self.email
-
-
-def hash_token(token: str) -> str:
-    return hashlib.sha256(token.encode()).hexdigest()
-
-
-class InvitationQuerySet(models.QuerySet):
-    def for_org(self, organization):
-        if organization is None:
-            return self.none()
-        return self.filter(organization=organization)
-
-    def pending(self):
-        return self.filter(accepted_at__isnull=True, revoked_at__isnull=True, expires_at__gt=timezone.now())
-
-
-class Invitation(TenantScopedModel):
-    """One-time invite link, valid 48h. Only the token hash is stored."""
-
-    email = models.EmailField(_("الإيميل"))
-    full_name = models.CharField(_("الاسم"), max_length=150)
-    role = models.CharField(_("الدور"), max_length=20, choices=Role.choices, default=Role.RECEPTION)
-    clinic_role = models.ForeignKey(
-        "organizations.ClinicRole", null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
-    )
-    token_hash = models.CharField(max_length=64, unique=True)
-    expires_at = models.DateTimeField()
-    invited_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
-    accepted_at = models.DateTimeField(null=True, blank=True)
-    revoked_at = models.DateTimeField(null=True, blank=True)
-
-    objects = InvitationQuerySet.as_manager()
-
-    class Meta:
-        verbose_name = _("دعوة")
-        verbose_name_plural = _("الدعوات")
-
-    def __str__(self):
-        return f"{self.email} → {self.organization}"
-
-    @classmethod
-    def create_for(cls, *, organization, email, full_name, role, invited_by, clinic_role=None):
-        token = secrets.token_urlsafe(32)
-        inv = cls.objects.create(
-            organization=organization,
-            email=email.lower(),
-            full_name=full_name,
-            role=role,
-            clinic_role=clinic_role,
-            token_hash=hash_token(token),
-            expires_at=timezone.now() + timedelta(hours=settings.INVITATION_VALID_HOURS),
-            invited_by=invited_by,
-        )
-        return inv, token
-
-    @classmethod
-    def from_token(cls, token: str):
-        return cls.objects.pending().select_related("organization").filter(token_hash=hash_token(token)).first()
-
-    @property
-    def role_name(self):
-        return self.clinic_role.name if self.clinic_role_id else self.get_role_display()
-
-    @property
-    def is_pending(self):
-        return self.accepted_at is None and self.revoked_at is None and self.expires_at > timezone.now()
+        return self.full_name.split(" ")[0] if self.full_name else self.username
