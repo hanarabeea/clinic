@@ -511,7 +511,9 @@ gotchas and conventions introduced in that phase.
 - Django: `apps/prescriptions/speech.py` (`status()`, `engine(rx_settings)`, `transcribe()`,
   `boost_phrases()`/`write_boost()` = every active drug alias's first word + first two words, normalised like the model
   writes: ة→ه, أإآ→ا, no marks). `PrescriptionSettings.voice_engine` auto/local/browser (Rx settings → "الإملاء الصوتي",
-  shows the service's state). `prescriptions:transcribe` (POST WAV; member with clinical.edit or prescription.write;
+  shows the service's state). **auto = the browser's recogniser while online, the offline one without internet** (the
+  clinic's PCs have no GPU, and on a real voice through a laptop mic lemura misheard most drug names where the browser's
+  didn't — real-voice test 2026-10-26); "local" = audio never leaves the computer (privacy). `prescriptions:transcribe` (POST WAV; member with clinical.edit or prescription.write;
   503 JSON when the service is down). `status()`: 3 s timeout, "ready" cached 60 s, failures 5 s (a busy moment must not
   flip a page to the online recogniser). Scheduler job `speech_boost` every 6 h (file rewritten only on change). Test
   settings point SPEECH_DATA_DIR at tmp/ and SPEECH_URL at a closed port; mock with `settings.SPEECH_TRANSPORT`.
@@ -521,8 +523,12 @@ gotchas and conventions introduced in that phase.
   prescription mic: collect-and-post, nothing shown live, longer utterances = more context), max 15 s, < 0.3 s of *voiced*
   time is dropped (a cough + the quiet after it is not a sentence), 4-block pre-roll → 16 kHz 16-bit WAV → POST one
   utterance at a time (texts arrive in order) → `final`. Through Chrome's mic processing the model sometimes writes
-  أ/ة/periods (it doesn't on clean files) — matching normalises them, nothing to do. `pickProvider()`: local when `#voice-config[data-engine=local]` (desk_base) and the language is
-  Arabic; English keeps the browser's. Status icon (🎙 / ⏳) via `onStatus`; `graceMs` 15 s lets the last utterance
+  أ/ة/periods (it doesn't on clean files) — matching normalises them, nothing to do. `pickProvider()` reads `#voice-config` (desk_base: data-engine, data-local-ready):
+  local → LocalSpeechProvider; auto → the browser's unless `navigator.onLine` is false / the browser's recogniser
+  reported "network" (then local for the rest of the page — mid-recording the session just restarts on the local one);
+  English always the browser's. Raw mic (echoCancellation/noiseSuppression/autoGainControl off: they muffled the voice,
+  ~0.2% energy above 3 kHz) and the button stays amber until the mic really records (the first syllable was lost).
+  `SPEECH_KEEP_SAMPLES=1` (env, testing only) keeps each utterance's WAV + text in `<speech data>/samples`. Status icon (🎙 / ⏳) via `onStatus`; `graceMs` 15 s lets the last utterance
   come back after the stop press. Browser tests drive it with synthetic frames (`_openMic` replaced).
 - Extraction fixes found by the bench (help every engine): a dose/form word glued to the name is split off (`_unglue`,
   "بلينكنقطتين"), a name's last "ال" moved onto the next form/dose word is tried back ("انتين الكبسوله" → انتينال),

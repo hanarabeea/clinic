@@ -607,3 +607,51 @@ def test_local_engine_keeps_a_sentence_with_short_pauses_whole():
         return page.evaluate("window.__posts.length")
 
     assert _in_browser(FAKE_LOCAL, scenario) == 1
+
+
+# "auto": the browser's recogniser while online, the offline one without internet — also when it drops mid-recording
+FAKE_AUTO = (
+    FAKE_RECOGNITION.replace("window.__say", "window.__sayWeb")
+    + """
+Object.defineProperty(navigator, "mediaDevices", { value: { getUserMedia: async () => ({}) } });
+const cfg = document.createElement("div");
+cfg.id = "voice-config"; cfg.hidden = true; cfg.dataset.engine = "auto"; cfg.dataset.localReady = "1";
+cfg.dataset.transcribeUrl = "/speech/t/";
+document.body.appendChild(cfg);
+"""
+    + FAKE_LOCAL.split("document.body.appendChild(cfg);", 1)[1]
+)
+
+
+def test_auto_uses_the_browser_online_and_the_local_engine_offline():
+    def scenario(page):
+        d = "window.DigiDictation"
+        online = page.evaluate(f"{d}.pickProvider() === {d}.providers.webspeech")
+        page.evaluate("Object.defineProperty(navigator, 'onLine', { value: false, configurable: true })")
+        offline = page.evaluate(f"{d}.pickProvider() === {d}.providers.local")
+        page.evaluate("document.getElementById('voice-config').dataset.localReady = ''")
+        not_running = page.evaluate(f"{d}.pickProvider() === {d}.providers.webspeech")
+        return online, offline, not_running
+
+    assert _in_browser(FAKE_AUTO, scenario) == (True, True, True)
+
+
+def test_auto_keeps_recording_locally_when_the_internet_drops():
+    def scenario(page):
+        page.evaluate(_OPEN_MIC)
+        page.evaluate("window.__replies = ['وانتينال كبسوله']")
+        page.evaluate("const t = document.getElementById('t'); t.focus(); t.setSelectionRange(4, 4);")
+        page.locator(".dictation-mic").click()
+        page.evaluate("window.__sayWeb('بانادول اكسترا')")  # online: the browser's recogniser
+        page.evaluate("window.__rec.onerror({ error: 'network' }); window.__rec.onend()")  # the connection drops
+        # the session went on with the local recogniser
+        page.wait_for_function("window.__prov && window.__prov.constructor.name === 'LocalSpeechProvider'")
+        message = page.locator(".dictation-interim").inner_text()
+        page.evaluate("window.__say(1.0); window.__pause(1.0)")
+        page.wait_for_function("document.getElementById('t').value.includes('انتينال')")
+        page.locator(".dictation-mic").click()
+        return message, page.locator("#t").input_value()
+
+    message, value = _in_browser(FAKE_AUTO, scenario)
+    assert value == "أهلا بانادول اكسترا وانتينال كبسوله"
+    assert "مفيش إنترنت" in message or "🎙" in message or "ثانية" in message

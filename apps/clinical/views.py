@@ -89,6 +89,7 @@ def _queue_ctx(request):
     voice = rx_settings.voice_dictation_enabled
     return {
         "voice_engine": speech.engine(rx_settings) if voice else "",
+        "voice_local_ready": voice and speech.engine(rx_settings) != "browser" and speech.local_ready(),
         "doctor": doctor,
         "q_current": current,
         "q_waiting": waiting,

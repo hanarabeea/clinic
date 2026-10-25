@@ -23,8 +23,10 @@ list lives on the reception screen; the doctor calls the next one with "إنها
 <p data-dictation-unsupported hidden class="fixed bottom-2 start-2 z-40 rounded-lg bg-stone-800 px-3 py-1.5 text-xs text-white opacity-80">
   {% translate "الإملاء الصوتي شغال على Chrome وEdge بس." %}
 </p>
-{# which recogniser the mics use: "local" = the offline service on this computer (speech/server.py), else the browser's #}
-<div id="voice-config" hidden data-engine="{{ voice_engine }}" data-transcribe-url="{% url 'prescriptions:transcribe' %}"></div>
+{# which recogniser the mics use (speech.engine): local / browser / auto (the browser's while online, the offline service #}
+{# on this computer when not) — data-local-ready: the offline service is running #}
+<div id="voice-config" hidden data-engine="{{ voice_engine }}" data-local-ready="{{ voice_local_ready|yesno:'1,' }}"
+     data-transcribe-url="{% url 'prescriptions:transcribe' %}"></div>
 <script src="{% static 'src/dictation.js' %}" defer></script>
 {% endif %}
 <script>

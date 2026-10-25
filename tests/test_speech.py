@@ -66,15 +66,20 @@ def no_service(settings):
 # ---------------------------------------------------------------- which recogniser
 
 
-@pytest.mark.parametrize(
-    ("choice", "ready", "expected"),
-    [("auto", True, "local"), ("auto", False, "browser"), ("local", False, "local"), ("browser", True, "browser")],
-)
-def test_engine_choice(org_a, service, choice, ready, expected):
-    service["ready"] = ready
+@pytest.mark.parametrize("choice", ["auto", "local", "browser"])
+def test_engine_choice_goes_to_the_page(org_a, choice):
+    """The page decides at each recording (online → the browser's, offline → the local one): the server only passes
+    the setting and whether the offline service runs."""
     rx = PrescriptionSettings.for_org(org_a)
     rx.voice_engine = choice
-    assert speech.engine(rx) == expected
+    assert speech.engine(rx) == choice
+
+
+def test_local_ready_follows_the_service(service):
+    assert speech.local_ready()
+    cache.clear()
+    service["ready"] = False
+    assert not speech.local_ready()
 
 
 def test_status_is_offline_without_a_service(no_service):
@@ -90,10 +95,11 @@ def test_status_is_cached(service):
 def test_desk_pages_carry_the_engine(client, org_a, make_member, service):
     client.force_login(make_member(org_a, "doctor"))
     html = client.get(reverse("clinical:desk")).content.decode()
-    assert 'id="voice-config"' in html and 'data-engine="local"' in html
+    assert 'id="voice-config"' in html and 'data-engine="auto"' in html and 'data-local-ready="1"' in html
     assert reverse("prescriptions:transcribe") in html
     PrescriptionSettings.objects.filter(organization=org_a).update(voice_engine="browser")
-    assert 'data-engine="browser"' in client.get(reverse("clinical:desk")).content.decode()
+    html = client.get(reverse("clinical:desk")).content.decode()
+    assert 'data-engine="browser"' in html and 'data-local-ready=""' in html  # not even asked
 
 
 # ---------------------------------------------------------------- the transcribe view

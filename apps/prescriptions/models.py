@@ -110,8 +110,8 @@ class PrintMode(models.TextChoices):
 
 
 class VoiceEngine(models.TextChoices):
-    AUTO = "auto", _("تلقائي — على الجهاز لو متسطب، وإلا المتصفح")
-    LOCAL = "local", _("على الجهاز بس (من غير إنترنت)")
+    AUTO = "auto", _("تلقائي — المتصفح لو فيه إنترنت، والجهاز لو مفيش")
+    LOCAL = "local", _("على الجهاز بس — الصوت مايطلعش برّه الجهاز خالص")
     BROWSER = "browser", _("المتصفح بس (Chrome / Edge — محتاج إنترنت)")
 
 

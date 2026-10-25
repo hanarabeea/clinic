@@ -63,13 +63,15 @@ def status() -> dict:
 
 
 def engine(rx_settings) -> str:
-    """Which recogniser the desk uses: "local" (offline service) or "browser" (Chrome / Edge, online)."""
-    choice = rx_settings.voice_engine
-    if choice == "browser":
-        return "browser"
-    if choice == "local":
-        return "local"  # forced: the page shows the service's state instead of silently using the internet
-    return "local" if status().get("ready") else "browser"  # auto
+    """The desk's recogniser setting: "local" (the offline service only — audio never leaves the computer), "browser"
+    (Chrome / Edge, online) or "auto": the browser's while there's internet (on CPU-only clinic PCs it understands real
+    voices better), the offline service when there's none — decided in the browser at each recording, and switched
+    mid-recording when the connection drops (dictation.js pickProvider)."""
+    return rx_settings.voice_engine if rx_settings.voice_engine in ("local", "browser") else "auto"
+
+
+def local_ready() -> bool:
+    return bool(status().get("ready"))
 
 
 def transcribe(wav: bytes) -> str:

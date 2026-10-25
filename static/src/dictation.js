@@ -201,10 +201,20 @@
   LocalSpeechProvider.MIN_UTTERANCE_S = 0.3;  // a cough / click is not sent
   LocalSpeechProvider.MIN_LEVEL = 0.01;  // quieter than this is never speech
 
-  // "local" (the offline service) when the desk says so — for Arabic; the browser's recogniser otherwise
+  // #voice-config[data-engine] (speech.engine): "local" = the offline service only; "browser" = the browser's;
+  // "auto" = the browser's while there's internet, the offline service (when running) without — and for the rest of the
+  // page once the browser's recogniser reported a network error. English always uses the browser's (Arabic model).
+  let offline = false;
+  const voiceConfig = () => document.getElementById("voice-config")?.dataset || {};
+  const localUsable = () => LocalSpeechProvider.isSupported() && langPref() === "ar-EG";
+  function canFallBackToLocal() {
+    const cfg = voiceConfig();
+    return cfg.engine === "auto" && cfg.localReady === "1" && localUsable();
+  }
   function pickProvider() {
-    const cfg = document.getElementById("voice-config");
-    if (cfg && cfg.dataset.engine === "local" && LocalSpeechProvider.isSupported() && langPref() === "ar-EG") {
+    const cfg = voiceConfig();
+    if (cfg.engine === "local" && localUsable()) return LocalSpeechProvider;
+    if (canFallBackToLocal() && (offline || navigator.onLine === false || !WebSpeechProvider.isSupported())) {
       return LocalSpeechProvider;
     }
     return WebSpeechProvider;
@@ -374,6 +384,13 @@
       });
       provider.onError((code) => {
         if (code === "no-speech" || code === "aborted") return; // just quiet: the session restarts on "end"
+        if (code === "network" && canFallBackToLocal()) {
+          // the internet dropped: keep recording on this computer — the browser's session ends, "end" restarts it,
+          // and pickProvider() now returns the offline recogniser
+          offline = true;
+          interimEl.textContent = "مفيش إنترنت — كمّلت بالصوت على الجهاز";
+          return;
+        }
         failed = true;
         interimEl.textContent = ERRORS[code] || "حصلت مشكلة في الإملاء.";
         session.stop();
