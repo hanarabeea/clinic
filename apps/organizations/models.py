@@ -60,6 +60,10 @@ class Membership(BaseModel):
     organization = models.ForeignKey(Organization, on_delete=models.CASCADE, related_name="memberships")
     role = models.CharField(_("الدور"), max_length=20, choices=Role.choices, default=Role.RECEPTION)
     is_active = models.BooleanField(_("نشط"), default=True)
+    # Per-employee adjustments on top of the role's permissions (apps/accounts/permissions.py):
+    # effective = (role's ∪ granted − revoked), closed over IMPLIES.
+    granted_permissions = models.JSONField(_("صلاحيات زيادة"), default=list, blank=True)
+    revoked_permissions = models.JSONField(_("صلاحيات متشالة"), default=list, blank=True)
 
     class Meta:
         verbose_name = _("عضوية")

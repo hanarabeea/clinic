@@ -17,4 +17,5 @@ urlpatterns = [
     path("users/invite/<int:pk>/revoke/", views.invite_revoke, name="invite_revoke"),
     path("users/<int:pk>/role/", views.membership_role, name="membership_role"),
     path("users/<int:pk>/toggle/", views.membership_toggle, name="membership_toggle"),
+    path("users/<int:pk>/permissions/", views.membership_permissions, name="membership_permissions"),
 ]

@@ -21,7 +21,8 @@ def _wa_state(org):
 
 @require_membership
 def home(request):
-    """03 §3.9: reception sees today + tasks; doctor/owner also see the month's numbers."""
+    """03 §3.9: each block only for whoever has its permission (today's numbers: appointment.view; follow-ups:
+    reception.operate; failed messages: messages.view; the month: report.finance)."""
     org = request.organization
     m = request.membership
     today = services.today()
@@ -29,8 +30,9 @@ def home(request):
         "wa_state": _wa_state(org),
         "scheduler_alive": notifications.scheduler_alive(),
         "today": today,
-        "counts": services.day_counts(org, today),
     }
+    if has_perm(m, "appointment.view"):
+        ctx["counts"] = services.day_counts(org, today)
     if has_perm(m, "messages.view"):
         ctx["failed_messages"] = ScheduledMessage.objects.for_org(org).filter(status=MessageStatus.FAILED).count()
     if has_perm(m, "reception.operate"):

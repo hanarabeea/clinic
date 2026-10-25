@@ -29,17 +29,22 @@
             <span class="truncate font-semibold">{{ m.user.full_name }}</span>
             {% if not m.is_active %}<span class="badge bg-stone-100 text-stone-500">{% translate "متوقف" %}</span>{% endif %}
             {% if m.user == request.user %}<span class="badge bg-sand text-stone-600">{% translate "أنت" %}</span>{% endif %}
+            {% if m.granted_permissions or m.revoked_permissions %}<span class="badge bg-amber-100 text-amber-800">{% translate "صلاحيات متعدّلة" %}</span>{% endif %}
           </div>
           <div class="truncate text-xs text-stone-500" dir="ltr">{{ m.user.email }}</div>
         </div>
-        {% if m.user != request.user and m.role != 'owner' or m.user != request.user and current_membership.role == 'owner' %}
-        <div class="flex items-center gap-2">
-          <form method="post" action="{% url 'accounts:membership_role' m.pk %}">
+        {% if m.can_edit %}
+        <div class="flex flex-wrap items-center gap-2">
+          {% if m.role_editable %}
+          <form method="post" action="{% url 'accounts:membership_role' m.pk %}"
+                onsubmit="return {% if m.granted_permissions or m.revoked_permissions %}confirm('{% translate 'تغيير الدور هيرجّع الصلاحيات لصلاحيات الدور الجديد. تكمل؟' %}'){% else %}true{% endif %}">
             {% csrf_token %}
-            <select name="role" onchange="this.form.submit()" class="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm" aria-label="{% translate 'الدور' %}">
+            <select name="role" onchange="this.form.requestSubmit()" class="rounded-lg border border-stone-300 bg-white px-2 py-1.5 text-sm" aria-label="{% translate 'الدور' %}">
               {% for r in allowed_roles %}<option value="{{ r.value }}" {% if r.value == m.role %}selected{% endif %}>{{ r.label }}</option>{% endfor %}
             </select>
           </form>
+          {% else %}<span class="badge bg-sand text-stone-700">{{ m.get_role_display }}</span>{% endif %}
+          {% if m.role != 'owner' %}<a href="{% url 'accounts:membership_permissions' m.pk %}" class="btn-secondary px-3 py-1.5 text-sm">🔑 {% translate "الصلاحيات" %}</a>{% endif %}
           <form method="post" action="{% url 'accounts:membership_toggle' m.pk %}"
                 onsubmit="return confirm('{% if m.is_active %}{% translate 'متأكد إنك عايز توقف الحساب ده؟' %}{% else %}{% translate 'تفعيل الحساب ده تاني؟' %}{% endif %}')">
             {% csrf_token %}
@@ -64,16 +69,19 @@
           <div class="truncate font-semibold">{{ inv.full_name }} <span class="badge bg-sand text-stone-600">{{ inv.get_role_display }}</span></div>
           <div class="truncate text-xs text-stone-500"><span dir="ltr">{{ inv.email }}</span> · {% translate "تنتهي" %} {{ inv.expires_at|date:"Y/m/d H:i" }}</div>
         </div>
+        {% if inv.can_revoke %}
         <form method="post" action="{% url 'accounts:invite_revoke' inv.pk %}" onsubmit="return confirm('{% translate 'إلغاء الدعوة دي؟' %}')">
           {% csrf_token %}
           <button type="submit" class="btn-ghost px-3 py-1.5 text-sm">{% translate "إلغاء" %}</button>
         </form>
+        {% endif %}
       </li>
       {% endfor %}
     </ul>
     {% endif %}
   </section>
 
+  {% if allowed_roles %}
   <section class="card h-fit p-4">
     <h2 class="mb-4 font-bold">{% translate "دعوة مستخدم جديد" %}</h2>
     <form method="post" action="{% url 'accounts:invite_create' %}" class="space-y-4" novalidate>
@@ -84,5 +92,6 @@
       <button type="submit" class="btn-primary w-full">{% translate "إنشاء رابط دعوة" %}</button>
     </form>
   </section>
+  {% endif %}
 </div>
 {% endblock %}

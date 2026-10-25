@@ -428,3 +428,25 @@ gotchas and conventions introduced in that phase.
   get `JOIN_BONUS` and win over a half matching something else (never gluing a form/unit/modifier word); a vowel-less
   comparison (`_novowel`: long vowels ا/و/ي dropped, not on words still carrying "ال") finds "اريستابكس" ≈ "اراستابيكس".
   The voice box shows the full heard text ("🗣 الكلام كله اللي اتسمع") open, so a cut-off recording is visible.
+
+## Per-employee permissions (2026-10-25)
+- `Membership.granted_permissions` / `revoked_permissions` (JSON lists). `permissions.effective_permissions(m)` =
+  `with_implied((role's ∪ granted) − revoked)`; owner always has everything, inactive has nothing. `has_perm` and the
+  template `can.*` both use it — **never check `membership.role` for access**, always a permission. `IMPLIES` = edit →
+  view (clinical.edit → clinical.view, prescription.write → clinical.view + prescription.print, appointment.* →
+  appointment.view, …); every role set is already closed under it (tested). `PERMISSION_GROUPS` holds the Arabic label +
+  help of every permission (a new permission must be added there — tested).
+- Screen: Users → "🔑 الصلاحيات" (`accounts:membership_permissions`, user.manage): grouped checkboxes, "من الدور" dot,
+  زيادة/متشالة badges, JS mirrors IMPLIES, "رجّع صلاحيات الدور". Saving stores only the difference from the role; an
+  editor can only change permissions they have; owner + yourself not editable; changing the role resets the lists;
+  audited as `user.permissions`. Someone who isn't owner/admin but was given user.manage can only manage members whose
+  permissions they all have, and only assign roles that don't exceed theirs (`_can_edit`, `_allowed_roles`).
+- `require_perm` / `require_membership` wrappers carry `required_perm` (kept through `functools.wraps`).
+  `tests/test_permission_matrix.py`: every URL needs its permission (403 without / through with only it); a full clinic
+  is crawled as every role, "only <perm>" for every permission and adjusted roles — every URL in every page they reach
+  (href, hx-*, form action, data-*, JS strings) must resolve to something they're allowed, and no followed link may 403.
+  **A new button needs `{% if can.<perm> %}` matching its view's decorator, or this test fails.**
+- Settings menu shows for settings.manage / schedule.manage / drug.manage and opens the first allowed tab; each tab is
+  gated by its view's permission. Home's "today" numbers need appointment.view. The medical file's prescriptions list
+  is open to clinical.view (print buttons only with print/reprint). The visit page without clinical.edit is read-only
+  (no autosave URL, no finish/reuse forms).

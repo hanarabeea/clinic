@@ -488,8 +488,10 @@ def calibration_pdf(request):
 
 @require_membership
 def patient_prescriptions(request, patient_pk):
-    is_writer = has_perm(request.membership, "prescription.write")
-    if not (is_writer or can_print(request)):
+    """The medical file's prescriptions tab (clinical.view: with the drugs), or reception's reprint list."""
+    sees_medical = has_perm(request.membership, "clinical.view")
+    printable = can_print(request)
+    if not (sees_medical or printable):
         raise PermissionDenied
     rxs = (
         Prescription.objects.for_org(request.organization).filter(patient_id=patient_pk).exclude(status=RxStatus.DRAFT)
@@ -498,7 +500,11 @@ def patient_prescriptions(request, patient_pk):
         request,
         "prescriptions/partials/patient_list.html",
         # Reception (reprint only) sees numbers and dates — not the drugs (04 §4.3).
-        {"prescriptions": rxs.prefetch_related("items") if is_writer else rxs, "show_items": is_writer},
+        {
+            "prescriptions": rxs.prefetch_related("items") if sees_medical else rxs,
+            "show_items": sees_medical,
+            "can_print": printable,
+        },
     )
 
 

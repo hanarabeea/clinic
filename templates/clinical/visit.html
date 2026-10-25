@@ -36,7 +36,7 @@ in a drawer over the page, so the visit being written is never left (or reloaded
   <div class="flex items-center gap-1 px-3 py-2 text-sm lg:px-8">
     <div class="flex min-w-0 items-center gap-0.5 overflow-x-auto">
       <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:history' patient.pk %}?visit={{ visit.pk }}">🗂 {% translate "التاريخ" %}</button>
-      {% if can.prescription_write %}<button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'prescriptions:patient_list' patient.pk %}">💊 {% translate "الروشتات" %}</button>{% endif %}
+      {% if can.clinical_view %}<button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'prescriptions:patient_list' patient.pk %}">💊 {% translate "الروشتات" %}</button>{% endif %}
       <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:attachments' patient.pk %}?visit={{ visit.pk }}">📎 {% translate "المرفقات" %}</button>
       <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:data' patient.pk %}">👤 {% translate "البيانات" %}</button>
     </div>
@@ -59,7 +59,7 @@ in a drawer over the page, so the visit being written is never left (or reloaded
     </div>
     <nav id="drawer-tabs" class="-mb-px mt-2 flex gap-1 overflow-x-auto text-sm font-semibold">
       <button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'clinical:history' patient.pk %}?visit={{ visit.pk }}">{% translate "التاريخ" %}</button>
-      {% if can.prescription_write %}<button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'prescriptions:patient_list' patient.pk %}">{% translate "الروشتات" %}</button>{% endif %}
+      {% if can.clinical_view %}<button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'prescriptions:patient_list' patient.pk %}">{% translate "الروشتات" %}</button>{% endif %}
       <button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'clinical:attachments' patient.pk %}?visit={{ visit.pk }}">{% translate "المرفقات" %}</button>
       <button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'clinical:data' patient.pk %}">{% translate "البيانات" %}</button>
     </nav>
@@ -79,7 +79,7 @@ in a drawer over the page, so the visit being written is never left (or reloaded
     </div>
   </div>
 </dialog>
-<form id="finish-form" hx-post="{% url 'clinical:visit_finish' visit.pk %}" hx-target="#workspace" hx-swap="innerHTML" class="hidden">{% csrf_token %}</form>
+{% if can.clinical_edit %}<form id="finish-form" hx-post="{% url 'clinical:visit_finish' visit.pk %}" hx-target="#workspace" hx-swap="innerHTML" class="hidden">{% csrf_token %}</form>{% endif %}
 
 <script>
   const T = {

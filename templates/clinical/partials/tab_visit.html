@@ -1,6 +1,5 @@
 {% load i18n %}
-{% url 'clinical:visit_field' visit.pk as field_url %}
-<div class="space-y-3" id="visit-form" data-url="{{ field_url }}">
+<div class="space-y-3" id="visit-form" {% if can.clinical_edit %}data-url="{% url 'clinical:visit_field' visit.pk %}"{% endif %}>
   <h2 class="ws-title">{% translate "الكشف" %}
     <span class="text-xs font-normal text-stone-400">{% if visit.status == "finished" %}{% translate "خلص — التعديلات بتتسجل في السجل" %}{% else %}{% translate "بيتحفظ تلقائي" %}{% endif %}</span>
     <span id="save-status" class="ms-auto text-xs font-normal text-stone-400"></span>
@@ -66,6 +65,7 @@
   (() => {
     const box = document.getElementById("visit-form");
     const url = box.dataset.url;
+    if (!url) return;  // read-only (no permission to write in the visit): nothing to save
     const token = "{{ csrf_token }}";
     const status = document.getElementById("save-status");
     const dirty = new Map();  // field → element with unsaved changes

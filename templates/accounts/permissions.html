@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "الصلاحيات" %} — {{ member.user.full_name }}{% endblock %}
+{% block content %}
+<div class="mb-6 flex flex-wrap items-center gap-3">
+  <a href="{% url 'accounts:users' %}" class="btn-ghost px-2 py-1 text-sm">→ {% translate "المستخدمين" %}</a>
+  <h1 class="text-2xl font-bold">{% translate "صلاحيات" %} {{ member.user.full_name }}</h1>
+  <span class="badge bg-sand text-stone-700">{{ member.get_role_display }}</span>
+  {% if customised %}<span class="badge bg-amber-100 text-amber-800">{% translate "متعدّلة عن الدور" %}</span>{% endif %}
+</div>
+
+<p class="mb-4 max-w-3xl text-sm text-stone-600">
+  {% translate "الدور بيدي مجموعة صلاحيات جاهزة. تقدر تزوّد أو تشيل أي صلاحية للموظف ده بس. الموظف مش هيشوف أي صفحة أو زرار مش مفتوح له." %}
+  <span class="whitespace-nowrap"><span class="inline-block size-2 rounded-full bg-brand align-middle"></span> {% translate "من الدور" %}</span>
+  · <span class="whitespace-nowrap"><span class="badge bg-emerald-100 text-emerald-800">{% translate "زيادة" %}</span></span>
+  · <span class="whitespace-nowrap"><span class="badge bg-red-100 text-red-700">{% translate "متشالة" %}</span></span>
+</p>
+
+<form method="post" id="perm-form" class="space-y-4">
+  {% csrf_token %}
+  <div class="grid gap-4 lg:grid-cols-2">
+    {% for title, items in groups %}
+    <section class="card p-4" data-perm-group>
+      <h2 class="mb-3 font-bold">{{ title }}</h2>
+      <ul class="space-y-1">
+        {% for it in items %}
+        <li>
+          <label class="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-stone-50 {% if not it.editable %}cursor-not-allowed opacity-60{% endif %}">
+            <input type="checkbox" name="perms" value="{{ it.perm }}" class="mt-1 size-4 pointer-coarse:size-5"
+                   data-implies="{{ it.implies }}" data-from-role="{{ it.from_role|yesno:'1,' }}"
+                   {% if it.checked %}checked{% endif %} {% if not it.editable %}disabled{% endif %}>
+            <span class="min-w-0 flex-1">
+              <span class="flex flex-wrap items-center gap-2 font-semibold">
+                {{ it.label }}
+                {% if it.from_role %}<span class="inline-block size-2 rounded-full bg-brand" title="{% translate 'من الدور' %}"></span>{% endif %}
+                <span class="badge bg-emerald-100 text-emerald-800" data-badge="added" {% if it.from_role or not it.checked %}hidden{% endif %}>{% translate "زيادة" %}</span>
+                <span class="badge bg-red-100 text-red-700" data-badge="removed" {% if not it.from_role or it.checked %}hidden{% endif %}>{% translate "متشالة" %}</span>
+              </span>
+              <span class="block text-xs text-stone-500">{{ it.help }}{% if not it.editable %} — {% translate "مش معاك الصلاحية دي فمتقدرش تغيّرها" %}{% endif %}</span>
+            </span>
+          </label>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endfor %}
+  </div>
+  <div class="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-stone-200 bg-white/95 py-3">
+    <button type="submit" class="btn-primary px-6">{% translate "حفظ الصلاحيات" %}</button>
+    {% if customised %}
+    <button type="submit" name="action" value="reset" class="btn-secondary" form="perm-reset">{% translate "رجّع صلاحيات الدور" %}</button>
+    {% endif %}
+    <a href="{% url 'accounts:users' %}" class="btn-ghost">{% translate "رجوع" %}</a>
+  </div>
+</form>
+{% if customised %}
+<form method="post" id="perm-reset" onsubmit="return confirm('{% translate 'ترجع الصلاحيات زي الدور بالظبط؟' %}')">{% csrf_token %}<input type="hidden" name="action" value="reset"></form>
+{% endif %}
+
+<script>
+  // edit → view: checking a permission checks what it needs; unchecking one unchecks what depends on it
+  (() => {
+    const boxes = [...document.querySelectorAll('#perm-form input[name="perms"]')];
+    const byPerm = Object.fromEntries(boxes.map((b) => [b.value, b]));
+    const badges = (b) => {
+      const li = b.closest("label");
+      li.querySelector('[data-badge="added"]').hidden = !(b.checked && !b.dataset.fromRole);
+      li.querySelector('[data-badge="removed"]').hidden = !(!b.checked && b.dataset.fromRole);
+    };
+    const check = (b) => {
+      (b.dataset.implies || "").split(" ").filter(Boolean).forEach((p) => {
+        const n = byPerm[p];
+        if (n && !n.checked && !n.disabled) { n.checked = true; badges(n); check(n); }
+      });
+    };
+    const uncheck = (perm) => {
+      boxes.forEach((n) => {
+        if (n.checked && !n.disabled && (n.dataset.implies || "").split(" ").includes(perm)) {
+          n.checked = false; badges(n); uncheck(n.value);
+        }
+      });
+    };
+    boxes.forEach((b) => b.addEventListener("change", () => {
+      if (b.checked) check(b); else uncheck(b.value);
+      badges(b);
+    }));
+  })();
+</script>
+{% endblock %}

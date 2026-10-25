@@ -81,7 +81,7 @@
         {% translate "التقارير" %}
       </a>
       {% endif %}
-      {% if can.user_manage or can.settings_manage or can.audit_view %}
+      {% if can.user_manage or can.settings_manage or can.schedule_manage or can.drug_manage or can.audit_view %}
       <div class="px-3 pb-1 pt-4 text-xs font-semibold text-stone-400">{% translate "الإدارة" %}</div>
       {% endif %}
       {% if can.user_manage %}
@@ -90,8 +90,9 @@
         {% translate "المستخدمين" %}
       </a>
       {% endif %}
-      {% if can.settings_manage %}
-      <a href="{% url 'organizations:settings' %}" class="nav-link {% if url_name == 'organizations:settings' %}active{% endif %}">
+      {% if can.settings_manage or can.schedule_manage or can.drug_manage %}
+      {# the first settings tab this person may open (each tab is gated by its own permission) #}
+      <a href="{% if can.settings_manage %}{% url 'organizations:settings' %}{% elif can.schedule_manage %}{% url 'doctors:schedule' %}{% else %}{% url 'prescriptions:categories' %}{% endif %}" class="nav-link {% if url_name == 'organizations:settings' %}active{% endif %}">
         <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
         {% translate "الإعدادات" %}
       </a>

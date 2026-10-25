@@ -1,8 +1,8 @@
 {% load i18n %}
 {% comment %}Drawer body: a previous visit next to the current one. Pick rows → "استخدم المختار" copies them into the
 current visit (empty fields are filled, written ones get the old text appended). Only rows with a value are shown.{% endcomment %}
-<form hx-post="{% url 'clinical:visit_reuse' visit.pk %}" hx-swap="none" class="space-y-3 text-sm"
-      {% if not can_edit %}onsubmit="return false"{% endif %}>
+<form {% if can_edit %}hx-post="{% url 'clinical:visit_reuse' visit.pk %}" hx-swap="none"{% else %}onsubmit="return false"{% endif %}
+      class="space-y-3 text-sm">
   {% csrf_token %}
   <input type="hidden" name="source" value="{{ other.pk }}">
   <div class="flex flex-wrap items-center gap-2 text-xs text-stone-500">

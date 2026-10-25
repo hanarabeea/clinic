@@ -29,6 +29,7 @@ ACTION_LABELS = {
     "user.invite_revoked": _("إلغاء دعوة"),
     "user.joined": _("مستخدم انضم"),
     "user.role": _("تغيير دور"),
+    "user.permissions": _("تغيير صلاحيات موظف"),
     "user.toggled": _("تفعيل/إيقاف مستخدم"),
 }
 

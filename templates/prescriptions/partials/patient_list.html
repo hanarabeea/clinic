@@ -8,7 +8,7 @@
     {% if show_items %}
     <span class="basis-full text-stone-600" dir="ltr">{% for it in rx.items.all %}{{ it.drug_name }}{% if not forloop.last %} · {% endif %}{% endfor %}</span>
     {% endif %}
-    {% if rx.status == "final" %}
+    {% if rx.status == "final" and can_print %}
     <span class="ms-auto flex gap-2">
       <button type="button" class="btn-ghost text-xs" onclick="printRx('{% url 'prescriptions:pdf' rx.pk %}?mode=print')">{% translate "طباعة" %}</button>
       <a class="btn-ghost text-xs" href="{% url 'prescriptions:pdf' rx.pk %}" target="_blank">PDF</a>

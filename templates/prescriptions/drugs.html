@@ -6,7 +6,7 @@
   <h1 class="text-2xl font-bold">{% translate "كتالوج الأدوية" %}</h1>
   <div class="flex gap-2">
     <a href="{% url 'prescriptions:categories' %}" class="btn-ghost">{% translate "تصنيفات الأدوية" %}</a>
-    <a href="{% url 'clinical:desk' %}" class="btn-ghost">{% translate "رجوع لشاشة الدكتور" %}</a>
+    {% if can.clinical_view %}<a href="{% url 'clinical:desk' %}" class="btn-ghost">{% translate "رجوع لشاشة الدكتور" %}</a>{% endif %}
   </div>
 </div>
 

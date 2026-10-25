@@ -15,7 +15,16 @@ from apps.organizations.models import Membership, Role
 
 from .forms import AcceptInviteForm, EmailAuthenticationForm, InviteForm, RoleForm
 from .models import Invitation, User
-from .permissions import ASSIGNABLE_ROLES, require_perm
+from .permissions import (
+    ASSIGNABLE_ROLES,
+    IMPLIES,
+    PERMISSION_GROUPS,
+    PERMISSION_LABELS,
+    effective_permissions,
+    require_perm,
+    role_permissions,
+    with_implied,
+)
 
 
 class LoginView(auth_views.LoginView):
@@ -49,7 +58,25 @@ class PasswordResetCompleteView(auth_views.PasswordResetCompleteView):
 
 
 def _allowed_roles(request):
-    return ASSIGNABLE_ROLES.get(request.membership.role, [])
+    """Owner/admin: the 04 matrix. Anyone else given "user.manage": only roles not above their own permissions."""
+    m = request.membership
+    if m.role in ASSIGNABLE_ROLES:
+        return ASSIGNABLE_ROLES[m.role]
+    mine = effective_permissions(m)
+    return [r for r in ASSIGNABLE_ROLES[Role.ADMIN] if role_permissions(r) <= mine]
+
+
+def _can_edit(request, m) -> bool:
+    """Never yourself; an owner only by an owner; and someone who isn't owner/admin (but was given "user.manage") can
+    only manage members whose permissions they all have themselves."""
+    editor = request.membership
+    if m.user_id == request.user.id:
+        return False
+    if m.role == Role.OWNER and editor.role != Role.OWNER:
+        return False
+    if editor.role not in ASSIGNABLE_ROLES and not effective_permissions(m) <= effective_permissions(editor):
+        return False
+    return True
 
 
 def _send_invite_email(request, invitation, link):
@@ -63,11 +90,16 @@ def _send_invite_email(request, invitation, link):
 @require_perm("user.manage")
 def users_list(request):
     org = request.organization
-    memberships = (
+    allowed = _allowed_roles(request)
+    memberships = list(
         Membership.objects.filter(organization=org).select_related("user").order_by("-is_active", "user__full_name")
     )
-    invitations = Invitation.objects.for_org(org).pending().order_by("-created_at")
-    allowed = _allowed_roles(request)
+    for m in memberships:
+        m.can_edit = _can_edit(request, m)
+        m.role_editable = m.role in allowed
+    invitations = list(Invitation.objects.for_org(org).pending().order_by("-created_at"))
+    for inv in invitations:
+        inv.can_revoke = inv.role in allowed
     form = InviteForm(organization=org, allowed_roles=allowed)
     new_link = request.session.pop("new_invite_link", None)
     return render(
@@ -121,6 +153,8 @@ def invite_create(request):
 @require_perm("user.manage")
 def invite_revoke(request, pk):
     inv = get_object_or_404(Invitation.objects.for_org(request.organization).pending(), pk=pk)
+    if inv.role not in _allowed_roles(request):
+        raise PermissionDenied
     inv.revoked_at = timezone.now()
     inv.save(update_fields=["revoked_at", "updated_at"])
     audit.log("user.invite_revoked", request=request, summary=inv.email)
@@ -130,9 +164,7 @@ def invite_revoke(request, pk):
 
 def _editable_membership(request, pk):
     m = get_object_or_404(Membership.objects.filter(organization=request.organization), pk=pk)
-    if m.user_id == request.user.id:
-        raise PermissionDenied
-    if m.role == Role.OWNER and request.membership.role != Role.OWNER:
+    if not _can_edit(request, m):
         raise PermissionDenied
     return m
 
@@ -144,12 +176,70 @@ def membership_role(request, pk):
     form = RoleForm(request.POST, allowed_roles=_allowed_roles(request))
     if form.is_valid():
         m.role = form.cleaned_data["role"]
-        m.save(update_fields=["role", "updated_at"])
+        # a new role starts from that role's permissions: what was added / taken away for the old role is dropped
+        m.granted_permissions, m.revoked_permissions = [], []
+        m.save(update_fields=["role", "granted_permissions", "revoked_permissions", "updated_at"])
         audit.log("user.role", request=request, summary=f"{m.user.email} → {m.get_role_display()}")
         messages.success(request, _("الدور اتغير."))
     else:
         messages.error(request, _("الدور ده مش مسموح."))
     return redirect("accounts:users")
+
+
+@require_perm("user.manage")
+def membership_permissions(request, pk):
+    """One employee's permissions: the role is the starting set, and each permission can be given or taken away for
+    this person only. Whoever edits can only give permissions they have themselves."""
+    m = _editable_membership(request, pk)
+    if m.role == Role.OWNER:
+        raise PermissionDenied  # the owner always has everything
+    mine = effective_permissions(request.membership)
+    current = effective_permissions(m)
+    if request.method == "POST":
+        if request.POST.get("action") == "reset":
+            m.granted_permissions, m.revoked_permissions = [], []
+            summary = "رجعت لصلاحيات الدور"
+        else:
+            checked = set(request.POST.getlist("perms"))
+            # a permission the editor doesn't have can't be changed by them: it keeps its current state
+            wanted = {p for p in mine if p in checked} | {p for p in current if p not in mine}
+            wanted = with_implied(wanted)
+            base = role_permissions(m.role)
+            m.granted_permissions = sorted(wanted - base)
+            m.revoked_permissions = sorted(base - wanted)
+            added, removed = wanted - current, current - wanted
+            summary = "، ".join(
+                [f"+{PERMISSION_LABELS[p]}" for p in sorted(added)]
+                + [f"−{PERMISSION_LABELS[p]}" for p in sorted(removed)]
+            )
+        m.save(update_fields=["granted_permissions", "revoked_permissions", "updated_at"])
+        audit.log("user.permissions", request=request, summary=f"{m.user.email}: {summary or 'من غير تغيير'}")
+        messages.success(request, _("الصلاحيات اتحفظت."))
+        return redirect("accounts:membership_permissions", pk=m.pk)
+    base = role_permissions(m.role)
+    groups = [
+        (
+            title,
+            [
+                {
+                    "perm": p,
+                    "label": label,
+                    "help": help_text,
+                    "checked": p in current,
+                    "from_role": p in base,
+                    "editable": p in mine,
+                    "implies": " ".join(sorted(IMPLIES.get(p, ()))),
+                }
+                for p, label, help_text in items
+            ],
+        )
+        for title, items in PERMISSION_GROUPS
+    ]
+    return render(
+        request,
+        "accounts/permissions.html",
+        {"member": m, "groups": groups, "customised": bool(m.granted_permissions or m.revoked_permissions)},
+    )
 
 
 @require_POST
