@@ -175,6 +175,19 @@ def test_boost_list_is_the_spoken_names(org_a, settings, tmp_path):
     assert "قديمه" not in phrases and "اب" not in phrases
     assert all("ة" not in p and "إ" not in p and "ْ" not in p for p in phrases)
 
+    # once the clinic has prescribed enough different drugs, only theirs (+ the ones it added) are listened for
+    from apps.prescriptions import speech as sp
+
+    for i in range(sp.DOCTOR_LIST_MIN):
+        Drug.objects.create(organization=org_a, name=f"USED {i}", aliases_ar=[f"مستعمل{chr(0x0628 + i % 20)}{chr(0x0628 + i // 20)}"],
+                            usage_count=1, source="eg-db")  # fmt: skip
+    Drug.objects.filter(name="TELFAST").update(source="eg-db")
+    short = sp.boost_phrases()
+    assert "بانادول" in short  # added by the clinic itself (source "")
+    assert "تيلفاست" not in short  # a catalog drug never prescribed here
+    assert len([p for p in short if p.startswith("مستعمل")]) == sp.DOCTOR_LIST_MIN
+    Drug.objects.filter(name__startswith="USED").delete()
+
     out = io.StringIO()
     call_command("build_speech_boost", stdout=out)
     path = Path(tmp_path) / "boost.txt"

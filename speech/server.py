@@ -31,7 +31,11 @@ SAMPLE_RATE = 16000
 MAX_SECONDS = 60
 MAX_BODY = (MAX_SECONDS * SAMPLE_RATE * 2 * 2) + 4096  # 60 s of 16-bit stereo at 16 kHz, plus the header
 BEAM_SIZE = 8
-BOOST_ALPHA = 1.3  # stronger than ~1.6 starts bending ordinary words into drug names (tools/asr_bench)
+# How hard the drug names are pushed (tools/asr_bench, real voice): the whole catalog (~20k names) 1.3 — stronger bends
+# ordinary words into names; a clinic's own list (a few hundred, apps/prescriptions/speech.py) 1.5.
+BOOST_ALPHA_CATALOG = 1.3
+BOOST_ALPHA_SHORT_LIST = 1.5
+SHORT_LIST = 3000
 
 log = logging.getLogger("speech")
 
@@ -138,8 +142,9 @@ class Recognizer:
                 cfg.beam.boosting_tree.context_score = 1.0
                 cfg.beam.boosting_tree.depth_scaling = 2.0
                 cfg.beam.boosting_tree.use_triton = False
-                cfg.beam.boosting_tree_alpha = BOOST_ALPHA
                 self.phrases = sum(1 for line in self.boost_file.read_text(encoding="utf-8").splitlines() if line)
+                short = self.phrases <= SHORT_LIST
+                cfg.beam.boosting_tree_alpha = BOOST_ALPHA_SHORT_LIST if short else BOOST_ALPHA_CATALOG
         self.model.change_decoding_strategy(cfg, verbose=False)
         self._boost_mtime = mtime
 

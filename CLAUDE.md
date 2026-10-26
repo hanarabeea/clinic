@@ -533,3 +533,11 @@ gotchas and conventions introduced in that phase.
 - Extraction fixes found by the bench (help every engine): a dose/form word glued to the name is split off (`_unglue`,
   "بلينكنقطتين"), a name's last "ال" moved onto the next form/dose word is tried back ("انتين الكبسوله" → انتينال),
   dose nouns (اللزوم/قرصه/الكبسوله/حبايه...) can never start or sit inside a name (everyday_words), "كبسوله" is a form.
+- Real-voice bench (2026-10-26, the owner's voice, laptop mic, 18 utterances, `%LOCALAPPDATA%\digiclinic\asr-bench\real2`):
+  drugs found — lemura 20%, + whole-catalog boost 40% (many wrong extras), **+ a 38-drug "doctor's list" boost α1.5 50%**
+  (0.08× real time); Whisper small 35% / + prompt with the doctor's drugs 50% (1.4×); medium 55% / + prompt 75% (4.4×);
+  turbo 65% (4–6×); Arabic-dialect Whisper fine-tunes (oddadmix small/medium, whisper-small-eg) no better. No GPU in the
+  clinics → the offline engine stays lemura, boosted with the clinic's own drugs (`speech.DOCTOR_LIST_MIN/MAX`, by
+  `Drug.usage_count` + clinic-added drugs; the catalog until 30 drugs were prescribed; the service picks α 1.5 for a
+  list ≤ 3000 phrases, 1.3 for the catalog). Online, the browser's recogniser is still clearly better → "auto".
+  A headset / USB mic should help any engine (the laptop mic gave ~0.3% energy above 3 kHz).

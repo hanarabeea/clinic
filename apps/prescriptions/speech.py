@@ -95,14 +95,31 @@ def _norm(word: str) -> str:
     return _MARKS.sub("", word).translate(_NORM)
 
 
-def boost_phrases() -> list[str]:
-    """The Arabic way every active drug is said (aliases: the catalog's transliteration + the spoken forms learned when
-    the doctor picked a voice suggestion): its first word, and its first two words. Normalised the way the model
-    writes (ة→ه, أ/إ/آ→ا, no diacritics) — the decoder can only boost spellings it would produce."""
+# Which names the recogniser listens for. Real-voice bench (tools/asr_bench, 2026-10-26, laptop mic): the whole catalog
+# (~20k names) found 40% of the drugs with many wrong extras; the doctor's own ~40 drugs found 50% with few — a short
+# list lets the boost be stronger without bending ordinary words. So: the drugs this clinic actually prescribes
+# (Drug.usage_count, counted at finalize) + the ones it added itself, once there are enough; the catalog until then.
+DOCTOR_LIST_MIN = 30
+DOCTOR_LIST_MAX = 400
+
+
+def _boost_aliases():
     from .models import Drug
 
+    active = Drug.objects.filter(is_active=True)
+    used = active.filter(usage_count__gt=0)
+    if used.count() < DOCTOR_LIST_MIN:
+        return active.values_list("aliases_ar", flat=True).iterator()
+    mine = list(used.order_by("-usage_count").values_list("aliases_ar", flat=True)[:DOCTOR_LIST_MAX])
+    return mine + list(active.filter(source="").values_list("aliases_ar", flat=True))
+
+
+def boost_phrases() -> list[str]:
+    """How the listened-for drugs are said (aliases: the catalog's transliteration + the spoken forms learned when the
+    doctor picked a voice suggestion): the first word, and the first two words. Normalised the way the model writes
+    (ة→ه, أ/إ/آ→ا, no diacritics) — the decoder can only boost spellings it would produce."""
     one, two = set(), set()
-    for aliases in Drug.objects.filter(is_active=True).values_list("aliases_ar", flat=True).iterator():
+    for aliases in _boost_aliases():
         for alias in aliases or ():
             words = [w for w in (_norm(w) for w in alias.split()) if _AR_WORD.match(w)]
             if words and len(words[0]) >= 4:
