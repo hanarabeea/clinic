@@ -27,5 +27,5 @@
     {% endfor %}
   </ul>
 </div>
-<a href="{% url 'scheduling:appointments_day' %}?date={{ day|date:'Y-m-d' }}" class="mt-4 inline-block text-sm text-brand">{% translate "→ شاشة المواعيد" %}</a>
+<a href="{% url 'reception:today' %}?view=day&date={{ day|date:'Y-m-d' }}" class="mt-4 inline-block text-sm text-brand">{% translate "→ شاشة المواعيد" %}</a>
 {% endblock %}

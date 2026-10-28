@@ -37,36 +37,82 @@ def test_booking_search_finds_existing_patient(client, world):
 
 
 def test_book_existing_patient_end_to_end(client, world):
+    """The booking panel on the reception board: the patient's visit types and free times (AM/PM) → احجز → the panel
+    closes (empty response), a toast and a board refresh are triggered."""
     client.force_login(world["reception"])
     with freeze_time("2026-01-01 06:00:00"):
-        page = client.get(
-            reverse("scheduling:booking_patient", args=[world["patient"].pk]), {"day": SATURDAY.isoformat()}
-        )
-        assert "كشف" in page.content.decode()
-        slots = client.get(
-            reverse("scheduling:booking_slots", args=[world["patient"].pk]),
-            {"visit_type": world["vt"].pk, "day": SATURDAY.isoformat()},
-        )
-        assert "14:00" in slots.content.decode()
+        panel = client.get(
+            reverse("scheduling:booking_panel"), {"patient": world["patient"].pk, "day": SATURDAY.isoformat()}
+        ).content.decode()
+        assert "كشف" in panel and "2:00 PM" in panel and "محمد أحمد" in panel
         start = local_dt(SATURDAY, time(14, 0))
         r = client.post(
             reverse("scheduling:booking_confirm", args=[world["patient"].pk]),
-            {"visit_type": world["vt"].pk, "start_at": start.isoformat()},
+            {"visit_type": world["vt"].pk, "start_at": start.isoformat(), "day": SATURDAY.isoformat()},
+            HTTP_HX_REQUEST="true",
         )
-    assert r.status_code == 302 and r.url == reverse("scheduling:booking_home")
+    assert r.status_code == 200 and r.content == b""
+    assert "board-refresh" in r["HX-Trigger"] and "2:00 PM" in r["HX-Trigger"]
     assert Appointment.objects.filter(patient=world["patient"]).exists()
 
 
+def test_booking_without_htmx_goes_back_to_the_board(client, world):
+    client.force_login(world["reception"])
+    with freeze_time("2026-01-01 06:00:00"):
+        r = client.post(
+            reverse("scheduling:booking_confirm", args=[world["patient"].pk]),
+            {"visit_type": world["vt"].pk, "start_at": local_dt(SATURDAY, time(14, 0)).isoformat()},
+        )
+    assert r.status_code == 302 and r.url == f"{reverse('reception:today')}?date={SATURDAY}"
+
+
+def test_a_taken_slot_keeps_the_panel_open_with_the_reason(client, world):
+    client.force_login(world["reception"])
+    start = local_dt(SATURDAY, time(14, 0))
+    with freeze_time("2026-01-01 06:00:00"):
+        services.book(patient=world["patient"], doctor=world["doctor"], visit_type=world["vt"], by=world["owner"],
+                      start_at=start)  # fmt: skip
+        r = client.post(
+            reverse("scheduling:booking_confirm", args=[world["patient"].pk]),
+            {"visit_type": world["vt"].pk, "start_at": start.isoformat(), "day": SATURDAY.isoformat()},
+            HTTP_HX_REQUEST="true",
+        )
+    html = r.content.decode()
+    assert r.status_code == 200 and 'id="booking-panel"' in html and "bg-red-50" in html
+
+
+def test_a_free_cell_preselects_its_time(client, world):
+    client.force_login(world["reception"])
+    at = local_dt(SATURDAY, time(15, 30))
+    with freeze_time("2026-01-01 06:00:00"):
+        html = client.get(
+            reverse("scheduling:booking_panel"), {"patient": world["patient"].pk, "at": at.isoformat()}
+        ).content.decode()
+        by_hour = client.get(
+            reverse("scheduling:booking_panel"),
+            {"patient": world["patient"].pk, "day": SATURDAY.isoformat(), "hour": "17"},
+        ).content.decode()
+    assert f'value="{at.isoformat()}" class="sr-only" required checked' in html and "3:30 PM" in html
+    five = local_dt(SATURDAY, time(17, 0)).isoformat()
+    assert f'value="{five}" class="sr-only" required checked' in by_hour  # the week table's hour → its first slot
+
+
 def test_new_patient_quick_add_then_book(client, world):
+    """Added from the booking panel: the panel moves straight on to that patient's times."""
     client.force_login(world["reception"])
     data = {
         "full_name": "منى حسن", "gender": "female", "phone": "01099998888", "whatsapp": "",
         "whatsapp_same_as_phone": "on", "preferred_channel": "whatsapp", "messaging_consent": "on",
+        "day": SATURDAY.isoformat(),
     }  # fmt: skip
-    r = client.post(reverse("scheduling:booking_new_patient"), data)
-    assert r.status_code == 302
+    r = client.post(reverse("scheduling:booking_new_patient"), data, HTTP_HX_REQUEST="true")
     patient = Patient.objects.get(full_name="منى حسن")
-    assert r.url == reverse("scheduling:booking_patient", args=[patient.pk])
+    assert r.status_code == 200 and r["HX-Retarget"] == "#modal"
+    assert 'id="booking-panel"' in r.content.decode() and f"#{patient.file_number}" in r.content.decode()
+    bad = client.post(reverse("scheduling:booking_new_patient"), {**data, "full_name": ""}, HTTP_HX_REQUEST="true")
+    assert 'id="new-patient-form"' in bad.content.decode() and "HX-Retarget" not in bad  # errors in place
+    plain = client.post(reverse("scheduling:booking_new_patient"), {**data, "phone": "01099997777", "full_name": "x"})
+    assert plain.status_code == 302 and "book=" in plain.url
 
 
 def test_booking_mode_switch_changes_the_screen(client, world):
@@ -76,7 +122,7 @@ def test_booking_mode_switch_changes_the_screen(client, world):
             reverse("scheduling:booking_slots", args=[world["patient"].pk]),
             {"visit_type": world["vt"].pk, "day": SATURDAY.isoformat()},
         ).content.decode()
-    assert "14:00" in slots and "رقم الدور الجاي" not in slots
+    assert "2:00 PM" in slots and "رقم الدور الجاي" not in slots
 
     world["doctor"].booking_mode = BookingMode.QUEUE
     world["doctor"].queue_avg_minutes = 15
@@ -114,14 +160,38 @@ def test_closing_a_day_with_bookings_shows_affected_with_suggestions(client, wor
 def test_reception_cannot_manage_schedule_but_can_book(client, world):
     client.force_login(world["reception"])
     assert client.get(reverse("doctors:schedule")).status_code == 403
-    assert client.get(reverse("scheduling:booking_home")).status_code == 200
+    assert client.get(reverse("scheduling:booking_panel")).status_code == 200
 
 
 def test_viewer_cannot_book(client, world, make_member):
     viewer = make_member(world["org"], "viewer")
     client.force_login(viewer)
-    assert client.get(reverse("scheduling:booking_home")).status_code == 403
-    assert client.get(reverse("scheduling:appointments_day")).status_code == 200  # view-only is fine
+    assert client.get(reverse("scheduling:booking_panel")).status_code == 403
+    board = client.get(reverse("reception:today"))
+    assert board.status_code == 200  # the schedule, view-only
+    assert reverse("scheduling:booking_panel") not in board.content.decode()
+
+
+@pytest.mark.parametrize(
+    ("name", "args", "query", "expected"),
+    [
+        ("scheduling:booking_home", [], {}, "?book=1"),
+        ("scheduling:appointments_day", [], {"date": "2026-01-03"}, "?date=2026-01-03&view=day"),
+        ("scheduling:appointments_week", [], {"date": "2026-01-03"}, "?date=2026-01-03&view=week"),
+    ],
+)
+def test_old_screens_open_the_board(client, world, name, args, query, expected):
+    client.force_login(world["reception"])
+    r = client.get(reverse(name, args=args), query)
+    assert r.status_code == 302 and r.url == reverse("reception:today") + expected
+
+
+def test_old_booking_link_opens_the_panel_for_that_patient(client, world):
+    client.force_login(world["reception"])
+    r = client.get(reverse("scheduling:booking_patient", args=[world["patient"].pk]), {"day": SATURDAY.isoformat()})
+    assert r.url == f"{reverse('reception:today')}?date={SATURDAY}&book={world['patient'].pk}"
+    page = client.get(r.url).content.decode()
+    assert f"{reverse('scheduling:booking_panel')}?day={SATURDAY}&patient={world['patient'].pk}" in page
 
 
 def test_cross_tenant_appointment_isolation(client, world, org_b, make_member):

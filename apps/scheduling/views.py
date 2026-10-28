@@ -1,6 +1,8 @@
+import json
 from datetime import date, datetime, timedelta
 
 from django.contrib import messages
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -10,17 +12,17 @@ from django.views.decorators.http import require_POST
 from apps.accounts.permissions import has_perm, require_perm
 from apps.audit import services as audit
 from apps.core.ratelimit import search_limit
-from apps.core.timeutils import CAIRO, WEEKDAY_LABELS, weekday_egypt
+from apps.core.templatetags.clock import ampm
+from apps.core.timeutils import CAIRO, weekday_egypt
 from apps.doctors.models import BookingMode, ScheduleException, ScheduleExceptionKind, VisitType
 from apps.doctors.services import get_doctor
 from apps.notifications.models import Event, MessageStatus
-from apps.notifications.templating import fmt_time
+from apps.notifications.templating import fmt_date
 from apps.patients import services as patient_services
 from apps.patients.forms import PatientForm
 from apps.patients.models import Patient
 
 from . import services
-from .availability import periods_for
 from .models import ACTIVE_STATUSES, Appointment, AppointmentStatus
 
 
@@ -33,12 +35,88 @@ def _parse_day(raw) -> date:
     return date.today()
 
 
-# --- booking screen --------------------------------------------------------------------------
+def _board(day=None, view=None, **extra) -> str:
+    """The reception board (reception:today) — bookings, the day and the week all live there now."""
+    params = {k: v for k, v in {"date": day.isoformat() if day else None, "view": view, **extra}.items() if v}
+    query = "&".join(f"{k}={v}" for k, v in params.items())
+    return reverse("reception:today") + (f"?{query}" if query else "")
+
+
+def _toast(resp, text, error=False, refresh=True):
+    """HTMX: close the booking panel (empty #modal), show a toast and refresh the board."""
+    events = {"toast": {"text": text, "error": error}}
+    if refresh:
+        events["board-refresh"] = True
+    resp["HX-Trigger"] = json.dumps(events)
+    return resp
+
+
+# --- booking (a panel on the reception board) ---------------------------------------------------
 
 
 @require_perm("appointment.book")
 def booking_home(request):
-    return render(request, "scheduling/booking_home.html", {})
+    return redirect(_board(book="1"))
+
+
+@require_perm("appointment.book")
+def booking_panel(request):
+    """The booking panel: find / add the patient, pick the visit type and a time — opened from "+ حجز جديد" or a free
+    cell of the board (`at` = that slot, or `day` + `hour` from the week table)."""
+    org = request.organization
+    doctor = get_doctor(org)
+    pk = request.GET.get("patient", "")
+    patient = Patient.objects.for_org(org).filter(pk=pk, is_active=True).first() if pk.isdigit() else None
+    return render(request, "scheduling/partials/booking_panel.html", _panel_ctx(request, doctor, patient))
+
+
+def _panel_ctx(request, doctor, patient, error=""):
+    data = request.GET if request.method == "GET" else request.POST
+    at = None
+    if data.get("at"):
+        try:
+            at = datetime.fromisoformat(data["at"])
+            at = at if at.tzinfo else at.replace(tzinfo=CAIRO)
+        except ValueError:
+            at = None
+    day = at.astimezone(CAIRO).date() if at else _parse_day(data.get("day"))
+    visit_types = list(VisitType.objects.for_org(request.organization).filter(doctor=doctor, is_active=True))
+    chosen = str(data.get("visit_type") or "")
+    visit_type = next((vt for vt in visit_types if str(vt.pk) == chosen), visit_types[0] if visit_types else None)
+    ctx = {
+        "patient": patient,
+        "doctor": doctor,
+        "day": day,
+        "at": at.isoformat() if at else "",
+        "at_dt": at,
+        "hour": data.get("hour", ""),
+        "visit_types": visit_types,
+        "visit_type": visit_type,
+        "prev_day": day - timedelta(days=1),
+        "next_day": day + timedelta(days=1),
+        "is_today": day == timezone.localtime(timezone.now(), CAIRO).date(),
+        "slots_mode": doctor.booking_mode == BookingMode.SLOTS,
+        "error": error,
+    }
+    if patient is None or visit_type is None:
+        return ctx
+    ctx["upcoming"] = (
+        Appointment.objects.for_org(request.organization)
+        .filter(patient=patient, status__in=ACTIVE_STATUSES, start_at__gte=timezone.now())
+        .select_related("visit_type")
+        .order_by("start_at")[:3]
+    )
+    if ctx["slots_mode"]:
+        slots = services.free_slots(doctor, visit_type, day)
+        ctx["slots"] = slots
+        hour = int(ctx["hour"]) if str(ctx["hour"]).isdigit() else None
+        pick = next((s for s in slots if at and s == at), None) or next(
+            (s for s in slots if hour is not None and s.astimezone(CAIRO).hour == hour), None
+        )
+        ctx["picked"] = pick.isoformat() if pick else ""
+    else:
+        ctx["periods"] = services.queue_availability(doctor, day)
+    return ctx
 
 
 @require_perm("appointment.book")
@@ -50,17 +128,27 @@ def booking_search(request):
     looks_like_phone = bool(q) and digits >= max(len(q) - 2, 1)
     initial = {"phone": q} if looks_like_phone else {"full_name": q}
     form = PatientForm(initial=initial) if q else None
-    return render(request, "scheduling/partials/search_results.html", {"q": q, "patients": patients, "form": form})
+    ctx = {"q": q, "patients": patients, "form": form, "day": request.GET.get("day", ""),
+           "at": request.GET.get("at", ""), "hour": request.GET.get("hour", "")}  # fmt: skip
+    return render(request, "scheduling/partials/search_results.html", ctx)
 
 
 @require_perm("appointment.book")
 def booking_new_patient(request):
+    """Add the patient, then straight to picking their time (the panel); an invalid form comes back in place."""
     form = PatientForm(request.POST)
     if form.is_valid():
         patient = patient_services.create_patient(request.organization, form.save(commit=False), by=request.user)
         audit.log("patient.created", request=request, target=patient, summary=patient.full_name)
-        return redirect("scheduling:booking_patient", patient_pk=patient.pk)
-    return render(request, "scheduling/partials/new_patient_form.html", {"form": form})
+        if request.htmx:
+            ctx = _panel_ctx(request, get_doctor(request.organization), patient)
+            resp = render(request, "scheduling/partials/booking_panel.html", ctx)
+            resp["HX-Retarget"], resp["HX-Reswap"] = "#modal", "innerHTML"
+            return resp
+        return redirect(_board(book=patient.pk))
+    ctx = {"form": form, "day": request.POST.get("day", ""), "at": request.POST.get("at", ""),
+           "hour": request.POST.get("hour", "")}  # fmt: skip
+    return render(request, "scheduling/partials/new_patient_form.html", ctx)
 
 
 def _patient(request, pk):
@@ -69,27 +157,9 @@ def _patient(request, pk):
 
 @require_perm("appointment.book")
 def booking_patient(request, patient_pk):
+    """Old full-page booking (bookmarks / follow-up links): the board opens the booking panel for this patient."""
     patient = _patient(request, patient_pk)
-    doctor = get_doctor(request.organization)
-    visit_types = VisitType.objects.filter(doctor=doctor, is_active=True)
-    upcoming = (
-        Appointment.objects.for_org(request.organization)
-        .filter(patient=patient, status__in=ACTIVE_STATUSES, start_at__gte=datetime.now(CAIRO))
-        .select_related("visit_type")
-        .order_by("start_at")[:3]
-    )
-    day = _parse_day(request.GET.get("day"))
-    ctx = {
-        "patient": patient,
-        "doctor": doctor,
-        "visit_types": visit_types,
-        "upcoming": upcoming,
-        "visit_type_id": request.GET.get("visit_type") or (visit_types.first().pk if visit_types.first() else ""),
-        "day": day.isoformat(),
-        "prev_day": (day - timedelta(days=1)).isoformat(),
-        "next_day": (day + timedelta(days=1)).isoformat(),
-    }
-    return render(request, "scheduling/booking_patient.html", ctx)
+    return redirect(_board(day=_parse_day(request.GET.get("day")), book=patient.pk))
 
 
 @require_perm("appointment.book")
@@ -137,14 +207,22 @@ def booking_confirm(request, patient_pk):
                 overbook=overbook,
             )
     except services.BookingError as e:
+        if request.htmx:
+            return render(request, "scheduling/partials/booking_panel.html",
+                          _panel_ctx(request, doctor, patient, error=str(e)))  # fmt: skip
         messages.error(request, str(e))
-        return redirect("scheduling:booking_patient", patient_pk=patient.pk)
+        return redirect(_board(day=_parse_day(request.POST.get("day")), book=patient.pk))
 
     audit.log(
         "appointment.booked", request=request, target=appt, summary=f"{patient.full_name} — {appt.visit_type.name_ar}"
     )
-    label = f"#{appt.queue_number}" if appt.queue_number else appt.start_at.astimezone(CAIRO).strftime("%Y/%m/%d %H:%M")
-    messages.success(request, _("اتحجز لـ%(p)s — %(w)s") % {"p": patient.full_name, "w": label})
+    label = f"#{appt.queue_number}" if appt.queue_number else f"{fmt_date(appt.date)} {ampm(appt.start_at)}"
+    done = _("اتحجز لـ%(p)s — %(w)s") % {"p": patient.full_name, "w": label}
+    if request.htmx:
+        if not patient.messaging_consent:
+            done += " · " + _("مفيش رسايل هتتبعت — المريض مش موافق على الرسايل.")
+        return _toast(HttpResponse(""), done)
+    messages.success(request, done)
     scheduled = appt.messages.filter(status=MessageStatus.PENDING).order_by("send_at")
     if scheduled:
         parts = [
@@ -156,31 +234,15 @@ def booking_confirm(request, patient_pk):
         messages.info(request, _("الرسايل: %(l)s") % {"l": " · ".join(parts)})
     elif not patient.messaging_consent:
         messages.warning(request, _("مفيش رسايل هتتبعت — المريض مش موافق على الرسايل."))
-    return redirect("scheduling:booking_home")
+    return redirect(_board(day=appt.date))
 
 
-# --- day calendar ------------------------------------------------------------------------------
+# --- day / week calendars → the reception board ---------------------------------------------------
 
 
 @require_perm("appointment.view")
 def appointments_day(request):
-    doctor = get_doctor(request.organization)
-    day = _parse_day(request.GET.get("date"))
-    appts = (
-        Appointment.objects.for_org(request.organization)
-        .filter(doctor=doctor, date=day)
-        .exclude(status__in=[AppointmentStatus.CANCELLED, AppointmentStatus.RESCHEDULED])
-        .select_related("patient", "visit_type")
-        .order_by("start_at")
-    )
-    ctx = {
-        "doctor": doctor,
-        "day": day,
-        "prev_day": day - timedelta(days=1),
-        "next_day": day + timedelta(days=1),
-        "appointments": appts,
-    }
-    return render(request, "scheduling/appointments_day.html", ctx)
+    return redirect(_board(day=_parse_day(request.GET.get("date")), view="day"))
 
 
 def _appt(request, pk):
@@ -194,7 +256,9 @@ def appointment_confirm(request, pk):
         services.transition(appt, AppointmentStatus.CONFIRMED, by=request.user)
     except services.InvalidTransition as e:
         messages.error(request, str(e))
-    return redirect(f"{reverse('scheduling:appointments_day')}?date={appt.date}")
+    if request.htmx:
+        return _toast(HttpResponse(""), _("الحجز اتأكد."), refresh=True)
+    return redirect(_board(day=appt.date))
 
 
 @require_perm("appointment.cancel")
@@ -206,7 +270,7 @@ def appointment_cancel(request, pk):
         messages.success(request, _("اتلغى الحجز."))
     except services.BookingError as e:
         messages.error(request, str(e))
-    return redirect(f"{reverse('scheduling:appointments_day')}?date={appt.date}")
+    return redirect(_board(day=appt.date))
 
 
 # --- affected appointments (closing a day) ------------------------------------------------------
@@ -234,15 +298,6 @@ def affected_reschedule(request, pk):
 
 # --- week calendar (03 §3.3) -----------------------------------------------------------------
 
-STATUS_ICONS = {
-    AppointmentStatus.BOOKED: "○",
-    AppointmentStatus.CONFIRMED: "✓",
-    AppointmentStatus.ARRIVED: "●",
-    AppointmentStatus.IN_CONSULTATION: "▶",
-    AppointmentStatus.COMPLETED: "✔",
-    AppointmentStatus.NO_SHOW: "✕",
-}
-
 
 def week_start(day: date) -> date:
     """Egyptian week: Saturday → Friday."""
@@ -251,46 +306,7 @@ def week_start(day: date) -> date:
 
 @require_perm("appointment.view")
 def appointments_week(request):
-    doctor = get_doctor(request.organization)
-    start = week_start(_parse_day(request.GET.get("date")))
-    days = [start + timedelta(days=i) for i in range(7)]
-    appts = (
-        Appointment.objects.for_org(request.organization)
-        .filter(doctor=doctor, date__gte=days[0], date__lte=days[-1])
-        .exclude(status__in=[AppointmentStatus.CANCELLED, AppointmentStatus.RESCHEDULED])
-        .select_related("patient", "visit_type")
-        .order_by("start_at")
-    )
-    exceptions = {}
-    for exc in ScheduleException.objects.filter(doctor=doctor, date__gte=days[0], date__lte=days[-1]):
-        exceptions.setdefault(exc.date, []).append(exc)
-    by_day = {d: [] for d in days}
-    for a in appts:
-        a.icon = STATUS_ICONS.get(a.status, "")
-        by_day[a.date].append(a)
-    today = timezone.localtime(timezone.now(), CAIRO).date()
-    columns = [
-        {
-            "day": d,
-            "label": WEEKDAY_LABELS[weekday_egypt(d)],
-            "periods": [f"{fmt_time(p.start_at)} – {fmt_time(p.end_at)}" for p in periods_for(doctor, d)],
-            "exceptions": exceptions.get(d, []),
-            "appointments": by_day[d],
-            "is_today": d == today,
-            "is_past": d < today,
-        }
-        for d in days
-    ]
-    ctx = {
-        "doctor": doctor,
-        "columns": columns,
-        "start": days[0],
-        "end": days[-1],
-        "prev_week": days[0] - timedelta(days=7),
-        "next_week": days[0] + timedelta(days=7),
-        "today": today,
-    }
-    return render(request, "scheduling/appointments_week.html", ctx)
+    return redirect(_board(day=_parse_day(request.GET.get("date")), view="week"))
 
 
 @require_perm("appointment.reschedule")
@@ -327,11 +343,11 @@ def reschedule_confirm(request, pk):
                                       reason=_("تأجيل من التقويم"))  # fmt: skip
     except (KeyError, ValueError, services.BookingError) as e:
         messages.error(request, str(e) or _("اختار ميعاد."))
-        return redirect(f"{reverse('scheduling:appointments_week')}?date={week}")
+        return redirect(_board(day=_parse_day(week)))
     audit.log("appointment.rescheduled", request=request, target=new, summary=appt.patient.full_name)
-    when = f"#{new.queue_number}" if new.queue_number else new.start_at.astimezone(CAIRO).strftime("%Y/%m/%d %H:%M")
+    when = f"#{new.queue_number}" if new.queue_number else f"{fmt_date(new.date)} {ampm(new.start_at)}"
     messages.success(request, _("اتأجل لـ%(w)s — والمريض هتوصله رسالة بالتعديل.") % {"w": when})
-    return redirect(f"{reverse('scheduling:appointments_week')}?date={new.date.isoformat()}")
+    return redirect(_board(day=new.date))
 
 
 @require_POST
@@ -349,4 +365,4 @@ def close_day(request):
     if services.affected_by_closing(doctor, day):
         return redirect(f"{reverse('scheduling:affected')}?date={day.isoformat()}")
     messages.success(request, _("اليوم اتقفل."))
-    return redirect(f"{reverse('scheduling:appointments_week')}?date={day.isoformat()}")
+    return redirect(_board(day=day))

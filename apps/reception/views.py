@@ -2,10 +2,9 @@
 
 import hashlib
 import json
-from collections import Counter
+from datetime import datetime, timedelta
 
 from django.contrib import messages
-from django.db.models import Prefetch
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -15,7 +14,6 @@ from django.views.decorators.http import require_POST
 from apps.accounts.permissions import has_perm, require_perm
 from apps.audit import services as audit
 from apps.billing import services as billing
-from apps.billing.models import Payment
 from apps.clinical import services as clinical
 from apps.clinical.models import Visit, Vitals
 from apps.core.ratelimit import search_limit
@@ -25,96 +23,95 @@ from apps.doctors.services import get_doctor
 from apps.notifications.templating import fmt_date, fmt_time
 from apps.patients.models import Patient
 from apps.scheduling import services as booking
-from apps.scheduling.availability import periods_for
 from apps.scheduling.models import Appointment, AppointmentStatus
+from apps.scheduling.views import week_start
 
+from . import board
 from .forms import PaymentForm, VitalsForm
 
-SHOWN_STATUSES = [
-    AppointmentStatus.BOOKED,
-    AppointmentStatus.CONFIRMED,
-    AppointmentStatus.ARRIVED,
-    AppointmentStatus.IN_CONSULTATION,
-    AppointmentStatus.COMPLETED,
-    AppointmentStatus.NO_SHOW,
-]
-LATE_AFTER_MINUTES = 5
+VIEWS = ("day", "week")
 
 
 def _today():
     return timezone.localtime(timezone.now(), CAIRO).date()
 
 
-def _appointments(org, doctor, day):
-    qs = (
-        Appointment.objects.for_org(org)
-        .filter(doctor=doctor, date=day, status__in=SHOWN_STATUSES)
-        .select_related("patient", "visit_type")
-        .prefetch_related(Prefetch("payments", queryset=Payment.objects.order_by("id")))
+def _parse_day(raw):
+    try:
+        return datetime.strptime(raw, "%Y-%m-%d").date() if raw else None
+    except ValueError:
+        return None
+
+
+def _state(request):
+    """The day / week this user is looking at: the query string, else the view they last used (the date resets to
+    today) — remembered in the session, so actions (arrive, pay...) re-render the board the user is on."""
+    view = request.GET.get("view") or request.session.get("board_view") or "day"
+    view = view if view in VIEWS else "day"
+    day = _parse_day(request.GET.get("date")) or _today()
+    request.session["board_view"], request.session["board_date"] = view, day.isoformat()
+    return view, day
+
+
+def _session_state(request):
+    view = request.session.get("board_view") if request.session.get("board_view") in VIEWS else "day"
+    return view, _parse_day(request.session.get("board_date")) or _today()
+
+
+def _signature(appts, view, day) -> str:
+    raw = f"{view}:{day}:" + "|".join(
+        f"{a.pk}:{a.status}:{a.updated_at.timestamp()}:{len(a.payments.all())}" for a in appts
     )
-    order = ("queue_number", "start_at") if doctor.booking_mode == BookingMode.QUEUE else ("start_at", "id")
-    return list(qs.order_by(*order))
-
-
-def _signature(appts) -> str:
-    raw = "|".join(f"{a.pk}:{a.status}:{a.updated_at.timestamp()}:{len(a.payments.all())}" for a in appts)
     return hashlib.sha1(raw.encode(), usedforsecurity=False).hexdigest()[:16]
 
 
-def _rows_ctx(request, doctor, day):
-    appts = _appointments(request.organization, doctor, day)
+def _board_ctx(request, view, day):
+    doctor = get_doctor(request.organization)
     now = timezone.now()
-    rows = []
-    for a in appts:
-        bal = billing.balance(a, list(a.payments.all()))
-        waiting = int((now - a.arrived_at).total_seconds() // 60) if a.status == AppointmentStatus.ARRIVED else None
-        late = (
-            a.status in (AppointmentStatus.BOOKED, AppointmentStatus.CONFIRMED)
-            and a.queue_number is None
-            and (now - a.start_at).total_seconds() > LATE_AFTER_MINUTES * 60
-        )
-        rows.append(
-            {
-                "a": a,
-                "balance": bal,
-                "waiting": waiting,
-                "late_minutes": int((now - a.start_at).total_seconds() // 60) if late else None,
-            }
-        )
-    counts = Counter(a.status for a in appts)
+    if view == "week":
+        start = week_start(day)
+        b = board.week_board(request.organization, doctor, start, now)
+        prev_day, next_day = start - timedelta(days=7), start + timedelta(days=7)
+        title = f"{fmt_date(b['start'])} – {fmt_date(b['end'])}"
+    else:
+        b = board.day_board(request.organization, doctor, day, now)
+        prev_day, next_day = day - timedelta(days=1), day + timedelta(days=1)
+        title = fmt_date(day)
+    today = _today()
     return {
-        "rows": rows,
-        "sig": _signature(appts),
-        "counts": {
-            "booked": counts[AppointmentStatus.BOOKED] + counts[AppointmentStatus.CONFIRMED],
-            "arrived": counts[AppointmentStatus.ARRIVED],
-            "in_consultation": counts[AppointmentStatus.IN_CONSULTATION],
-            "completed": counts[AppointmentStatus.COMPLETED],
-            "no_show": counts[AppointmentStatus.NO_SHOW],
-        },
-        "doctor": doctor,
+        "board": b,
+        "view": view,
         "day": day,
+        "today": today,
+        "is_today": day == today if view == "day" else b["start"] <= today <= b["end"],
+        "title": title,
+        "prev_day": prev_day,
+        "next_day": next_day,
+        "doctor": doctor,
+        "slots_mode": doctor.booking_mode == BookingMode.SLOTS,
+        "sig": _signature(b["appointments"], view, day),
     }
 
 
-@require_perm("reception.operate")
+@require_perm("appointment.view")
 def today(request):
-    doctor = get_doctor(request.organization)
-    day = _today()
-    ctx = _rows_ctx(request, doctor, day)
-    periods = [f"{fmt_time(p.start_at)} – {fmt_time(p.end_at)}" for p in periods_for(doctor, day)]
-    ctx.update(periods=periods, day_label=fmt_date(day), followups=clinical.followups_due(request.organization))
+    """The reception board: today's arrivals and payments, the day / week schedule and new bookings — one screen."""
+    view, day = _state(request)
+    ctx = _board_ctx(request, view, day)
+    if has_perm(request.membership, "reception.operate"):
+        ctx["followups"] = clinical.followups_due(request.organization)
+    ctx["book"] = request.GET.get("book", "")  # ?book=<patient> opens the booking panel (follow-ups, old links)
     return render(request, "reception/today.html", ctx)
 
 
-@require_perm("reception.operate")
+@require_perm("appointment.view")
 def rows(request):
     """Polled every 5 s; 204 (no swap) when nothing changed since the client's signature."""
-    doctor = get_doctor(request.organization)
-    ctx = _rows_ctx(request, doctor, _today())
+    view, day = _state(request)
+    ctx = _board_ctx(request, view, day)
     if request.GET.get("sig") == ctx["sig"]:
         return HttpResponse(status=204)
-    return render(request, "reception/partials/rows.html", ctx)
+    return render(request, "reception/partials/board.html", ctx)
 
 
 def _appt(request, pk):
@@ -124,9 +121,8 @@ def _appt(request, pk):
 
 
 def _refresh(request, toast=None, error=None):
-    """Re-render the rows (HTMX) — the modal closes client-side on success."""
-    ctx = _rows_ctx(request, get_doctor(request.organization), _today())
-    resp = render(request, "reception/partials/rows.html", ctx)
+    """Re-render the board the user is on (HTMX) — the modal closes client-side on success."""
+    resp = render(request, "reception/partials/board.html", _board_ctx(request, *_session_state(request)))
     if toast or error:
         resp["HX-Trigger"] = json.dumps({"toast": {"text": toast or error, "error": bool(error)}})
     return resp
@@ -263,10 +259,19 @@ def walk_in(request):
                 overbook=overbook,
             )
         except booking.BookingError as e:
+            if request.htmx:  # from the booking panel: say why, keep the panel open
+                resp = HttpResponse(status=204)
+                resp["HX-Trigger"] = json.dumps({"toast": {"text": str(e), "error": True}})
+                return resp
             messages.error(request, str(e))
             return redirect(f"{request.path}?q={patient.phone}")
         audit.log("appointment.walk_in", request=request, target=appt, summary=patient.full_name)
-        messages.success(request, _("%(p)s اتسجل حضور مباشر") % {"p": patient.full_name})
+        done = _("%(p)s اتسجل حضور مباشر") % {"p": patient.full_name}
+        if request.htmx:  # the panel closes (#modal emptied) and the board refreshes
+            resp = HttpResponse("")
+            resp["HX-Trigger"] = json.dumps({"toast": {"text": done, "error": False}, "board-refresh": True})
+            return resp
+        messages.success(request, done)
         return redirect("reception:today")
     q = request.GET.get("q", "").strip()
     patients = Patient.objects.for_org(request.organization).filter(is_active=True).search(q)[:15] if q else []

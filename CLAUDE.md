@@ -541,3 +541,24 @@ gotchas and conventions introduced in that phase.
   `Drug.usage_count` + clinic-added drugs; the catalog until 30 drugs were prescribed; the service picks α 1.5 for a
   list ≤ 3000 phrases, 1.3 for the catalog). Online, the browser's recogniser is still clearly better → "auto".
   A headset / USB mic should help any engine (the laptop mic gave ~0.3% energy above 3 kHz).
+
+## Reception board (2026-10-28)
+- One screen for reception: `reception:today` (`/reception/`, **appointment.view**) = today's reception work + the day
+  and week schedule + new bookings. `?view=day|week&date=` (the view is remembered in the session, the date resets to
+  today; `_session_state` lets actions re-render the board the user is on). Old screens redirect there:
+  `appointments_day`/`appointments_week` → `?view=…&date=`, `booking_home` → `?book=1`, `booking_patient` → `?book=<pk>`
+  (the board opens the booking panel on load). Sidebar: one item "الاستقبال والمواعيد".
+- `apps/reception/board.py` (read-only): `day_board` = every slot of the doctor's periods (`Slot`: entries / covered by
+  a longer booking / outside the periods / bookable / past) or, in queue mode, each period's numbers; `week_board` =
+  hour rows × Saturday→Friday cells (open = inside a period, bookable = open + after min notice + within the horizon).
+  Templates: `reception/partials/board.html` (polled, `#rows-sig` includes view+date) → `board_day.html` /
+  `board_week.html`; one booking row = `board_row.html` + `appt_actions.html` (today: وصل/دخّل/خلص/لم يحضر; any day: ⋯
+  payment, vitals, back a step, confirm, reschedule, cancel, messages — each behind its permission). Past free slots are
+  hidden; "إخفاء المواعيد الفاضية" toggle; on phones الكشف/الحساب columns hide.
+- Booking panel (`scheduling:booking_panel`, appointment.book) in `#modal`: patient search (`booking_search` partial
+  buttons swap the panel) / add new (`booking_new_patient` with HTMX → the panel for that patient, errors in place) →
+  visit type chips, day, free times (AM/PM radio grid; `at` from a free day-cell or `hour` from a week-cell pre-picks)
+  → `booking_confirm` (HTMX: empty body + `HX-Trigger` toast + `board-refresh`; errors re-render the panel) or, today,
+  "سجّل حضوره دلوقتي" → `reception:walk_in` (HTMX too). The board listens for `board-refresh` (hx-trigger from:body).
+- Times on reception screens: `{% load clock %}{{ dt|ampm }}` → "2:30 PM" (Latin AM/PM, Cairo time); patient messages
+  keep `fmt_time` (ص/م). Week drag-and-drop to reschedule now lives on the board (delegated listeners on `#reception`).

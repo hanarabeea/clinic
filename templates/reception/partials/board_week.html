@@ -1,0 +1,67 @@
+{% load i18n clock %}
+{% comment %}The week table: hours × days (Saturday → Friday). Each cell holds that hour's bookings (time AM/PM + name +
+status); a free cell inside working hours opens the booking panel on that hour; drag a booking to another day's cell
+to reschedule it. A booking opens its day for the reception actions.{% endcomment %}
+<div class="card overflow-x-auto">
+  <table class="w-full min-w-[60rem] table-fixed border-collapse text-xs">
+    <thead>
+      <tr class="bg-stone-50">
+        <th class="w-20 border-b border-stone-200 px-2 py-2 text-start text-stone-500">{% translate "الساعة" %}</th>
+        {% for col in board.columns %}
+        <th class="border-b border-s border-stone-200 px-2 py-2 text-start align-top {% if col.is_today %}bg-brand-soft{% endif %}">
+          <a href="{% url 'reception:today' %}?view=day&date={{ col.day|date:'Y-m-d' }}" class="block hover:text-brand">
+            <span class="text-sm font-bold">{{ col.label }}</span>
+            <span class="font-mono font-normal text-stone-500" dir="ltr">{{ col.day|date:"d/m" }}</span>
+          </a>
+          <span class="font-normal text-stone-500">
+            {% if col.periods %}{% blocktranslate count n=col.count %}{{ n }} حجز{% plural %}{{ n }} حجز{% endblocktranslate %}{% else %}{% translate "مفيش شغل" %}{% endif %}
+          </span>
+          {% for exc in col.exceptions %}<span class="mt-0.5 block rounded px-1 font-normal {% if exc.kind == 'closed' %}bg-red-50 text-red-700{% else %}bg-amber-50 text-amber-700{% endif %}">{{ exc.get_kind_display }}{% if exc.reason %}: {{ exc.reason }}{% endif %}</span>{% endfor %}
+          {% if can.schedule_manage and col.periods and not col.is_past %}
+          <form method="post" action="{% url 'scheduling:close_day' %}" onsubmit="return confirm('{% translate 'تقفل اليوم ده؟ الحجوزات اللي فيه هتظهرلك عشان تأجلها.' %}')">
+            {% csrf_token %}<input type="hidden" name="date" value="{{ col.day|date:'Y-m-d' }}">
+            <button class="font-normal text-stone-400 hover:text-red-600">🔒 {% translate "قفل" %}</button>
+          </form>
+          {% endif %}
+        </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in board.rows %}
+      <tr>
+        <th class="border-b border-stone-100 px-2 py-1 text-start align-top font-mono font-semibold text-stone-500" dir="ltr">{{ row.hour|ampm }}</th>
+        {% for cell in row.cells %}
+        <td class="group h-16 border-b border-s border-stone-100 p-1 align-top {% if not cell.open %}bg-stone-100/60{% elif cell.is_today %}bg-brand-soft/30{% endif %}"
+            data-day="{{ cell.day|date:'Y-m-d' }}" {% if cell.bookable %}data-drop{% endif %}>
+          <div class="space-y-1">
+            {% for e in cell.entries %}{% with a=e.a %}
+            {% with movable=can.appointment_reschedule %}
+            <a href="{% url 'reception:today' %}?view=day&date={{ cell.day|date:'Y-m-d' }}"
+               class="block rounded-md border-s-4 bg-white px-1.5 py-1 shadow-sm ring-1 ring-stone-200 hover:ring-brand {% if a.status == 'arrived' %}bg-amber-50{% elif a.status == 'in_consultation' %}bg-sky-50{% elif a.status == 'completed' or a.status == 'no_show' %}opacity-60{% endif %} {% if movable and a.status == 'booked' or movable and a.status == 'confirmed' %}cursor-grab{% endif %}"
+               style="border-color:{{ a.visit_type.color }}"
+               {% if movable and a.status == 'booked' or movable and a.status == 'confirmed' %}draggable="true" data-appt="{{ a.pk }}" data-options="{% url 'scheduling:reschedule_options' a.pk %}"{% endif %}
+               title="{{ a.get_status_display }} · {{ a.visit_type.name_ar }}">
+              <span class="block font-mono font-bold" dir="ltr">{% if a.queue_number %}#{{ a.queue_number }} · {% endif %}{{ a.start_at|ampm }}</span>
+              <span class="block truncate font-semibold">{% if a.status == 'confirmed' %}✓ {% elif a.status == 'arrived' %}● {% elif a.status == 'in_consultation' %}▶ {% elif a.status == 'completed' %}✔ {% elif a.status == 'no_show' %}✕ {% endif %}{{ a.patient.full_name }}</span>
+            </a>
+            {% endwith %}{% endwith %}{% endfor %}
+            {% if cell.bookable and can.appointment_book %}
+            <button type="button" class="w-full rounded-md border border-dashed border-brand/40 py-0.5 text-brand opacity-0 transition hover:bg-brand-soft focus:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
+                    hx-get="{% url 'scheduling:booking_panel' %}?day={{ cell.day|date:'Y-m-d' }}&hour={{ cell.hour }}" hx-target="#modal">＋ {% translate "احجز" %}</button>
+            {% endif %}
+          </div>
+        </td>
+        {% endfor %}
+      </tr>
+      {% empty %}
+      <tr><td colspan="8" class="px-3 py-10 text-center text-stone-500">{% translate "مفيش شغل ولا حجوزات الأسبوع ده." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<div class="mt-2 flex flex-wrap gap-3 text-xs text-stone-500">
+  <span>{% translate "محجوز" %}</span><span>✓ {% translate "مؤكد" %}</span><span>● {% translate "وصل" %}</span>
+  <span>▶ {% translate "جوه الكشف" %}</span><span>✔ {% translate "خلص" %}</span><span>✕ {% translate "لم يحضر" %}</span>
+  {% if can.appointment_reschedule %}<span class="ms-auto">{% translate "اسحب الحجز لخانة يوم تاني عشان تأجله · دوس على يوم أو حجز عشان تفتح اليوم بالتفصيل" %}</span>{% endif %}
+</div>

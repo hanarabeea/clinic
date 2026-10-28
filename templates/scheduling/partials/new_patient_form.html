@@ -1,6 +1,7 @@
 {% load i18n %}
-<form method="post" action="{% url 'scheduling:booking_new_patient' %}" class="space-y-3">
+<form id="new-patient-form" hx-post="{% url 'scheduling:booking_new_patient' %}" hx-target="this" hx-swap="outerHTML" class="space-y-3">
   {% csrf_token %}
+  <input type="hidden" name="day" value="{{ day }}"><input type="hidden" name="at" value="{{ at }}"><input type="hidden" name="hour" value="{{ hour }}">
   <div class="grid gap-3 sm:grid-cols-2">
     {% include "partials/field.html" with field=form.full_name %}
     {% include "partials/field.html" with field=form.gender %}
@@ -12,5 +13,5 @@
   <label class="flex items-center gap-2 text-xs text-stone-600">{{ form.messaging_consent }} {% translate "موافق على استقبال رسايل التذكير" %}</label>
   <input type="hidden" name="whatsapp_same_as_phone" value="on">
   <input type="hidden" name="preferred_channel" value="whatsapp">
-  <button type="submit" class="btn-primary">{% translate "إضافة وحجز" %}</button>
+  <button type="submit" class="btn-primary">{% translate "إضافة ونكمّل الحجز" %}</button>
 </form>

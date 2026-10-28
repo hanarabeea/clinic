@@ -45,25 +45,31 @@ def test_week_starts_on_saturday():
 
 
 def test_week_shows_days_hours_closures_and_colored_bookings(client, world):
+    """The board's week table: Saturday → Friday columns, hour rows (AM/PM), each booking in its hour's cell."""
     ScheduleException.objects.create(organization=world["org"], doctor=world["doctor"], date=date(2026, 1, 5),
                                      kind="closed", reason="مؤتمر")  # fmt: skip
     client.force_login(world["viewer"])
     with freeze_time(NOW):
-        resp = client.get(reverse("scheduling:appointments_week"), {"date": "2026-01-06"})
+        resp = client.get(reverse("reception:today"), {"view": "week", "date": "2026-01-06"})
     html = resp.content.decode()
-    cols = resp.context["columns"]
+    board = resp.context["board"]
+    cols = board["columns"]
     assert [c["day"] for c in cols] == [date(2026, 1, 3 + i) for i in range(7)]
-    assert cols[0]["periods"] == ["2:00 م – 9:00 م"] and cols[0]["appointments"][0].pk == world["appt"].pk
+    assert [(p.start_at.hour, p.end_at.hour) for p in cols[0]["periods"]] == [(14, 21)]
     assert cols[2]["periods"] == [] and "مؤتمر" in html  # Monday closed by exception
     assert cols[5]["periods"] == []  # Thursday off
-    assert "منى سعيد" in html and "#123456" in html
-    assert "draggable" not in html and "قفل اليوم" not in html  # viewer: read-only
+    four_pm = next(r for r in board["rows"] if r["hour"].hour == 16)
+    assert [e.a.pk for e in four_pm["cells"][0]["entries"]] == [world["appt"].pk]
+    assert four_pm["cells"][0]["open"] and not four_pm["cells"][5]["open"]
+    assert "4:00 PM" in html and "منى سعيد" in html and "#123456" in html
+    assert "draggable" not in html and "قفل" not in html  # viewer: read-only
+    assert reverse("scheduling:booking_panel") not in html
 
 
 def test_drag_to_another_day_reschedules_and_messages(client, world, django_capture_on_commit_callbacks):
     client.force_login(world["reception"])
     with freeze_time(NOW):
-        html = client.get(reverse("scheduling:appointments_week"), {"date": "2026-01-03"}).content.decode()
+        html = client.get(reverse("reception:today"), {"view": "week", "date": "2026-01-03"}).content.decode()
         assert 'draggable="true"' in html
         modal = client.get(reverse("scheduling:reschedule_options", args=[world["appt"].pk]), {"day": "2026-01-04"})
         slots = modal.context["slots"]
@@ -71,7 +77,7 @@ def test_drag_to_another_day_reschedules_and_messages(client, world, django_capt
         with django_capture_on_commit_callbacks(execute=True):
             resp = client.post(reverse("scheduling:reschedule_confirm", args=[world["appt"].pk]),
                                {"start_at": slots[3].isoformat()})  # fmt: skip
-    assert resp.url == reverse("scheduling:appointments_week") + "?date=2026-01-04"
+    assert resp.url == reverse("reception:today") + "?date=2026-01-04"
     world["appt"].refresh_from_db()
     assert world["appt"].status == AppointmentStatus.RESCHEDULED
     new = Appointment.objects.get(pk=world["appt"].rescheduled_to_id)
@@ -113,7 +119,7 @@ def test_close_day_from_calendar_goes_to_affected_screen(client, world):
         resp = client.post(reverse("scheduling:close_day"), {"date": "2026-01-03"})
         assert resp.url == reverse("scheduling:affected") + "?date=2026-01-03"
         resp = client.post(reverse("scheduling:close_day"), {"date": "2026-01-04"})  # nothing booked
-        assert resp.url == reverse("scheduling:appointments_week") + "?date=2026-01-04"
+        assert resp.url == reverse("reception:today") + "?date=2026-01-04"
     assert ScheduleException.objects.filter(doctor=world["doctor"], kind="closed").count() == 2
 
 

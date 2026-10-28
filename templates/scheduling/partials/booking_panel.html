@@ -1,0 +1,114 @@
+{% load i18n clock %}
+{% comment %}The booking panel on the reception board (scheduling.views.booking_panel): 1) the patient (search / add new),
+2) visit type + day + a free time (pre-picked when opened from a free cell) → احجز, or today: سجّل حضوره دلوقتي (walk-in).
+Every step swaps this panel in #modal; a booking empties #modal and the board refreshes (HX-Trigger board-refresh).{% endcomment %}
+<div class="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/30 p-4 pt-10" onclick="if (event.target === this) this.parentElement.innerHTML = ''">
+  <div class="card w-full max-w-2xl p-5" id="booking-panel">
+    <div class="mb-4 flex items-center gap-2">
+      <h2 class="text-lg font-bold">＋ {% translate "حجز جديد" %}</h2>
+      {% if at_dt %}<span class="badge bg-brand-soft text-brand">{{ day|date:"d/m" }} · <span dir="ltr">{{ at_dt|ampm }}</span></span>{% endif %}
+      <button type="button" class="ms-auto text-xl text-stone-400 hover:text-ink" onclick="document.getElementById('modal').innerHTML = ''" aria-label="×">×</button>
+    </div>
+    {% if error %}<p class="mb-3 rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{{ error }}</p>{% endif %}
+
+    {% if not patient %}
+    {# 1) who #}
+    <label class="mb-1 block text-sm font-semibold" for="panel-q">{% translate "المريض" %}</label>
+    <div class="relative">
+      <input id="panel-q" type="search" name="q" autofocus autocomplete="off"
+             placeholder="{% translate 'رقم الموبايل أو الاسم أو رقم الملف' %}"
+             hx-get="{% url 'scheduling:booking_search' %}" hx-target="#panel-results" hx-swap="innerHTML"
+             hx-trigger="input changed delay:250ms, search"
+             hx-vals='{"day": "{{ day|date:'Y-m-d' }}", "at": "{{ at }}", "hour": "{{ hour }}"}'
+             class="w-full rounded-lg border border-stone-300 bg-white px-3 py-3 text-base focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20">
+    </div>
+    <div id="panel-results" class="mt-3"></div>
+    <script>document.getElementById("panel-q")?.focus();</script>
+
+    {% else %}
+    {# the patient #}
+    <div class="mb-4 flex flex-wrap items-center gap-2 rounded-lg bg-sand px-3 py-2">
+      <span class="text-base font-bold">{{ patient.full_name }}</span>
+      <span class="font-mono text-xs text-stone-500" dir="ltr">#{{ patient.file_number }} · {{ patient.phone }}</span>
+      {% if patient.allergies.exists %}<span class="badge bg-red-50 text-red-700">{% translate "حساسية" %}</span>{% endif %}
+      <button type="button" class="ms-auto text-xs font-semibold text-brand hover:underline"
+              hx-get="{% url 'scheduling:booking_panel' %}?day={{ day|date:'Y-m-d' }}&at={{ at|urlencode }}&hour={{ hour }}" hx-target="#modal">{% translate "مريض تاني" %}</button>
+    </div>
+    {% if upcoming %}
+    <p class="mb-3 text-xs text-amber-700">⚠ {% translate "عنده حجز جاي:" %}
+      {% for a in upcoming %}<span class="ms-1">{{ a.start_at|date:"d/m" }} <span dir="ltr">{{ a.start_at|ampm }}</span> ({{ a.visit_type.name_ar }}){% if not forloop.last %} ·{% endif %}</span>{% endfor %}
+    </p>
+    {% endif %}
+
+    {% if not visit_types %}
+    <p class="text-sm text-stone-500">{% translate "مفيش أنواع زيارات متعرّفة. ضيفها من الإعدادات." %}</p>
+    {% else %}
+    {# 2) what + when #}
+    <p class="mb-1 text-sm font-semibold">{% translate "نوع الكشف" %}</p>
+    <div class="mb-4 flex flex-wrap gap-2">
+      {% for vt in visit_types %}
+      <button type="button" hx-get="{% url 'scheduling:booking_panel' %}?patient={{ patient.pk }}&visit_type={{ vt.pk }}&day={{ day|date:'Y-m-d' }}&at={{ at|urlencode }}&hour={{ hour }}" hx-target="#modal"
+              class="chip {% if vt.pk == visit_type.pk %}border-brand bg-brand text-white{% endif %}">
+        <span class="inline-block size-2 rounded-full" style="background:{{ vt.color }}"></span>{{ vt.name_ar }} — {{ vt.price|floatformat:0 }} {% translate "ج.م" %}
+      </button>
+      {% endfor %}
+    </div>
+
+    <div class="mb-2 flex flex-wrap items-center gap-2 text-sm">
+      <span class="font-semibold">{% translate "اليوم" %}</span>
+      <button type="button" class="btn-ghost px-2" hx-get="{% url 'scheduling:booking_panel' %}?patient={{ patient.pk }}&visit_type={{ visit_type.pk }}&day={{ prev_day|date:'Y-m-d' }}" hx-target="#modal" aria-label="{% translate 'اليوم اللي قبله' %}">→</button>
+      <input type="date" value="{{ day|date:'Y-m-d' }}" name="day" class="rounded-lg border border-stone-300 px-2 py-1"
+             hx-get="{% url 'scheduling:booking_panel' %}?patient={{ patient.pk }}&visit_type={{ visit_type.pk }}" hx-trigger="change" hx-target="#modal">
+      <button type="button" class="btn-ghost px-2" hx-get="{% url 'scheduling:booking_panel' %}?patient={{ patient.pk }}&visit_type={{ visit_type.pk }}&day={{ next_day|date:'Y-m-d' }}" hx-target="#modal" aria-label="{% translate 'اليوم اللي بعده' %}">←</button>
+    </div>
+
+    <form hx-post="{% url 'scheduling:booking_confirm' patient.pk %}" hx-target="#modal" class="space-y-3">
+      {% csrf_token %}
+      <input type="hidden" name="visit_type" value="{{ visit_type.pk }}">
+      <input type="hidden" name="day" value="{{ day|date:'Y-m-d' }}">
+      {% if slots_mode %}
+        {% if slots %}
+        <p class="text-sm font-semibold">{% translate "الساعة" %} <span class="font-normal text-stone-500">({% blocktranslate count n=slots|length %}{{ n }} معاد فاضي{% plural %}{{ n }} معاد فاضي{% endblocktranslate %})</span></p>
+        <div class="grid max-h-64 grid-cols-3 gap-1.5 overflow-y-auto sm:grid-cols-5">
+          {% for s in slots %}
+          <label class="cursor-pointer rounded-lg border border-stone-200 px-1 py-2 text-center font-mono text-sm hover:border-brand has-[:checked]:border-brand has-[:checked]:bg-brand has-[:checked]:text-white" dir="ltr">
+            <input type="radio" name="start_at" value="{{ s.isoformat }}" class="sr-only" required {% if s.isoformat == picked %}checked{% endif %}>{{ s|ampm }}
+          </label>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="rounded-lg bg-stone-50 px-3 py-3 text-sm text-stone-500">{% translate "مفيش مواعيد فاضية اليوم ده — جرّب يوم تاني." %}</p>
+        {% endif %}
+      {% else %}
+        {% for p in periods %}
+        <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-stone-200 px-3 py-2 text-sm has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
+          <input type="radio" name="period_key" value="{{ p.period_id }}" required {% if p.remaining == 0 and not can.appointment_overbook %}disabled{% elif forloop.first %}checked{% endif %}>
+          <span dir="ltr" class="font-mono">{{ p.label_start|ampm }}</span>
+          <span>{% blocktranslate with n=p.next_number %}رقم {{ n }}{% endblocktranslate %} · {% translate "حوالي" %} <span dir="ltr">{{ p.estimated_time|ampm }}</span></span>
+          {% if p.remaining is not None %}<span class="text-stone-500">({% translate "متبقي" %} {{ p.remaining }})</span>{% endif %}
+          {% if p.remaining == 0 %}<span class="ms-auto text-xs {% if can.appointment_overbook %}text-amber-700{% else %}text-red-600{% endif %}">{% if can.appointment_overbook %}{% translate "مليان — حجز استثنائي" %}{% else %}{% translate "مليان" %}{% endif %}</span>{% endif %}
+        </label>
+        {% empty %}
+        <p class="rounded-lg bg-stone-50 px-3 py-3 text-sm text-stone-500">{% translate "اليوم ده مفيهوش شغل — جرّب يوم تاني." %}</p>
+        {% endfor %}
+        {% if can.appointment_overbook %}<input type="hidden" name="overbook" value="1">{% endif %}
+      {% endif %}
+      {% if not patient.messaging_consent %}<p class="text-xs text-stone-500">{% translate "المريض مش موافق على الرسايل — مفيش تأكيد أو تذكير هيتبعت." %}</p>{% endif %}
+      <div class="flex flex-wrap items-center gap-2 pt-1">
+        <button class="btn-primary px-6 py-2.5" {% if slots_mode and not slots %}disabled{% elif not slots_mode and not periods %}disabled{% endif %}>✓ {% translate "احجز" %}</button>
+        <button type="button" class="btn-ghost" onclick="document.getElementById('modal').innerHTML = ''">{% translate "إلغاء" %}</button>
+      </div>
+    </form>
+    {% if is_today and can.reception_operate %}
+    <form hx-post="{% url 'reception:walk_in' %}" hx-target="#modal" class="mt-3 border-t border-stone-100 pt-3 text-sm">
+      {% csrf_token %}
+      <input type="hidden" name="patient" value="{{ patient.pk }}"><input type="hidden" name="visit_type" value="{{ visit_type.pk }}">
+      {% if can.appointment_overbook %}<input type="hidden" name="overbook" value="1">{% endif %}
+      <span class="text-stone-500">{% translate "المريض موجود في العيادة دلوقتي؟" %}</span>
+      <button class="btn-secondary ms-2 px-3 py-1.5">⚡ {% translate "سجّل حضوره دلوقتي (من غير معاد)" %}</button>
+    </form>
+    {% endif %}
+    {% endif %}
+    {% endif %}
+  </div>
+</div>

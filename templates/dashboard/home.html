@@ -15,7 +15,7 @@
   <h2 class="mb-2 text-sm font-bold text-stone-600">{% translate "النهارده" %}</h2>
   <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
     {% with c=counts %}
-    <a {% if can.reception_operate %}href="{% url 'reception:today' %}"{% elif can.appointment_view %}href="{% url 'scheduling:appointments_day' %}"{% endif %} class="card p-4"><div class="text-xs text-stone-500">{% translate "محجوز" %}</div><div class="text-2xl font-bold">{{ c.booked }}</div></a>
+    <a href="{% url 'reception:today' %}" class="card p-4"><div class="text-xs text-stone-500">{% translate "محجوز" %}</div><div class="text-2xl font-bold">{{ c.booked }}</div></a>
     <div class="card p-4"><div class="text-xs text-stone-500">{% translate "وصل" %}</div><div class="text-2xl font-bold text-amber-700">{{ c.arrived }}</div></div>
     <div class="card p-4"><div class="text-xs text-stone-500">{% translate "عند الدكتور" %}</div><div class="text-2xl font-bold text-sky-700">{{ c.in_consultation }}</div></div>
     <div class="card p-4"><div class="text-xs text-stone-500">{% translate "تم" %}</div><div class="text-2xl font-bold text-green-700">{{ c.completed }}</div></div>

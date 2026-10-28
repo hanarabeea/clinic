@@ -1,0 +1,7 @@
+{% load i18n %}
+<input type="hidden" id="rows-sig" value="{{ sig }}">
+{% if view == "week" %}
+  {% include "reception/partials/board_week.html" %}
+{% else %}
+  {% include "reception/partials/board_day.html" %}
+{% endif %}

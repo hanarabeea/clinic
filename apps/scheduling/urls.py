@@ -6,6 +6,7 @@ app_name = "scheduling"
 
 urlpatterns = [
     path("booking/", views.booking_home, name="booking_home"),
+    path("booking/panel/", views.booking_panel, name="booking_panel"),
     path("booking/search/", views.booking_search, name="booking_search"),
     path("booking/new-patient/", views.booking_new_patient, name="booking_new_patient"),
     path("booking/<int:patient_pk>/", views.booking_patient, name="booking_patient"),

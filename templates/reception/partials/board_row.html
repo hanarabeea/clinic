@@ -1,0 +1,28 @@
+{% load i18n clock %}
+{% with a=e.a %}
+<tr class="{% if a.status == 'arrived' %}bg-amber-50/70{% elif a.status == 'in_consultation' %}bg-sky-50/70{% elif a.status == 'completed' %}text-stone-400{% elif a.status == 'no_show' %}bg-red-50/40 text-stone-400{% endif %}">
+  <td class="whitespace-nowrap px-3 py-2 font-mono font-bold" dir="ltr">
+    {% if a.queue_number %}#{{ a.queue_number }} <span class="text-xs font-normal text-stone-400">~{{ a.start_at|ampm }}</span>{% elif first %}{{ time|ampm }}{% endif %}
+  </td>
+  <td class="px-3 py-2">
+    <span class="inline-block size-2 rounded-full align-middle" style="background:{{ a.visit_type.color }}"></span>
+    {% if can.patient_view_basic %}<a href="{% url 'patients:detail' a.patient.pk %}" class="font-semibold hover:text-brand">{{ a.patient.full_name }}</a>{% else %}<span class="font-semibold">{{ a.patient.full_name }}</span>{% endif %}
+    {% if a.source == "walk_in" %}<span class="badge bg-stone-100 text-stone-500">{% translate "فوري" %}</span>{% endif %}
+    {% if a.is_overbooked %}<span class="badge bg-amber-50 text-amber-700">{% translate "استثنائي" %}</span>{% endif %}
+  </td>
+  <td class="hidden px-3 py-2 text-stone-500 md:table-cell">{{ a.visit_type.name_ar }}</td>
+  <td class="whitespace-nowrap px-3 py-2">
+    {% if a.status == "arrived" %}● {% translate "وصل" %} <span dir="ltr">{{ a.arrived_at|ampm }}</span> <span class="text-xs text-stone-500">({% blocktranslate with m=e.waiting %}مستني {{ m }} دقيقة{% endblocktranslate %})</span>
+    {% elif e.late_minutes and day == today %}<span class="font-semibold text-red-700">⚠ {% blocktranslate with m=e.late_minutes %}متأخر {{ m }} دقيقة{% endblocktranslate %}</span>
+    {% elif a.status == "confirmed" %}<span class="text-green-700">✓ {{ a.get_status_display }}</span>
+    {% else %}{{ a.get_status_display }}{% endif %}
+  </td>
+  <td class="hidden whitespace-nowrap px-3 py-2 md:table-cell">
+    {% if e.balance.status == "free" %}<span class="text-stone-500">{% translate "مجانية" %}</span>
+    {% elif e.balance.status == "paid" %}<span dir="ltr">{{ e.balance.due|floatformat:0 }}</span> <span class="text-green-700">✓ {% translate "مدفوع" %}</span>
+    {% elif e.balance.status == "partial" %}<span dir="ltr">{{ e.balance.paid|floatformat:0 }}/{{ e.balance.due|floatformat:0 }}</span> <span class="text-amber-700">{% translate "جزئي" %}</span>
+    {% else %}<span dir="ltr">{{ e.balance.due|floatformat:0 }}</span>{% endif %}
+  </td>
+  <td class="whitespace-nowrap px-3 py-2 text-end">{% include "reception/partials/appt_actions.html" %}</td>
+</tr>
+{% endwith %}

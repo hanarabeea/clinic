@@ -1,0 +1,73 @@
+{% load i18n clock %}
+{% comment %}The day table: every slot (or queue number) of the doctor's periods — booked rows carry the patient and the
+reception actions, free ones a "+ احجز" that opens the booking panel on that time.{% endcomment %}
+<div class="mb-3 flex flex-wrap items-center gap-2 text-sm">
+  <span class="badge bg-stone-100 px-3 py-1 text-stone-700">{% translate "محجوز" %} {{ board.counts.booked }}</span>
+  <span class="badge bg-amber-50 px-3 py-1 text-amber-700">{% translate "وصل" %} {{ board.counts.arrived }}</span>
+  <span class="badge bg-sky-50 px-3 py-1 text-sky-700">{% translate "عند الدكتور" %} {{ board.counts.in_consultation }}</span>
+  <span class="badge bg-green-50 px-3 py-1 text-green-700">{% translate "تم" %} {{ board.counts.completed }}</span>
+  <span class="badge bg-red-50 px-3 py-1 text-red-700">{% translate "لم يحضر" %} {{ board.counts.no_show }}</span>
+  <span class="ms-auto text-xs text-stone-500">
+    {% for p in board.periods %}🕑 <span dir="ltr">{{ p.start_at|ampm }} – {{ p.end_at|ampm }}</span>{% if not forloop.last %} · {% endif %}{% empty %}{% translate "مفيش شغل اليوم ده" %}{% endfor %}
+  </span>
+</div>
+
+<div class="card overflow-x-auto" x-data="{ hideFree: false }">
+  {% if slots_mode and board.slots %}
+  <div class="flex items-center justify-end border-b border-stone-100 px-3 py-1.5 text-xs">
+    <label class="flex cursor-pointer items-center gap-1.5 text-stone-500"><input type="checkbox" x-model="hideFree" class="size-3.5"> {% translate "إخفاء المواعيد الفاضية" %}</label>
+  </div>
+  {% endif %}
+  <table class="w-full text-sm">
+    <thead class="bg-stone-50 text-xs text-stone-500">
+      <tr>
+        <th class="w-28 px-3 py-2 text-start font-semibold">{% if slots_mode %}{% translate "الساعة" %}{% else %}{% translate "الدور" %}{% endif %}</th>
+        <th class="px-3 py-2 text-start font-semibold">{% translate "المريض" %}</th>
+        <th class="hidden px-3 py-2 text-start font-semibold md:table-cell">{% translate "الكشف" %}</th>
+        <th class="px-3 py-2 text-start font-semibold">{% translate "الحالة" %}</th>
+        <th class="hidden px-3 py-2 text-start font-semibold md:table-cell">{% translate "الحساب" %}</th>
+        <th class="px-3 py-2"></th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-stone-100">
+    {% if slots_mode %}
+      {% for slot in board.slots %}
+        {% if slot.entries %}
+          {% for e in slot.entries %}{% include "reception/partials/board_row.html" with time=slot.time first=forloop.first %}{% endfor %}
+        {% elif not slot.covered and not slot.past %}
+        <tr class="text-stone-400" x-show="!hideFree">
+          <td class="whitespace-nowrap px-3 py-1.5 font-mono text-xs" dir="ltr">{{ slot.time|ampm }}</td>
+          <td class="px-3 py-1 text-xs" colspan="5">
+            <div class="flex items-center gap-3 sm:justify-between">
+              <span>{% translate "فاضي" %}</span>
+              {% if slot.bookable and can.appointment_book %}
+              <button type="button" class="rounded-md border border-dashed border-brand/40 px-3 py-0.5 font-semibold text-brand hover:bg-brand-soft"
+                      hx-get="{% url 'scheduling:booking_panel' %}?at={{ slot.time.isoformat|urlencode }}" hx-target="#modal">＋ {% translate "احجز" %}</button>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    {% else %}
+      {% for q in board.queue %}
+      <tr class="bg-stone-50/70"><td colspan="6" class="px-3 py-1.5 text-xs font-bold text-stone-600">
+        🕑 <span dir="ltr">{{ q.period.start_at|ampm }} – {{ q.period.end_at|ampm }}</span>
+        · {% blocktranslate count n=q.entries|length %}{{ n }} حجز{% plural %}{{ n }} حجز{% endblocktranslate %}{% if q.period.max_patients %} / {{ q.period.max_patients }}{% endif %}
+      </td></tr>
+        {% for e in q.entries %}{% include "reception/partials/board_row.html" with time=e.a.start_at first=True %}{% endfor %}
+        {% if can.appointment_book and day >= today %}
+        <tr><td colspan="6" class="px-3 py-1 text-end">
+          <button type="button" class="rounded-md border border-dashed border-brand/40 px-3 py-0.5 text-xs font-semibold text-brand hover:bg-brand-soft"
+                  hx-get="{% url 'scheduling:booking_panel' %}?day={{ day|date:'Y-m-d' }}" hx-target="#modal">＋ {% translate "احجز رقم في الفترة دي" %}</button>
+        </td></tr>
+        {% endif %}
+      {% endfor %}
+      {% for e in board.queue_outside %}{% include "reception/partials/board_row.html" with time=e.a.start_at first=True %}{% endfor %}
+    {% endif %}
+    {% if not board.entries and not board.periods %}
+      <tr><td colspan="6" class="px-3 py-10 text-center text-stone-500">{% translate "مفيش شغل ولا حجوزات اليوم ده." %}</td></tr>
+    {% endif %}
+    </tbody>
+  </table>
+</div>

@@ -179,8 +179,8 @@ def test_boost_list_is_the_spoken_names(org_a, settings, tmp_path):
     from apps.prescriptions import speech as sp
 
     for i in range(sp.DOCTOR_LIST_MIN):
-        Drug.objects.create(organization=org_a, name=f"USED {i}", aliases_ar=[f"مستعمل{chr(0x0628 + i % 20)}{chr(0x0628 + i // 20)}"],
-                            usage_count=1, source="eg-db")  # fmt: skip
+        alias = f"مستعمل{chr(0x0628 + i % 20)}{chr(0x0628 + i // 20)}"  # Arabic letters only: no digits in names
+        Drug.objects.create(organization=org_a, name=f"USED {i}", aliases_ar=[alias], usage_count=1, source="eg-db")
     Drug.objects.filter(name="TELFAST").update(source="eg-db")
     short = sp.boost_phrases()
     assert "بانادول" in short  # added by the clinic itself (source "")

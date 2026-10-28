@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n clock %}
 <div class="fixed inset-0 z-50 flex items-start justify-center bg-black/30 p-4 pt-20" onclick="if (event.target === this) this.parentElement.innerHTML = ''">
   <div class="card w-full max-w-md p-5">
     <div class="mb-3 flex items-center justify-between">
@@ -9,7 +9,7 @@
     <p class="text-sm font-semibold text-red-700">{{ error }}</p>
     {% else %}
     <p class="mb-3 text-sm text-stone-500">
-      {% translate "دلوقتي" %}: <bdi dir="ltr">{{ a.start_at|date:"Y-m-d H:i" }}</bdi>{% if a.queue_number %} · <bdi dir="ltr">#{{ a.queue_number }}</bdi>{% endif %}
+      {% translate "دلوقتي" %}: <bdi dir="ltr">{{ a.start_at|date:"Y-m-d" }} {{ a.start_at|ampm }}</bdi>{% if a.queue_number %} · <bdi dir="ltr">#{{ a.queue_number }}</bdi>{% endif %}
     </p>
     <div class="form-field mb-3">
       <label for="rs-day">{% translate "اليوم الجديد" %}</label>
@@ -24,7 +24,7 @@
         <div class="grid max-h-64 grid-cols-4 gap-1 overflow-y-auto">
           {% for s in slots %}
           <label class="cursor-pointer rounded-md border border-stone-200 px-1 py-1.5 text-center font-mono text-sm has-[:checked]:border-brand has-[:checked]:bg-brand/10" dir="ltr">
-            <input type="radio" name="start_at" value="{{ s.isoformat }}" class="sr-only" required {% if forloop.first %}checked{% endif %}>{{ s|date:"H:i" }}
+            <input type="radio" name="start_at" value="{{ s.isoformat }}" class="sr-only" required {% if forloop.first %}checked{% endif %}>{{ s|ampm }}
           </label>
           {% endfor %}
         </div>
@@ -36,8 +36,8 @@
         {% for p in periods %}
         <label class="flex cursor-pointer items-center gap-2 rounded-md border border-stone-200 px-3 py-2 text-sm has-[:checked]:border-brand">
           <input type="radio" name="period_key" value="{{ p.period_id }}" required {% if p.remaining == 0 %}disabled{% elif forloop.first %}checked{% endif %}>
-          <span dir="ltr">{{ p.label_start|date:"H:i" }}</span>
-          <span class="text-stone-500">{% blocktranslate with n=p.next_number %}رقم {{ n }}{% endblocktranslate %} · {% translate "حوالي" %} <span dir="ltr">{{ p.estimated_time|date:"H:i" }}</span></span>
+          <span dir="ltr">{{ p.label_start|ampm }}</span>
+          <span class="text-stone-500">{% blocktranslate with n=p.next_number %}رقم {{ n }}{% endblocktranslate %} · {% translate "حوالي" %} <span dir="ltr">{{ p.estimated_time|ampm }}</span></span>
           {% if p.remaining == 0 %}<span class="ms-auto text-xs text-red-600">{% translate "مليان" %}</span>{% endif %}
         </label>
         {% empty %}

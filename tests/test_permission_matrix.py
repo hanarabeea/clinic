@@ -359,10 +359,8 @@ def test_adjusted_roles_see_only_what_they_may_use(client, clinic):
 
 
 NAV = {
-    "reception.operate": "reception:today",
     "clinical.view": "clinical:desk",
-    "appointment.book": "scheduling:booking_home",
-    "appointment.view": "scheduling:appointments_day",
+    "appointment.view": "reception:today",  # the board: reception + day/week + booking
     "patient.view_basic": "patients:list",
     "messages.view": "notifications:log",
     "payment.record": "billing:cashbox",

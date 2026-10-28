@@ -38,13 +38,19 @@ def world(org_a, org_b, make_member):
 
 
 def test_reception_screen_permissions(client, world):
+    """Viewer / admin see the schedule (appointment.view) but none of the reception steps, payments or booking."""
+    arrive = reverse("reception:arrive", args=[world["appt"].pk])
     for role in ("viewer", "admin"):
         client.force_login(world[role])
-        assert client.get(reverse("reception:today")).status_code == 403
+        board = client.get(reverse("reception:today"))
+        assert board.status_code == 200 and "منى سعيد" in board.content.decode()
+        assert arrive not in board.content.decode()
+        assert reverse("reception:payment", args=[world["appt"].pk]) not in board.content.decode()
+        assert client.get(arrive).status_code == 403
         assert client.get(reverse("billing:cashbox")).status_code == 403
     client.force_login(world["reception"])
     resp = client.get(reverse("reception:today"))
-    assert resp.status_code == 200 and "منى سعيد" in resp.content.decode()
+    assert resp.status_code == 200 and "منى سعيد" in resp.content.decode() and arrive in resp.content.decode()
     assert client.get(reverse("billing:cashbox")).status_code == 200
 
 
