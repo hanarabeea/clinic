@@ -2,7 +2,7 @@
 {% load i18n %}
 {% block title %}{{ tpl.name_ar }}{% endblock %}
 {% block content %}
-<h1 class="mb-6 text-2xl font-bold">{% translate "الإعدادات" %}</h1>
+<div class="page-head"><h1>{% translate "الإعدادات" %}</h1></div>
 
 {% include "partials/settings_tabs.html" %}
 
@@ -10,7 +10,7 @@
   <form method="post" class="card space-y-4 p-4 sm:p-6" novalidate id="template-form">
     {% csrf_token %}
     <div class="flex items-center justify-between">
-      <h2 class="font-bold">{{ tpl.get_event_display }}</h2>
+      <h2 class="text-[15px] font-bold">{{ tpl.get_event_display }}</h2>
       <label class="flex items-center gap-2 text-sm font-semibold">{{ form.is_enabled }} {{ form.is_enabled.label }}</label>
     </div>
     {% include "partials/field.html" with field=form.name_ar %}
@@ -24,7 +24,7 @@
     <div x-data>
       <div class="mb-2 flex flex-wrap gap-1">
         {% for key, label in variables.items %}
-        <button type="button" class="rounded-md border border-stone-200 bg-stone-50 px-2 py-0.5 text-xs hover:bg-stone-100" title="{{ label }}"
+        <button type="button" class="chip px-2 py-0.5" title="{{ label }}"
                 @click="const ta = document.getElementById('{{ form.body.id_for_label }}'); const v = '{' + '{{ key }}' + '}'; const s = ta.selectionStart; ta.setRangeText(v, s, ta.selectionEnd, 'end'); ta.focus(); ta.dispatchEvent(new Event('input', {bubbles: true}))">{{ label }}</button>
         {% endfor %}
       </div>
@@ -40,7 +40,7 @@
 
     <div class="flex items-center justify-between">
       {% if tpl.event == "reminder" %}
-      <button type="submit" form="delete-form" class="btn-ghost text-sm text-red-600">{% translate "مسح التذكير" %}</button>
+      <button type="submit" form="delete-form" class="btn-ghost text-red-700 hover:bg-red-50 hover:text-red-800">{% translate "مسح التذكير" %}</button>
       {% else %}<span></span>{% endif %}
       <div class="flex gap-2">
         <a href="{% url 'notifications:settings' %}" class="btn-ghost">{% translate "رجوع" %}</a>
@@ -54,12 +54,12 @@
 
   <div class="space-y-6">
     <section class="card p-4 sm:p-6">
-      <h2 class="mb-3 font-bold">{% translate "معاينة" %} <span class="text-xs font-normal text-stone-500">{% translate "(بيانات حجز تجريبي)" %}</span></h2>
+      <h2 class="mb-3 text-[15px] font-bold">{% translate "معاينة" %} <span class="text-xs font-normal text-stone-500">{% translate "(بيانات حجز تجريبي)" %}</span></h2>
       <div id="preview">{% include "notifications/partials/preview.html" %}</div>
     </section>
 
     <section class="card p-4 sm:p-6">
-      <h2 class="mb-3 font-bold">{% translate "ابعت تجربة" %}</h2>
+      <h2 class="mb-3 text-[15px] font-bold">{% translate "ابعت تجربة" %}</h2>
       <form class="grid gap-3 sm:grid-cols-3 sm:items-end" hx-post="{% url 'notifications:template_test' tpl.pk %}"
             hx-include="#{{ form.body.id_for_label }}" hx-target="#test-result">
         {% include "partials/field.html" with field=test_form.channel %}

@@ -2,46 +2,46 @@
 {% load i18n %}
 {% block title %}{% translate "الخزنة" %}{% endblock %}
 {% block content %}
-<div class="mb-4 flex flex-wrap items-center justify-between gap-3 print:hidden">
-  <h1 class="text-2xl font-bold">{% translate "تقرير الخزنة اليومي" %}</h1>
-  <form method="get" class="flex items-center gap-2">
-    <input type="date" name="date" value="{{ box.day|date:'Y-m-d' }}" class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm" onchange="this.form.submit()">
-    <button type="button" class="btn-secondary" onclick="window.print()">{% translate "طباعة" %}</button>
+<div class="page-head print:hidden">
+  <h1>{% translate "تقرير الخزنة اليومي" %}</h1>
+  <form method="get" class="ms-auto flex items-center gap-2">
+    <input type="date" name="date" value="{{ box.day|date:'Y-m-d' }}" class="input h-9 w-auto py-0" aria-label="{% translate 'اليوم' %}" onchange="this.form.submit()">
+    <button type="button" class="btn-secondary" onclick="window.print()">{% icon "printer" "size-4" %}{% translate "طباعة" %}</button>
   </form>
 </div>
-<h2 class="mb-3 hidden text-xl font-bold print:block">{% translate "تقرير الخزنة" %} — <span dir="ltr">{{ box.day|date:"Y-m-d" }}</span></h2>
+<h2 class="mb-3 hidden text-xl font-bold print:block">{% translate "تقرير الخزنة" %}: <span dir="ltr">{{ box.day|date:"Y-m-d" }}</span></h2>
 
-<div class="mb-4 grid gap-3 sm:grid-cols-4">
+<div class="stat-strip mb-4">
   {% for label, total in box.by_method %}
-  <div class="card p-4"><div class="text-sm text-stone-500">{{ label }}</div><div class="text-xl font-bold" dir="ltr">{{ total|floatformat:"-2" }}</div></div>
+  <div class="stat"><div class="stat-label">{{ label }}</div><div class="stat-value" dir="ltr">{{ total|floatformat:"-2" }}</div></div>
   {% endfor %}
-  <div class="card border-brand p-4"><div class="text-sm text-stone-500">{% translate "الإجمالي" %}</div><div class="text-xl font-bold text-brand" dir="ltr">{{ box.total|floatformat:"-2" }}</div></div>
+  <div class="stat bg-brand-soft"><div class="stat-label text-brand">{% translate "الإجمالي" %}</div><div class="stat-value font-bold text-brand" dir="ltr">{{ box.total|floatformat:"-2" }}</div></div>
 </div>
 
 <div class="card overflow-x-auto">
-  <table class="w-full text-sm">
-    <thead class="bg-stone-50 text-xs text-stone-500">
+  <table class="data-table">
+    <thead>
       <tr>
-        <th class="px-3 py-2 text-start">{% translate "الوقت" %}</th>
-        <th class="px-3 py-2 text-start">{% translate "المريض" %}</th>
-        <th class="px-3 py-2 text-start">{% translate "الزيارة" %}</th>
-        <th class="px-3 py-2 text-start">{% translate "الطريقة" %}</th>
-        <th class="px-3 py-2 text-start">{% translate "المستلم" %}</th>
-        <th class="px-3 py-2 text-end">{% translate "المبلغ" %}</th>
+        <th>{% translate "الوقت" %}</th>
+        <th>{% translate "المريض" %}</th>
+        <th>{% translate "الزيارة" %}</th>
+        <th>{% translate "الطريقة" %}</th>
+        <th>{% translate "المستلم" %}</th>
+        <th class="text-end!">{% translate "المبلغ" %}</th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-stone-100">
+    <tbody>
       {% for p in box.payments %}
       <tr>
-        <td class="px-3 py-2 font-mono" dir="ltr">{{ p.received_at|date:"H:i" }}</td>
-        <td class="px-3 py-2">{{ p.appointment.patient.full_name }}</td>
-        <td class="px-3 py-2">{{ p.appointment.visit_type.name_ar }}</td>
-        <td class="px-3 py-2">{{ p.get_method_display }}{% if p.is_refund %} <span class="badge bg-red-50 text-red-700">{% translate "استرداد" %}</span>{% endif %}</td>
-        <td class="px-3 py-2">{{ p.received_by.get_short_name|default:"—" }}</td>
-        <td class="px-3 py-2 text-end font-mono" dir="ltr">{{ p.signed_amount|floatformat:"-2" }}</td>
+        <td dir="ltr" class="text-end text-stone-600">{{ p.received_at|date:"H:i" }}</td>
+        <td class="font-semibold">{{ p.appointment.patient.full_name }}</td>
+        <td class="text-stone-600">{{ p.appointment.visit_type.name_ar }}</td>
+        <td>{{ p.get_method_display }}{% if p.is_refund %} <span class="badge bg-red-50 text-red-800">{% translate "استرداد" %}</span>{% endif %}</td>
+        <td class="text-stone-600">{{ p.received_by.get_short_name|default:"-" }}</td>
+        <td class="text-end font-semibold {% if p.is_refund %}text-red-700{% endif %}" dir="ltr">{{ p.signed_amount|floatformat:"-2" }}</td>
       </tr>
       {% empty %}
-      <tr><td colspan="6" class="px-3 py-10 text-center text-stone-500">{% translate "مفيش مدفوعات اليوم ده." %}</td></tr>
+      <tr><td colspan="6" class="py-12! text-center text-stone-600">{% translate "مفيش مدفوعات اليوم ده." %}</td></tr>
       {% endfor %}
     </tbody>
   </table>

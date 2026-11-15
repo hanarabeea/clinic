@@ -40,13 +40,13 @@ def problems(org, now=None) -> list[tuple[str, str]]:
     found = []
     hb = last_heartbeat()
     if hb is None or now - hb.beat_at > ALERT_AFTER:
-        found.append(("scheduler", "محرك الرسايل واقف من أكتر من 15 دقيقة — التذكيرات مش بتتبعت."))
+        found.append(("scheduler", "محرك الرسايل واقف من أكتر من 15 دقيقة، التذكيرات مش بتتبعت."))
     cfg = SendingChannelConfig.objects.filter(organization=org, kind=ChannelKind.WHATSAPP, is_active=True).first()
     if cfg is not None:
         state = whatsapp.status(org).get("state")
         disconnected_since = cfg.last_checked_at if cfg.status != ChannelStatus.CONNECTED else None
         if state != "ready" and (disconnected_since is None or now - disconnected_since > ALERT_AFTER):
             found.append(
-                ("whatsapp", f"الواتساب مش متصل ({whatsapp.STATE_LABELS.get(state, state)}) — اربطه من الإعدادات.")
+                ("whatsapp", f"الواتساب مش متصل ({whatsapp.STATE_LABELS.get(state, state)})، اربطه من الإعدادات.")
             )
     return found

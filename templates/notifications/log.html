@@ -2,7 +2,7 @@
 {% load i18n %}
 {% block title %}{% translate "سجل الرسايل" %}{% endblock %}
 {% block content %}
-<h1 class="mb-4 text-2xl font-bold">{% translate "سجل الرسايل" %}</h1>
+<div class="page-head"><h1>{% translate "سجل الرسايل" %}</h1></div>
 
 {% include "notifications/partials/scheduler_warning.html" %}
 
@@ -32,7 +32,7 @@
 
 <div class="card overflow-x-auto">
   <table class="w-full text-sm">
-    <thead class="bg-stone-50 text-xs text-stone-500">
+    <thead class="border-b border-stone-200 bg-stone-50 text-xs text-stone-600">
       <tr>
         <th class="px-3 py-2 text-start">{% translate "الميعاد المجدول" %}</th>
         <th class="px-3 py-2 text-start">{% translate "المريض" %}</th>
@@ -53,9 +53,9 @@
 
 {% if page.has_other_pages %}
 <div class="mt-4 flex items-center justify-center gap-3 text-sm">
-  {% if page.has_previous %}<a class="btn-ghost" href="?status={{ status }}&event={{ event }}&day={{ day|date:'Y-m-d' }}&appointment={{ appointment }}&page={{ page.previous_page_number }}">→</a>{% endif %}
-  <span>{{ page.number }} / {{ page.paginator.num_pages }}</span>
-  {% if page.has_next %}<a class="btn-ghost" href="?status={{ status }}&event={{ event }}&day={{ day|date:'Y-m-d' }}&appointment={{ appointment }}&page={{ page.next_page_number }}">←</a>{% endif %}
+  {% if page.has_previous %}<a class="btn-icon" aria-label="{% translate 'الصفحة اللي قبلها' %}" href="?status={{ status }}&event={{ event }}&day={{ day|date:'Y-m-d' }}&appointment={{ appointment }}&page={{ page.previous_page_number }}">{% icon "caret-right" %}</a>{% endif %}
+  <span class="num text-stone-600">{{ page.number }} / {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a class="btn-icon" aria-label="{% translate 'الصفحة اللي بعدها' %}" href="?status={{ status }}&event={{ event }}&day={{ day|date:'Y-m-d' }}&appointment={{ appointment }}&page={{ page.next_page_number }}">{% icon "caret-left" %}</a>{% endif %}
 </div>
 {% endif %}
 {% endblock %}

@@ -1,8 +1,9 @@
 from datetime import date
 
-from django.shortcuts import render
+from django.shortcuts import redirect, render
 
 from apps.accounts.permissions import has_perm, require_membership, require_perm
+from apps.core import navigation
 from apps.messaging import whatsapp
 from apps.messaging.models import ChannelKind, SendingChannelConfig
 from apps.notifications import services as notifications
@@ -25,6 +26,9 @@ def home(request):
     reception.operate; failed messages: messages.view; the month: report.finance)."""
     org = request.organization
     m = request.membership
+    screen = navigation.work_screen(m)
+    if screen is not None:  # a role that works in one screen has no dashboard: that screen is its home
+        return redirect(screen.url_name)
     today = services.today()
     ctx = {
         "wa_state": _wa_state(org),

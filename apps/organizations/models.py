@@ -29,9 +29,9 @@ class OrganizationSettings(BaseModel):
     clinic_name_ar = models.CharField(_("اسم العيادة بالعربي"), max_length=200, blank=True)
     clinic_name_en = models.CharField(_("اسم العيادة بالإنجليزي"), max_length=200, blank=True)
     logo = models.ImageField(_("اللوجو"), upload_to=logo_upload_to, blank=True)
-    primary_color = models.CharField(_("اللون الأساسي"), max_length=7, default="#AE171C")
-    dark_color = models.CharField(_("اللون الغامق"), max_length=7, default="#111111")
-    neutral_color = models.CharField(_("اللون المحايد"), max_length=7, default="#F5F2EF")
+    primary_color = models.CharField(_("اللون الأساسي"), max_length=7, default="#A21E48")
+    dark_color = models.CharField(_("اللون الغامق"), max_length=7, default="#24131E")
+    neutral_color = models.CharField(_("اللون المحايد"), max_length=7, default="#F4F2F5")
     phones = models.JSONField(_("أرقام التليفون"), default=list, blank=True)
     address_ar = models.CharField(_("العنوان بالعربي"), max_length=300, blank=True)
     map_link = models.URLField(_("لينك الموقع على الخريطة"), blank=True)
@@ -66,6 +66,10 @@ class ClinicRole(BaseModel):
     permissions = models.JSONField(_("الصلاحيات"), default=list, blank=True)
     key = models.CharField(max_length=20, blank=True)
     order = models.PositiveSmallIntegerField(default=0)
+    # The one screen this role works in (a key of apps/core/navigation.ITEMS): its people open straight onto it, laid
+    # out like a program of its own with no side menu. Blank = the whole system. Layout only: access stays with
+    # `permissions`.
+    start_screen = models.CharField(_("شاشة العمل"), max_length=20, blank=True)
 
     class Meta:
         verbose_name = _("دور")

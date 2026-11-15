@@ -1,8 +1,8 @@
 {% load i18n %}
 <div class="space-y-3" id="visit-form" {% if can.clinical_edit %}data-url="{% url 'clinical:visit_field' visit.pk %}"{% endif %}>
   <h2 class="ws-title">{% translate "الكشف" %}
-    <span class="text-xs font-normal text-stone-400">{% if visit.status == "finished" %}{% translate "خلص — التعديلات بتتسجل في السجل" %}{% else %}{% translate "بيتحفظ تلقائي" %}{% endif %}</span>
-    <span id="save-status" class="ms-auto text-xs font-normal text-stone-400"></span>
+    <span class="text-xs font-normal text-stone-500">{% if visit.status == "finished" %}{% translate "خلص، والتعديلات بتتسجل في السجل" %}{% else %}{% translate "بيتحفظ تلقائي" %}{% endif %}</span>
+    <span id="save-status" class="ms-auto text-xs font-normal text-stone-500"></span>
   </h2>
   {% with editable=can.clinical_edit %}
   <div class="grid gap-x-6 gap-y-3 lg:grid-cols-2">
@@ -29,7 +29,7 @@
       <label for="f-{{ name }}">{{ d.label_ar }}</label>
       {% if d.type == "choice" %}
       <select id="f-{{ name }}" name="value" data-field="{{ name }}" class="autosave" {% if not editable %}disabled{% endif %}>
-        <option value="">—</option>{% for c in d.choices %}<option {% if c == value %}selected{% endif %}>{{ c }}</option>{% endfor %}
+        <option value="">-</option>{% for c in d.choices %}<option {% if c == value %}selected{% endif %}>{{ c }}</option>{% endfor %}
       </select>
       {% elif d.type == "bool" %}
       <input id="f-{{ name }}" type="checkbox" name="value" value="1" data-field="{{ name }}" class="autosave" {% if value %}checked{% endif %} {% if not editable %}disabled{% endif %}>
@@ -55,7 +55,7 @@
                value="{{ visit.followup_after_days|default_if_none:'' }}" {% if not editable %}disabled{% endif %}> {% translate "يوم" %}
       </span>
       <span id="followup-date" class="text-xs font-semibold text-stone-600" data-base="{{ followup_base|date:'Y-m-d' }}"></span>
-      <button type="button" class="fu-chip text-xs text-stone-400 underline" data-days="" {% if not editable %}disabled{% endif %}>{% translate "مفيش" %}</button>
+      <button type="button" class="fu-chip text-xs text-stone-500 underline" data-days="" {% if not editable %}disabled{% endif %}>{% translate "مفيش" %}</button>
     </div>
   </div>
   {% endwith %}
@@ -96,7 +96,7 @@
           status.innerHTML = html;
           if (!html.includes("text-red")) draft.clear(field);
         })
-        .catch(() => { dirty.set(field, el); status.textContent = "{% translate 'مفيش اتصال — هيتحفظ لما يرجع' %}"; });
+        .catch(() => { dirty.set(field, el); status.textContent = "{% translate 'مفيش اتصال، هيتحفظ لما يرجع' %}"; });
     }
 
     box.querySelectorAll(".autosave").forEach((el) => {
@@ -155,7 +155,7 @@
       if (!n || !fuDate.dataset.base) { fuDate.textContent = ""; return; }
       const d = new Date(fuDate.dataset.base + "T12:00:00");
       d.setDate(d.getDate() + n);
-      fuDate.textContent = "← " + d.toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "numeric", year: "numeric" });
+      fuDate.textContent = d.toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "numeric", year: "numeric" });
     };
     const markChips = () => box.querySelectorAll(".fu-chip").forEach((c) => {
       if (!c.dataset.days) return;

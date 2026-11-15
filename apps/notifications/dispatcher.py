@@ -64,7 +64,7 @@ class Dispatcher:
                 self.process(row, now=timezone.now())
             except Exception:  # never let one bad row stop the loop
                 logger.exception("dispatch failed for scheduled message %s", row.pk)
-                self._finish(row, MessageStatus.FAILED, _("خطأ داخلي — اتسجل في الـlogs"))
+                self._finish(row, MessageStatus.FAILED, _("خطأ داخلي، اتسجل في الـlogs"))
         return len(rows)
 
     # --- one row -----------------------------------------------------------------------------
@@ -165,7 +165,7 @@ class Dispatcher:
             row._attachment = self._attachment(row)
         except Exception:
             logger.exception("attachment failed for scheduled message %s", row.pk)
-            return ProviderResult(ok=False, error=_("الـPDF ماتعملش — هتتعاد المحاولة"), temporary=True)
+            return ProviderResult(ok=False, error=_("الـPDF ماتعملش، هتتعاد المحاولة"), temporary=True)
         if row.channel == MessageChannel.EMAIL:
             return self._send_email(row)
         return self._send_whatsapp(row, ns)
@@ -291,7 +291,7 @@ def recover_interrupted():
     mark them failed so staff can check the chat and retry by hand."""
     return ScheduledMessage.objects.filter(status=MessageStatus.SENDING).update(
         status=MessageStatus.FAILED,
-        status_reason=_("اتقطع أثناء الإرسال — اتأكد من المحادثة قبل إعادة المحاولة"),
+        status_reason=_("اتقطع أثناء الإرسال، اتأكد من المحادثة قبل إعادة المحاولة"),
         updated_at=timezone.now(),
     )
 

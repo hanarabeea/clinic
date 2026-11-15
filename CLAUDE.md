@@ -562,3 +562,48 @@ gotchas and conventions introduced in that phase.
   "سجّل حضوره دلوقتي" → `reception:walk_in` (HTMX too). The board listens for `board-refresh` (hx-trigger from:body).
 - Times on reception screens: `{% load clock %}{{ dt|ampm }}` → "2:30 PM" (Latin AM/PM, Cairo time); patient messages
   keep `fmt_time` (ص/م). Week drag-and-drop to reschedule now lives on the board (delegated listeners on `#reception`).
+
+## Design system (Phase 11, 2026-11-15) — supersedes the older "Look" notes above
+- Plan: `docs/plan/14-obgyn-center.md` (the OB/GYN center expansion, phases 11-20). §14.1 is this design system.
+- Concept "the chart and the ledger": paper surfaces, hairline rules, squared tags, tabular digits, one accent. Type: IBM Plex
+  Sans Arabic for Arabic + Latin + digits (`static/fonts/plex-*.woff2`, family name `Plex`; `font-mono` = the same family
+  with tabular digits). PDFs keep Cairo/Poppins (calibrated layouts, untouched).
+- Colours (`static/src/app.css` `@theme`): the clinic's three settings come in through `base_page.html` as
+  `--color-brand` (primary), `--color-ink-panel` (**dark colour = the side panel / dialog heads**, clamped dark enough for
+  white text) and `--color-sand` (neutral, held to a pale page tint). Everything else is derived with `color-mix`:
+  `brand-dark`, `brand-soft`, `ink`, and the whole **`stone-*` scale (cool greys tinted by the brand; 400/500 darker than
+  Tailwind's for contrast)**. Radii are remapped small (`rounded-lg` 6px, `xl` 8px), `shadow-sm` is nothing; shadows only
+  on things that float. Defaults: pomegranate `#A21E48` on aubergine `#24131E` (existing clinics keep their colours).
+- Components (use these, don't restyle by hand): `btn-primary/secondary/ghost/danger`, `btn-icon`, `card`, `badge`
+  (squared tag, never a pill), `link`, `page-head` (+ `h1`, `page-sub`), `section-title`, `stat-strip`/`stat`
+  (figures in one ruled row, not a grid of cards), `data-table`, `menu`/`menu-item`, `overlay` + `dialog` (modals),
+  `toast`, `notice notice-danger|warn|info`, `segmented` (`.is-active`), `tabs`/`tab` (`.is-active`), `input`,
+  `pane-tab` (`aria-selected`), plus the workspace classes (`ws-*`, `chip`, `cat-tile`, `rx-*`).
+- Icons: `{% icon "name" "size-4 extra-classes" label="" %}` (a template builtin, no `{% load %}`) inlines the vendored
+  Phosphor SVG from `static/icons/` (MIT). To add one, copy `assets/regular/<name>.svg` from `@phosphor-icons/core`.
+  **No emoji or symbol characters as icons, and no em dashes in interface copy** (templates or Python strings):
+  `tests/test_design_system.py` checks every screen template and that every icon asked for exists. RTL: "back" is
+  `arrow-right`/`caret-right`, "next" is `caret-left`.
+- `static/css/app.css` is committed: rebuild after touching `static/src/app.css` or adding classes
+  (`.venv/Scripts/tailwindcss -i static/src/app.css -o static/css/app.css --minify`, `TAILWINDCSS_VERSION=v4.3.3`).
+- Shell (`base.html`): the screens are defined once in **`apps/core/navigation.py` (`ITEMS`)**; a new screen is added
+  there (label, icon, url, permissions, which view names light it), never in the template. The context processor gives
+  `nav_groups` (side panel, `partials/side_panel.html`) or `work`. Top bar blocks: `topbar_search` (the desk swaps in
+  "open a patient's file") and `topbar_actions`. The top bar is not sticky; `--side-w` is the side panel's width for
+  fixed bars (`lg:start-(--side-w)` on the visit action bar).
+- **Work screen (asked for by the owner 2026-11-11)**: `ClinicRole.start_screen` (a key of `ITEMS` with
+  `work_screen=True`: reception / desk / cashbox; blank = the whole system). People on that role sign in straight onto
+  that screen with **no side panel** (it fills the window like its own program); whatever else they may open shows as
+  tools in the top bar, with a "back to my screen" button on tool pages; `/` redirects to the screen. Set in the role
+  editor ("شاشة العمل"); a screen the role's permissions don't open is cleared on save. The default reception role
+  gets `reception` (migration `organizations/0005` for existing clinics). **Layout only: access is still permissions**
+  (`navigation.work_screen(membership)`; the owner and members not on a clinic role always get the whole system).
+- Sign-in (`base_auth.html`): one small box in the middle of the window (dark head with logo + clinic name, form under
+  it), asking for **username + password only**. Staff are created without e-mails: the e-mail field is off the
+  "add user" box (still on the edit page: the owner's e-mail receives health alerts) and the login no longer links to
+  the e-mail reset (the pages still exist). An e-mail still signs in for accounts that have one.
+- Logo content type comes from `organizations.branding.logo_content_type()` (by extension), never `mimetypes`: on
+  Windows that reads the registry and another program had remapped `.png`, so the logo didn't draw.
+- Tests on a new machine need Chromium once: `.venv/Scripts/python -m playwright install chromium` (PDF + dictation tests).
+- Local preview gotcha: `.claude/launch.json` runs `runserver --noreload`, and Django caches templates in that mode:
+  restart the preview server to see a template edit.

@@ -2,9 +2,9 @@
 {% load i18n %}
 {% block title %}{% translate "حجز فوري" %}{% endblock %}
 {% block content %}
-<div class="mb-4 flex items-center justify-between">
-  <h1 class="text-2xl font-bold">{% translate "حجز فوري (walk-in)" %}</h1>
-  <a href="{% url 'reception:today' %}" class="btn-ghost">{% translate "رجوع للاستقبال" %}</a>
+<div class="page-head justify-between">
+  <h1>{% translate "حجز فوري (walk-in)" %}</h1>
+  <a href="{% url 'reception:today' %}" class="btn-ghost">{% icon "arrow-right" "size-4" %}{% translate "رجوع للاستقبال" %}</a>
 </div>
 <div class="card p-4 sm:p-6">
   <div class="form-field">
@@ -14,7 +14,7 @@
   </div>
   <div id="results" class="mt-4">{% include "reception/partials/walk_in_results.html" %}</div>
   {% if can.patient_edit_basic %}
-  {% if can.appointment_book %}<p class="mt-4 text-sm text-stone-500">{% translate "مريض جديد؟" %} <a href="{% url 'reception:today' %}?book=1" class="font-semibold text-brand">{% translate "ضيفه من شاشة الحجز الأول" %}</a></p>{% endif %}
+  {% if can.appointment_book %}<p class="mt-4 text-sm text-stone-500">{% translate "مريض جديد؟" %} <a href="{% url 'reception:today' %}?book=1" class="link">{% translate "ضيفه من شاشة الحجز الأول" %}</a></p>{% endif %}
   {% endif %}
 </div>
 {% endblock %}

@@ -18,7 +18,7 @@ class FieldDefinitionForm(forms.ModelForm):
     choices_text = forms.CharField(
         label=gettext_lazy("الاختيارات"),
         required=False,
-        help_text=gettext_lazy("للنوع اختيار بس — افصل بفاصلة: A+, A-, B+"),
+        help_text=gettext_lazy("للنوع اختيار بس، افصل بفاصلة: A+, A-, B+"),
     )
 
     class Meta:

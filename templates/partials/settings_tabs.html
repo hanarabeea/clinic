@@ -1,12 +1,12 @@
 {% load i18n %}
-<div class="mb-4 flex flex-wrap gap-x-1 border-b border-stone-200 text-sm font-semibold">
-  {% if can.settings_manage %}<a href="{% url 'organizations:settings' %}" class="whitespace-nowrap px-3 py-2 {% if tab == 'company' %}border-b-2 border-brand text-brand{% else %}text-stone-500 hover:text-ink{% endif %}">{% translate "العيادة" %}</a>{% endif %}
-  {% if can.schedule_manage %}<a href="{% url 'doctors:schedule' %}" class="whitespace-nowrap px-3 py-2 {% if tab == 'schedule' %}border-b-2 border-brand text-brand{% else %}text-stone-500 hover:text-ink{% endif %}">{% translate "الدكتور والمواعيد" %}</a>{% endif %}
-  {% if can.schedule_manage %}<a href="{% url 'doctors:visit_types' %}" class="whitespace-nowrap px-3 py-2 {% if tab == 'visit_types' %}border-b-2 border-brand text-brand{% else %}text-stone-500 hover:text-ink{% endif %}">{% translate "أنواع الزيارات" %}</a>{% endif %}
-  {% if can.settings_manage %}<a href="{% url 'patients:fields_settings' %}" class="whitespace-nowrap px-3 py-2 {% if tab == 'patient_fields' %}border-b-2 border-brand text-brand{% else %}text-stone-500 hover:text-ink{% endif %}">{% translate "ملف المريض" %}</a>{% endif %}
-  {% if can.drug_manage %}<a href="{% url 'prescriptions:categories' %}" class="whitespace-nowrap px-3 py-2 {% if tab == 'drug_categories' %}border-b-2 border-brand text-brand{% else %}text-stone-500 hover:text-ink{% endif %}">{% translate "تصنيفات الأدوية" %}</a>{% endif %}
-  {% if can.settings_manage %}<a href="{% url 'prescriptions:settings' %}" class="whitespace-nowrap px-3 py-2 {% if tab == 'rx' %}border-b-2 border-brand text-brand{% else %}text-stone-500 hover:text-ink{% endif %}">{% translate "الروشتة" %}</a>{% endif %}
-  {% if can.settings_manage %}<a href="{% url 'notifications:settings' %}" class="whitespace-nowrap px-3 py-2 {% if tab == 'messages' %}border-b-2 border-brand text-brand{% else %}text-stone-500 hover:text-ink{% endif %}">{% translate "الرسايل" %}</a>{% endif %}
-  {% if can.settings_manage %}<a href="{% url 'messaging:email_settings' %}" class="whitespace-nowrap px-3 py-2 {% if tab == 'email' %}border-b-2 border-brand text-brand{% else %}text-stone-500 hover:text-ink{% endif %}">{% translate "الإرسال بالإيميل" %}</a>{% endif %}
-  {% if can.settings_manage %}<a href="{% url 'messaging:whatsapp' %}" class="whitespace-nowrap px-3 py-2 {% if tab == 'whatsapp' %}border-b-2 border-brand text-brand{% else %}text-stone-500 hover:text-ink{% endif %}">{% translate "واتساب" %}</a>{% endif %}
-</div>
+<nav class="tabs">
+  {% if can.settings_manage %}<a href="{% url 'organizations:settings' %}" class="tab {% if tab == 'company' %}is-active{% endif %}">{% translate "العيادة" %}</a>{% endif %}
+  {% if can.schedule_manage %}<a href="{% url 'doctors:schedule' %}" class="tab {% if tab == 'schedule' %}is-active{% endif %}">{% translate "الدكتور والمواعيد" %}</a>{% endif %}
+  {% if can.schedule_manage %}<a href="{% url 'doctors:visit_types' %}" class="tab {% if tab == 'visit_types' %}is-active{% endif %}">{% translate "أنواع الزيارات" %}</a>{% endif %}
+  {% if can.settings_manage %}<a href="{% url 'patients:fields_settings' %}" class="tab {% if tab == 'patient_fields' %}is-active{% endif %}">{% translate "ملف المريض" %}</a>{% endif %}
+  {% if can.drug_manage %}<a href="{% url 'prescriptions:categories' %}" class="tab {% if tab == 'drug_categories' %}is-active{% endif %}">{% translate "تصنيفات الأدوية" %}</a>{% endif %}
+  {% if can.settings_manage %}<a href="{% url 'prescriptions:settings' %}" class="tab {% if tab == 'rx' %}is-active{% endif %}">{% translate "الروشتة" %}</a>{% endif %}
+  {% if can.settings_manage %}<a href="{% url 'notifications:settings' %}" class="tab {% if tab == 'messages' %}is-active{% endif %}">{% translate "الرسايل" %}</a>{% endif %}
+  {% if can.settings_manage %}<a href="{% url 'messaging:email_settings' %}" class="tab {% if tab == 'email' %}is-active{% endif %}">{% translate "الإرسال بالإيميل" %}</a>{% endif %}
+  {% if can.settings_manage %}<a href="{% url 'messaging:whatsapp' %}" class="tab {% if tab == 'whatsapp' %}is-active{% endif %}">{% translate "واتساب" %}</a>{% endif %}
+</nav>

@@ -654,4 +654,4 @@ def test_auto_keeps_recording_locally_when_the_internet_drops():
 
     message, value = _in_browser(FAKE_AUTO, scenario)
     assert value == "أهلا بانادول اكسترا وانتينال كبسوله"
-    assert "مفيش إنترنت" in message or "🎙" in message or "ثانية" in message
+    assert "مفيش إنترنت" in message or "اتكلم" in message or "ثانية" in message

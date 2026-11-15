@@ -1,26 +1,22 @@
 {% extends "base_auth.html" %}
 {% load i18n %}
 {% block title %}{% translate "تسجيل الدخول" %}{% endblock %}
-{% block heading %}
-<h1 class="mb-5 text-center text-xl font-bold">{% translate "تسجيل الدخول" %}</h1>
-{% endblock %}
 {% block card %}
-<form method="post" class="space-y-4" novalidate x-data="{ show: false }">
+<form method="post" class="space-y-3.5" novalidate x-data="{ show: false }">
   {% csrf_token %}
   {% if form.non_field_errors %}
-    <div class="rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{{ form.non_field_errors|join:" " }}</div>
+    <div class="notice notice-danger font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}<span>{{ form.non_field_errors|join:" " }}</span></div>
   {% endif %}
   {% include "partials/field.html" with field=form.username %}
-  <div class="relative">
+  {# the password is typed left-to-right: its show / hide button sits at the right end, with room kept for it #}
+  <div class="relative [&_input]:pr-16!">
     {% include "partials/field.html" with field=form.password %}
-    <button type="button" class="absolute start-2 top-8 rounded px-2 py-1 text-xs font-semibold text-stone-500 hover:text-brand"
+    <button type="button" class="absolute right-1.5 top-[1.9rem] rounded-md px-2 py-1 text-xs font-semibold text-stone-600 hover:bg-stone-100 hover:text-ink"
             @click="show = !show; $el.parentElement.querySelector('input').type = show ? 'text' : 'password'"
             x-text="show ? '{% translate "إخفاء" %}' : '{% translate "إظهار" %}'">{% translate "إظهار" %}</button>
   </div>
   <input type="hidden" name="next" value="{{ next }}">
-  <button type="submit" class="btn-primary w-full py-2.5 text-base">{% translate "دخول" %}</button>
-  <div class="text-center">
-    <a href="{% url 'accounts:password_reset' %}" class="text-sm text-stone-500 hover:text-brand">{% translate "نسيت كلمة المرور؟" %}</a>
-  </div>
+  <button type="submit" class="btn-primary min-h-11 w-full text-base">{% translate "دخول" %}</button>
+  <p class="text-center text-xs text-stone-500">{% translate "نسيت كلمة السر؟ اطلب من مسؤول العيادة يكتبلك واحدة جديدة." %}</p>
 </form>
 {% endblock %}

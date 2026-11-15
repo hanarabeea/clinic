@@ -2,68 +2,83 @@
 {% load i18n %}
 {% block title %}{% translate "الرئيسية" %}{% endblock %}
 {% block content %}
-<div class="mb-6">
-  <h1 class="text-2xl font-bold">{% blocktranslate with name=request.user.get_short_name %}أهلًا {{ name }} 👋{% endblocktranslate %}</h1>
-  <p class="text-sm text-stone-500">{{ current_org.name_ar }}</p>
+<div class="page-head">
+  <div>
+    <h1>{% blocktranslate with name=request.user.get_short_name %}أهلًا {{ name }}{% endblocktranslate %}</h1>
+    <p class="page-sub">{{ current_org.name_ar }}</p>
+  </div>
+  <span class="ms-auto"></span>
+  {% if can.appointment_book %}<a href="{% url 'reception:today' %}?book=1" class="btn-primary">{% icon "plus" "size-4" %}{% translate "حجز جديد" %}</a>{% endif %}
 </div>
 
 {% include "notifications/partials/scheduler_warning.html" %}
 
-{# --- today --- #}
-{% if counts %}
-<section class="mb-6">
-  <h2 class="mb-2 text-sm font-bold text-stone-600">{% translate "النهارده" %}</h2>
-  <div class="grid grid-cols-2 gap-3 sm:grid-cols-5">
-    {% with c=counts %}
-    <a href="{% url 'reception:today' %}" class="card p-4"><div class="text-xs text-stone-500">{% translate "محجوز" %}</div><div class="text-2xl font-bold">{{ c.booked }}</div></a>
-    <div class="card p-4"><div class="text-xs text-stone-500">{% translate "وصل" %}</div><div class="text-2xl font-bold text-amber-700">{{ c.arrived }}</div></div>
-    <div class="card p-4"><div class="text-xs text-stone-500">{% translate "عند الدكتور" %}</div><div class="text-2xl font-bold text-sky-700">{{ c.in_consultation }}</div></div>
-    <div class="card p-4"><div class="text-xs text-stone-500">{% translate "تم" %}</div><div class="text-2xl font-bold text-green-700">{{ c.completed }}</div></div>
-    <div class="card p-4"><div class="text-xs text-stone-500">{% translate "لم يحضر" %}</div><div class="text-2xl font-bold text-red-700">{{ c.no_show }}</div></div>
-    {% endwith %}
-  </div>
-</section>
-{% endif %}
-
-{# --- tasks --- #}
-<section class="mb-6">
-  <h2 class="mb-2 text-sm font-bold text-stone-600">{% translate "محتاج انتباه" %}</h2>
-  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-    {% if followups is not None %}
-    <a href="{% url 'reception:today' %}" class="card block p-4 hover:border-brand">
-      <div class="text-xs text-stone-500">{% translate "إعادات محتاجة حجز" %}</div>
-      <div class="text-2xl font-bold {% if followups %}text-amber-700{% else %}text-stone-400{% endif %}">{{ followups }}</div>
-    </a>
-    {% endif %}
-    {% if failed_messages is not None %}
-    <a href="{% url 'notifications:log' %}?status=failed" class="card block p-4 hover:border-brand">
-      <div class="text-xs text-stone-500">{% translate "رسايل فشلت" %}</div>
-      <div class="text-2xl font-bold {% if failed_messages %}text-red-700{% else %}text-stone-400{% endif %}">{{ failed_messages }}</div>
-    </a>
-    {% endif %}
-    <div class="card p-4">
-      <div class="text-xs text-stone-500">{% translate "حالة WhatsApp" %}</div>
-      <div class="mt-1 text-sm font-semibold {% if wa_state.state == 'ready' %}text-green-700{% elif wa_state.state == 'off' %}text-stone-400{% else %}text-red-700{% endif %}">
-        {% if wa_state.state == 'ready' %}🟢{% elif wa_state.state != 'off' %}🔴{% endif %} {{ wa_state.label }}
-        {% if wa_state.number and wa_state.state == 'ready' %}<span dir="ltr" class="text-xs font-normal text-stone-500">{{ wa_state.number }}</span>{% endif %}
+<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_19rem]">
+  <div class="min-w-0 space-y-6">
+    {# --- today --- #}
+    {% if counts %}
+    <section>
+      <div class="mb-2 flex items-baseline justify-between">
+        <h2 class="section-title mb-0">{% translate "النهارده" %}</h2>
+        <a href="{% url 'reception:today' %}" class="link text-xs">{% translate "افتح الاستقبال" %}</a>
       </div>
-      {% if wa_state.state != 'ready' and wa_state.state != 'off' and can.settings_manage %}<a href="{% url 'messaging:whatsapp' %}" class="text-xs font-semibold text-brand">{% translate "اربطه ←" %}</a>{% endif %}
-    </div>
-    <div class="card p-4">
-      <div class="text-xs text-stone-500">{% translate "محرك الرسايل" %}</div>
-      <div class="mt-1 text-sm font-semibold {% if scheduler_alive %}text-green-700{% else %}text-red-700{% endif %}">{% if scheduler_alive %}🟢 {% translate "شغال" %}{% else %}🔴 {% translate "واقف" %}{% endif %}</div>
-    </div>
-  </div>
-</section>
+      {% with c=counts %}
+      <div class="stat-strip">
+        <a href="{% url 'reception:today' %}" class="stat"><div class="stat-label">{% translate "محجوز" %}</div><div class="stat-value">{{ c.booked }}</div></a>
+        <div class="stat"><div class="stat-label">{% translate "وصل" %}</div><div class="stat-value {% if c.arrived %}text-amber-700{% endif %}">{{ c.arrived }}</div></div>
+        <div class="stat"><div class="stat-label">{% translate "عند الدكتور" %}</div><div class="stat-value {% if c.in_consultation %}text-sky-700{% endif %}">{{ c.in_consultation }}</div></div>
+        <div class="stat"><div class="stat-label">{% translate "تم" %}</div><div class="stat-value">{{ c.completed }}</div></div>
+        <div class="stat"><div class="stat-label">{% translate "لم يحضر" %}</div><div class="stat-value {% if c.no_show %}text-red-700{% endif %}">{{ c.no_show }}</div></div>
+      </div>
+      {% endwith %}
+    </section>
+    {% endif %}
 
-{# --- the month (doctor / owner) --- #}
-{% if month %}
-<section>
-  <div class="mb-2 flex items-center justify-between">
-    <h2 class="text-sm font-bold text-stone-600">{% translate "الشهر ده" %}</h2>
-    <a href="{% url 'dashboard:reports' %}" class="text-xs font-semibold text-brand">{% translate "التقارير ←" %}</a>
+    {# --- the month (doctor / owner) --- #}
+    {% if month %}
+    <section>
+      <div class="mb-2 flex items-baseline justify-between">
+        <h2 class="section-title mb-0">{% translate "الشهر ده" %}</h2>
+        <a href="{% url 'dashboard:reports' %}" class="link text-xs">{% translate "كل التقارير" %}</a>
+      </div>
+      {% include "dashboard/partials/report_cards.html" with r=month %}
+    </section>
+    {% endif %}
   </div>
-  {% include "dashboard/partials/report_cards.html" with r=month %}
-</section>
-{% endif %}
+
+  {# --- needs attention + system state: one ruled list --- #}
+  <aside class="min-w-0">
+    <h2 class="section-title">{% translate "محتاج انتباه" %}</h2>
+    <div class="card divide-y divide-stone-100 text-sm">
+      {% if followups is not None %}
+      <a href="{% url 'reception:today' %}" class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-stone-50">
+        {% icon "repeat" "size-5 text-stone-400" %}
+        <span class="min-w-0 flex-1">{% translate "إعادات محتاجة حجز" %}</span>
+        <span class="num text-base font-semibold {% if followups %}text-amber-700{% else %}text-stone-500{% endif %}">{{ followups }}</span>
+      </a>
+      {% endif %}
+      {% if failed_messages is not None %}
+      <a href="{% url 'notifications:log' %}?status=failed" class="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-stone-50">
+        {% icon "warning-circle" "size-5 text-stone-400" %}
+        <span class="min-w-0 flex-1">{% translate "رسايل فشلت" %}</span>
+        <span class="num text-base font-semibold {% if failed_messages %}text-red-700{% else %}text-stone-500{% endif %}">{{ failed_messages }}</span>
+      </a>
+      {% endif %}
+      <div class="flex items-center gap-3 px-4 py-3">
+        {% icon "whatsapp-logo" "size-5 text-stone-400" %}
+        <span class="min-w-0 flex-1">
+          <span class="block">{% translate "حالة WhatsApp" %}</span>
+          {% if wa_state.number and wa_state.state == 'ready' %}<span dir="ltr" class="block text-xs text-stone-500">{{ wa_state.number }}</span>{% endif %}
+          {% if wa_state.state != 'ready' and wa_state.state != 'off' and can.settings_manage %}<a href="{% url 'messaging:whatsapp' %}" class="link text-xs">{% translate "اربطه" %}</a>{% endif %}
+        </span>
+        <span class="badge {% if wa_state.state == 'ready' %}bg-green-50 text-green-800{% elif wa_state.state == 'off' %}bg-stone-100 text-stone-600{% else %}bg-red-50 text-red-800{% endif %}">{{ wa_state.label }}</span>
+      </div>
+      <div class="flex items-center gap-3 px-4 py-3">
+        {% icon "bell" "size-5 text-stone-400" %}
+        <span class="min-w-0 flex-1">{% translate "محرك الرسايل" %}</span>
+        <span class="badge {% if scheduler_alive %}bg-green-50 text-green-800{% else %}bg-red-50 text-red-800{% endif %}">{% if scheduler_alive %}{% translate "شغال" %}{% else %}{% translate "واقف" %}{% endif %}</span>
+      </div>
+    </div>
+  </aside>
+</div>
 {% endblock %}

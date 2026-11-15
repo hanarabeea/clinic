@@ -4,61 +4,175 @@
 @source "../../apps";
 @source "./dictation.js";
 
-/* Poppins handles Latin letters and digits; Arabic falls through to Cairo (brand guideline). */
-@font-face { font-family: "Poppins"; font-weight: 400; font-display: swap; src: url("../fonts/poppins-latin-400.woff2") format("woff2"); unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2212; }
-@font-face { font-family: "Poppins"; font-weight: 600; font-display: swap; src: url("../fonts/poppins-latin-600.woff2") format("woff2"); unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2212; }
-@font-face { font-family: "Poppins"; font-weight: 700; font-display: swap; src: url("../fonts/poppins-latin-700.woff2") format("woff2"); unicode-range: U+0000-00FF, U+2000-206F, U+20AC, U+2212; }
-@font-face { font-family: "Cairo"; font-weight: 400; font-display: swap; src: url("../fonts/cairo-arabic-400.woff2") format("woff2"); unicode-range: U+0600-06FF, U+0750-077F, U+FB50-FDFF, U+FE70-FEFF, U+200C-200E, U+2010-2011, U+204F, U+2E41; }
-@font-face { font-family: "Cairo"; font-weight: 600; font-display: swap; src: url("../fonts/cairo-arabic-600.woff2") format("woff2"); unicode-range: U+0600-06FF, U+0750-077F, U+FB50-FDFF, U+FE70-FEFF, U+200C-200E, U+2010-2011, U+204F, U+2E41; }
-@font-face { font-family: "Cairo"; font-weight: 700; font-display: swap; src: url("../fonts/cairo-arabic-700.woff2") format("woff2"); unicode-range: U+0600-06FF, U+0750-077F, U+FB50-FDFF, U+FE70-FEFF, U+200C-200E, U+2010-2011, U+204F, U+2E41; }
-@font-face { font-family: "Cairo"; font-weight: 400; font-display: swap; src: url("../fonts/cairo-latin-400.woff2") format("woff2"); unicode-range: U+0000-00FF; }
+/* DigiClinic design system ("the chart and the ledger", docs/plan/14-obgyn-center.md §14.1).
+   One family for Arabic, Latin and digits; crisp paper surfaces, hairline rules, squared tags, one accent.
+   The clinic's own colours come in as --color-brand / --color-ink-panel / --color-sand (base_page.html); every
+   other colour below is derived from them, so the look holds for any brand colour. */
+@font-face { font-family: "Plex"; font-weight: 400; font-display: swap; src: url("../fonts/plex-arabic-400.woff2") format("woff2"); unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC; }
+@font-face { font-family: "Plex"; font-weight: 500; font-display: swap; src: url("../fonts/plex-arabic-500.woff2") format("woff2"); unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC; }
+@font-face { font-family: "Plex"; font-weight: 600; font-display: swap; src: url("../fonts/plex-arabic-600.woff2") format("woff2"); unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC; }
+@font-face { font-family: "Plex"; font-weight: 700; font-display: swap; src: url("../fonts/plex-arabic-700.woff2") format("woff2"); unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891, U+0897-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC; }
+@font-face { font-family: "Plex"; font-weight: 400; font-display: swap; src: url("../fonts/plex-latin-400.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Plex"; font-weight: 500; font-display: swap; src: url("../fonts/plex-latin-500.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Plex"; font-weight: 600; font-display: swap; src: url("../fonts/plex-latin-600.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Plex"; font-weight: 700; font-display: swap; src: url("../fonts/plex-latin-700.woff2") format("woff2"); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
 
 @theme {
-  --font-sans: "Poppins", "Cairo", ui-sans-serif, system-ui, sans-serif;
-  --color-brand: #AE171C;
-  --color-brand-dark: #8E1217;
-  --color-brand-soft: #FBECEC;
-  --color-ink: #111111;
-  --color-sand: #F5F2EF;
+  --font-sans: "Plex", "Segoe UI", Tahoma, system-ui, sans-serif;
+  --font-mono: "Plex", "Segoe UI", Tahoma, system-ui, sans-serif; /* "mono" columns = the same family, tabular digits */
+
+  /* the clinic's three colours (defaults: pomegranate on aubergine ink) */
+  --color-brand: #A21E48;
+  --color-ink-panel: #24131E;
+  --color-sand: #F4F2F5;
+  --color-brand-dark: color-mix(in oklch, var(--color-brand) 80%, black);
+  --color-brand-soft: color-mix(in oklch, var(--color-brand) 8%, white);
+  --color-ink: color-mix(in oklch, var(--color-brand) 10%, oklch(0.2 0 0));
+  --color-paper: oklch(0.995 0 0);
+
+  /* neutrals: cool greys that take a slight tint from the brand. 400 and 500 are darker than Tailwind's so hint
+     text stays readable on paper (500 is body-safe at 4.5:1, 400 is for large or secondary labels only). */
+  --color-stone-50: color-mix(in oklch, var(--color-brand) 2%, oklch(0.984 0 0));
+  --color-stone-100: color-mix(in oklch, var(--color-brand) 3%, oklch(0.962 0 0));
+  --color-stone-200: color-mix(in oklch, var(--color-brand) 4%, oklch(0.915 0 0));
+  --color-stone-300: color-mix(in oklch, var(--color-brand) 5%, oklch(0.86 0 0));
+  --color-stone-400: color-mix(in oklch, var(--color-brand) 6%, oklch(0.62 0 0));
+  --color-stone-500: color-mix(in oklch, var(--color-brand) 6%, oklch(0.5 0 0));
+  --color-stone-600: color-mix(in oklch, var(--color-brand) 7%, oklch(0.42 0 0));
+  --color-stone-700: color-mix(in oklch, var(--color-brand) 8%, oklch(0.35 0 0));
+  --color-stone-800: color-mix(in oklch, var(--color-brand) 9%, oklch(0.27 0 0));
+  --color-stone-900: color-mix(in oklch, var(--color-brand) 10%, oklch(0.21 0 0));
+  --color-stone-950: color-mix(in oklch, var(--color-brand) 10%, oklch(0.15 0 0));
+
+  /* one radius system: small and squared. Pills (rounded-full) stay for avatars and dots only. */
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --radius-2xl: 10px;
+  --radius-3xl: 12px;
+
+  /* surfaces are separated by rules, not shadows; shadows are kept for things that really float */
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: 0 0 #0000;
+  --shadow-md: 0 2px 6px -2px oklch(0.2 0.02 340 / 0.12);
+  --shadow-lg: 0 10px 28px -10px oklch(0.2 0.02 340 / 0.28), 0 2px 6px -2px oklch(0.2 0.02 340 / 0.1);
+  --shadow-xl: 0 18px 44px -14px oklch(0.2 0.02 340 / 0.32), 0 3px 8px -3px oklch(0.2 0.02 340 / 0.12);
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 @layer base {
   html { -webkit-text-size-adjust: 100%; }
-  body { @apply bg-sand text-ink antialiased; }
+  body { @apply bg-sand text-ink antialiased; font-feature-settings: "kern"; }
   [x-cloak] { display: none !important; }
+  h1, h2, h3 { text-wrap: balance; }
+  table, .num, .font-mono { font-variant-numeric: tabular-nums; }
+  ::selection { background: color-mix(in oklch, var(--color-brand) 22%, white); }
+  :focus-visible { outline: 2px solid color-mix(in oklch, var(--color-brand) 65%, white); outline-offset: 2px; }
+  input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }
+  .icon { display: inline-block; flex-shrink: 0; vertical-align: -0.2em; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--color-stone-300); border: 2px solid transparent; border-radius: 8px; background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--color-stone-400); border: 2px solid transparent; background-clip: content-box; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
 }
 
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 disabled:opacity-50 disabled:cursor-not-allowed;
+  @apply inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap select-none transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed active:translate-y-px pointer-coarse:min-h-11;
 }
 
 @utility chip {
-  @apply inline-flex items-center gap-1 rounded-full border border-stone-200 bg-white px-3 py-1 text-xs text-stone-700 transition hover:border-stone-300 hover:bg-stone-50 disabled:opacity-50 pointer-coarse:px-4 pointer-coarse:py-2 pointer-coarse:text-sm;
+  @apply inline-flex items-center gap-1 rounded-md border border-stone-200 bg-white px-2.5 py-1 text-xs font-medium text-stone-700 transition-colors hover:border-stone-300 hover:bg-stone-50 disabled:opacity-50 pointer-coarse:px-4 pointer-coarse:py-2 pointer-coarse:text-sm;
 }
 
 @layer components {
   .btn-primary { @apply btn bg-brand text-white hover:bg-brand-dark; }
-  .btn-secondary { @apply btn border border-stone-300 bg-white text-ink hover:bg-stone-50; }
-  .btn-ghost { @apply btn text-stone-600 hover:bg-stone-100; }
-  .btn-danger { @apply btn border border-red-200 bg-white text-red-700 hover:bg-red-50; }
-  .card { @apply rounded-xl border border-stone-200 bg-white shadow-sm; }
-  .badge { @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold; }
+  .btn-secondary { @apply btn border border-stone-300 bg-white text-ink hover:border-stone-400 hover:bg-stone-50; }
+  .btn-ghost { @apply btn text-stone-600 hover:bg-stone-100 hover:text-ink; }
+  .btn-danger { @apply btn border border-red-200 bg-white text-red-700 hover:border-red-300 hover:bg-red-50; }
+  .btn-icon { @apply inline-flex size-8 items-center justify-center rounded-lg text-stone-500 transition-colors hover:bg-stone-100 hover:text-ink pointer-coarse:size-11; }
+  .card { @apply rounded-xl border border-stone-200 bg-white; }
+  /* status / attribute tag: squared, never a pill */
+  .badge { @apply inline-flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-xs leading-5 font-medium; }
+  .link { @apply font-semibold text-brand underline-offset-4 hover:underline; }
+
+  /* page header: title, optional sub line, actions at the end */
+  .page-head { @apply mb-5 flex flex-wrap items-center gap-x-3 gap-y-2; }
+  .page-head h1 { @apply text-[1.375rem] leading-tight font-bold text-ink; }
+  .page-sub { @apply text-sm text-stone-500; }
+  /* a plain section heading (replaces coloured title bars) */
+  .section-title { @apply mb-2 text-[13px] font-semibold text-stone-600; }
+
+  /* figures strip: one ruled row of numbers instead of a grid of little cards */
+  .stat-strip { @apply grid overflow-hidden rounded-xl border border-stone-200 bg-white; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); }
+  .stat { @apply relative block min-w-0 px-4 py-3; box-shadow: -1px 0 0 var(--color-stone-200), 0 1px 0 var(--color-stone-200); }
+  .stat-label { @apply truncate text-xs font-medium text-stone-500; }
+  .stat-value { @apply mt-0.5 text-2xl leading-8 font-semibold text-ink; font-variant-numeric: tabular-nums; }
+  a.stat { @apply transition-colors hover:bg-stone-50; }
+
+  /* data table */
+  .data-table { @apply w-full text-sm; }
+  .data-table thead th { @apply border-b border-stone-200 bg-stone-50 px-3 py-2 text-start text-xs font-semibold whitespace-nowrap text-stone-600; }
+  .data-table tbody td { @apply border-b border-stone-100 px-3 py-2 align-middle; }
+  .data-table tbody tr:last-child td { @apply border-b-0; }
+
+  /* overlay menu and dialog surfaces */
+  .menu { @apply rounded-lg border border-stone-200 bg-white py-1 text-start text-sm shadow-lg; transform-origin: top; animation: pop-in 140ms var(--ease-out); }
+  .menu-item { @apply flex w-full items-center gap-2 px-3 py-1.5 text-start text-stone-700 hover:bg-stone-100 hover:text-ink; }
+  .menu-item .icon { @apply size-4 text-stone-500; }
+  .overlay { @apply fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 pt-[8vh]; background: color-mix(in oklch, var(--color-ink-panel) 45%, transparent); animation: fade-in 120ms ease-out; }
+  .dialog { @apply w-full rounded-xl bg-white shadow-xl; animation: dialog-in 180ms var(--ease-out); }
+  .toast { @apply flex w-full max-w-md items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium text-white shadow-lg; background: var(--color-ink-panel); animation: toast-in 200ms var(--ease-out); }
+  .toast.is-error { @apply bg-red-700; }
+  .notice { @apply flex items-start gap-2 rounded-lg border px-3 py-2.5 text-sm; }
+  .notice-danger { @apply border-red-200 bg-red-50 text-red-800; }
+  .notice-warn { @apply border-amber-200 bg-amber-50 text-amber-900; }
+  .notice-info { @apply border-sky-200 bg-sky-50 text-sky-900; }
+
+  /* segmented switch (day / week) */
+  .segmented { @apply inline-flex rounded-lg bg-stone-100 p-0.5 text-sm font-semibold; }
+  .segmented > * { @apply rounded-md px-3.5 py-1.5 text-stone-600 transition-colors; }
+  .segmented > .is-active { @apply bg-white text-ink; box-shadow: 0 0 0 1px var(--color-stone-200), 0 1px 2px oklch(0.2 0.02 340 / 0.08); }
+  /* underlined tabs (settings, users) */
+  /* the rule under the strip is an inset shadow, so the tabs' own underline sits on it without overflowing (an
+     overflowing 1px used to give the strip a stray vertical scrollbar) */
+  .tabs { @apply mb-5 flex gap-1 overflow-x-auto overflow-y-hidden text-sm font-semibold; box-shadow: inset 0 -1px 0 var(--color-stone-200); scrollbar-width: none; }
+  .tab { @apply border-b-2 border-transparent px-3 py-2 whitespace-nowrap text-stone-500 transition-colors hover:text-ink; }
+  .tab.is-active { @apply border-brand text-ink; }
 
   .form-field { @apply space-y-1; }
-  .form-field label { @apply block text-sm font-semibold text-stone-700; }
-  .form-field input:not([type=checkbox]):not([type=color]):not([type=file]),
+  .form-field label { @apply block text-[13px] font-semibold text-stone-700; }
+  .form-field input:not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),
   .form-field select,
-  .form-field textarea { @apply block w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm focus:border-brand focus:ring-2 focus:ring-brand/20 focus:outline-none; }
+  .form-field textarea,
+  .input { @apply block w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-ink transition-colors placeholder:text-stone-400 hover:border-stone-400 focus:border-brand focus:ring-2 focus:ring-brand/20 focus:outline-none; }
   .form-field input[type=color] { @apply h-10 w-20 cursor-pointer rounded-lg border border-stone-300 bg-white p-1; }
-  .form-field input[type=file] { @apply block w-full text-sm file:me-3 file:rounded-lg file:border-0 file:bg-sand file:px-3 file:py-2 file:font-semibold; }
+  .form-field input[type=file] { @apply block w-full text-sm file:me-3 file:rounded-lg file:border-0 file:bg-stone-100 file:px-3 file:py-2 file:font-semibold; }
   .form-field .help { @apply text-xs text-stone-500; }
   .form-field .errorlist { @apply text-xs font-semibold text-red-700; }
-  .form-field.has-error input, .form-field.has-error select, .form-field.has-error textarea { @apply border-red-400; }
+  .form-field.has-error input, .form-field.has-error select, .form-field.has-error textarea { @apply border-red-500; }
+  input[type=checkbox], input[type=radio] { accent-color: var(--color-brand); }
+
+  /* shell: ink side panel + top bar */
+  .side { background: var(--color-ink-panel); color: oklch(1 0 0 / 0.74); }
+  .side-group { @apply px-3 pt-5 pb-1.5 text-[11px] font-semibold; color: oklch(1 0 0 / 0.58); }
+  .nav-link { @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors; color: oklch(1 0 0 / 0.76); }
+  .nav-link:hover { background: oklch(1 0 0 / 0.07); color: #fff; }
+  .nav-link.active { background: oklch(1 0 0 / 0.13); color: #fff; font-weight: 600; }
+  .nav-link .icon { @apply size-5; opacity: 0.85; }
+  .nav-link.active .icon { opacity: 1; }
+  .topbar { @apply sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-stone-200 px-4 lg:px-8; background: color-mix(in oklch, var(--color-paper) 90%, transparent); backdrop-filter: saturate(1.4) blur(8px); }
 
   /* --- doctor workspace --- */
-  .ws-panel { @apply rounded-2xl border border-stone-200/80 bg-white p-4 sm:p-5; }
-  .ws-title { @apply mb-3 flex items-center gap-2 text-base font-bold text-ink; }
-  .ws-title::before { content: ""; @apply h-4 w-1 rounded-full bg-brand; }
+  /* الكشف | الروشتة: two large tabs sitting on a rule (the selected one is set by aria-selected) */
+  .pane-tab { @apply -mb-px inline-flex flex-1 items-center justify-center gap-2 border-b-2 border-transparent px-5 py-2.5 text-[15px] font-semibold text-stone-500 transition-colors hover:text-ink sm:flex-none sm:px-7 pointer-coarse:py-3.5; }
+  .pane-tab[aria-selected="true"] { @apply border-brand text-ink; }
+  .pane-tab[aria-selected="true"] .icon { @apply text-brand; }
+  .ws-panel { @apply rounded-xl border border-stone-200 bg-white p-4 sm:p-5; }
+  .ws-title { @apply mb-3 flex items-center gap-2 text-[15px] font-bold text-ink; }
   .ws-label { @apply text-xs font-semibold text-stone-500; }
   .ws-section { @apply border-t border-stone-100 pt-4; }
   .chip-soft { @apply chip border-transparent bg-stone-100 hover:bg-stone-200; }
@@ -98,8 +212,9 @@
   .dictate-corner > textarea { padding-bottom: 2.1rem !important; }
   .dictate-corner > .dictation-bar { position: absolute; inset-inline-end: .4rem; bottom: .45rem; margin-top: 0 !important; max-width: calc(100% - .8rem); }
   .dictate-corner .dictation-interim { @apply truncate rounded bg-white px-1; }
-
-  .nav-link { @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-semibold text-stone-600 hover:bg-sand hover:text-ink; }
-  .nav-link.active { @apply bg-brand-soft text-brand; }
-  .nav-link.disabled { @apply cursor-default text-stone-400 hover:bg-transparent hover:text-stone-400; }
 }
+
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes pop-in { from { opacity: 0; transform: scale(0.97) translateY(-2px); } }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(8px) scale(0.985); } }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }

@@ -25,7 +25,7 @@ def form_field(d) -> forms.Field:
     if d.type == FieldType.DATE:
         return forms.DateField(widget=forms.DateInput(attrs={"type": "date"}), **common)
     if d.type == FieldType.CHOICE:
-        return forms.ChoiceField(choices=[("", "—")] + [(c, c) for c in d.choices or []], **common)
+        return forms.ChoiceField(choices=[("", "-")] + [(c, c) for c in d.choices or []], **common)
     if d.type == FieldType.BOOL:
         return forms.BooleanField(**common)
     return forms.CharField(max_length=500, **common)

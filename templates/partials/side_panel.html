@@ -1,0 +1,41 @@
+{% load i18n %}
+{# The whole system's side panel: the clinic's dark colour, every screen the person may open (nav_groups). #}
+<aside class="side fixed inset-y-0 start-0 z-50 flex w-60 flex-col transition-transform duration-200 lg:sticky lg:top-0 lg:h-screen max-lg:ltr:-translate-x-full max-lg:rtl:translate-x-full"
+       :class="open && 'translate-x-0!'">
+  <a href="{% url 'dashboard:home' %}" class="flex h-14 shrink-0 items-center gap-3 px-4">
+    {% if current_org_settings.logo %}
+      <img src="{% url 'organizations:logo' %}" alt="" class="size-8 rounded-md bg-white object-contain p-0.5">
+    {% else %}
+      <span class="flex size-8 items-center justify-center rounded-md bg-white/10 text-sm font-bold text-white">{{ current_org.name_ar|slice:":1" }}</span>
+    {% endif %}
+    <span class="min-w-0">
+      <span class="block truncate text-sm font-semibold text-white">{{ current_org.name_ar }}</span>
+      <span class="block text-[11px] leading-4 text-white/45">DigiClinic</span>
+    </span>
+  </a>
+
+  <nav class="flex-1 space-y-0.5 overflow-y-auto px-2.5 pb-3">
+    {% for group in nav_groups %}
+    {% if group.label %}<div class="side-group">{{ group.label }}</div>{% endif %}
+    {% for link in group.links %}
+    <a href="{{ link.url }}" class="nav-link {% if link.active %}active{% endif %}" {% if link.active %}aria-current="page"{% endif %}>
+      {% icon link.icon %}{{ link.label }}
+    </a>
+    {% endfor %}
+    {% endfor %}
+  </nav>
+
+  <div class="flex shrink-0 items-center gap-2.5 border-t border-white/10 px-3 py-3">
+    <span class="flex size-8 shrink-0 items-center justify-center rounded-full bg-white/12 text-sm font-semibold text-white">{{ request.user.full_name|slice:":1" }}</span>
+    <span class="min-w-0 flex-1">
+      <span class="block truncate text-sm font-semibold text-white">{{ request.user.full_name }}</span>
+      <span class="block truncate text-[11px] leading-4 text-white/50">{{ current_membership.role_name }}</span>
+    </span>
+    <form method="post" action="{% url 'accounts:logout' %}">
+      {% csrf_token %}
+      <button type="submit" class="flex size-8 items-center justify-center rounded-lg text-white/60 transition-colors hover:bg-white/10 hover:text-white" title="{% translate 'تسجيل الخروج' %}" aria-label="{% translate 'تسجيل الخروج' %}">
+        {% icon "sign-out" "size-5 rtl:-scale-x-100" %}
+      </button>
+    </form>
+  </div>
+</aside>

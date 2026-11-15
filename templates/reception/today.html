@@ -4,50 +4,52 @@
 {% block content %}
 {% comment %}One screen for reception: today's arrivals / payments, the day and week schedule (tables, AM/PM times) and
 new bookings (a panel opened by "+ حجز جديد" or a free cell). apps/reception/board.py builds the tables.{% endcomment %}
-<div class="mb-3 flex flex-wrap items-center gap-2">
-  <h1 class="text-2xl font-bold">{% translate "الاستقبال والمواعيد" %}</h1>
-  <span class="text-sm text-stone-500">· {{ doctor }}</span>
+<div class="page-head mb-3">
+  <div>
+    <h1>{% translate "الاستقبال والمواعيد" %}</h1>
+    <p class="page-sub">{{ doctor }}</p>
+  </div>
   <span class="ms-auto"></span>
-  {% if can.payment_record %}<a href="{% url 'billing:cashbox' %}" class="btn-secondary">💵 {% translate "الخزنة" %}</a>{% endif %}
+  {% if can.payment_record %}<a href="{% url 'billing:cashbox' %}" class="btn-secondary">{% icon "cash-register" "size-4" %}{% translate "الخزنة" %}</a>{% endif %}
   {% if can.appointment_book %}
-  <button type="button" class="btn-primary px-5" hx-get="{% url 'scheduling:booking_panel' %}?day={{ day|date:'Y-m-d' }}" hx-target="#modal">＋ {% translate "حجز جديد" %}</button>
+  <button type="button" class="btn-primary px-5" hx-get="{% url 'scheduling:booking_panel' %}?day={{ day|date:'Y-m-d' }}" hx-target="#modal">{% icon "plus" "size-4" %}{% translate "حجز جديد" %}</button>
   {% endif %}
 </div>
 
 {# toolbar: day / week, the date, today #}
-<div class="sticky top-0 z-30 -mx-1 mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-stone-200 bg-white/95 px-2 py-2 shadow-sm backdrop-blur">
-  <div class="flex rounded-lg border border-stone-300 p-0.5 text-sm font-semibold">
-    <a href="{% url 'reception:today' %}?view=day&date={{ day|date:'Y-m-d' }}" class="rounded-md px-4 py-1.5 {% if view == 'day' %}bg-brand text-white{% else %}text-stone-600 hover:bg-stone-50{% endif %}">{% translate "اليوم" %}</a>
-    <a href="{% url 'reception:today' %}?view=week&date={{ day|date:'Y-m-d' }}" class="rounded-md px-4 py-1.5 {% if view == 'week' %}bg-brand text-white{% else %}text-stone-600 hover:bg-stone-50{% endif %}">{% translate "الأسبوع" %}</a>
+<div class="sticky top-0 z-30 -mx-4 mb-4 flex flex-wrap items-center gap-2 border-y border-stone-200 bg-sand/95 px-4 py-2 backdrop-blur lg:-mx-8 lg:px-8">
+  <div class="segmented">
+    <a href="{% url 'reception:today' %}?view=day&date={{ day|date:'Y-m-d' }}" class="{% if view == 'day' %}is-active{% endif %}">{% translate "اليوم" %}</a>
+    <a href="{% url 'reception:today' %}?view=week&date={{ day|date:'Y-m-d' }}" class="{% if view == 'week' %}is-active{% endif %}">{% translate "الأسبوع" %}</a>
   </div>
-  <div class="flex items-center gap-1">
-    <a href="{% url 'reception:today' %}?view={{ view }}&date={{ prev_day|date:'Y-m-d' }}" class="btn-ghost px-2 text-lg" aria-label="{% translate 'اللي قبله' %}">→</a>
-    <span class="min-w-40 text-center font-bold">{{ title }}</span>
-    <a href="{% url 'reception:today' %}?view={{ view }}&date={{ next_day|date:'Y-m-d' }}" class="btn-ghost px-2 text-lg" aria-label="{% translate 'اللي بعده' %}">←</a>
+  <div class="flex items-center">
+    <a href="{% url 'reception:today' %}?view={{ view }}&date={{ prev_day|date:'Y-m-d' }}" class="btn-icon" aria-label="{% translate 'اللي قبله' %}">{% icon "caret-right" %}</a>
+    <span class="min-w-36 text-center text-[15px] font-bold">{{ title }}</span>
+    <a href="{% url 'reception:today' %}?view={{ view }}&date={{ next_day|date:'Y-m-d' }}" class="btn-icon" aria-label="{% translate 'اللي بعده' %}">{% icon "caret-left" %}</a>
   </div>
-  {% if not is_today %}<a href="{% url 'reception:today' %}?view={{ view }}&date={{ today|date:'Y-m-d' }}" class="btn-secondary px-3 py-1.5 text-sm">{% translate "النهارده" %}</a>{% endif %}
+  {% if not is_today %}<a href="{% url 'reception:today' %}?view={{ view }}&date={{ today|date:'Y-m-d' }}" class="btn-secondary min-h-8 px-3 py-1">{% translate "النهارده" %}</a>{% endif %}
   <input type="date" value="{{ day|date:'Y-m-d' }}" aria-label="{% translate 'روح لتاريخ' %}"
          onchange="if (this.value) location.href = '{% url 'reception:today' %}?view={{ view }}&date=' + this.value"
-         class="rounded-lg border border-stone-300 px-2 py-1.5 text-sm">
+         class="input h-8 w-auto py-0">
   <span class="ms-auto"></span>
   {% if view == "day" and can.schedule_manage and board.periods and day >= today %}
   <form method="post" action="{% url 'scheduling:close_day' %}" onsubmit="return confirm('{% translate 'تقفل اليوم ده؟ الحجوزات اللي فيه هتظهرلك عشان تأجلها.' %}')">
     {% csrf_token %}<input type="hidden" name="date" value="{{ day|date:'Y-m-d' }}">
-    <button class="btn-ghost text-sm text-stone-500 hover:text-red-600">🔒 {% translate "قفل اليوم" %}</button>
+    <button class="btn-ghost min-h-8 px-2.5 py-1 text-stone-600 hover:bg-red-50 hover:text-red-700">{% icon "lock-simple" "size-4" %}{% translate "قفل اليوم" %}</button>
   </form>
   {% endif %}
 </div>
 
 {% if followups %}
-<section class="card mb-3 border-amber-200 bg-amber-50/40 p-3">
-  <h2 class="mb-1 text-sm font-bold">🔁 {% translate "إعادات محتاجة حجز" %}</h2>
-  <ul class="divide-y divide-amber-100 text-sm">
+<section class="mb-4 rounded-xl border border-amber-200 bg-amber-50/50">
+  <h2 class="flex items-center gap-2 border-b border-amber-200/70 px-4 py-2 text-sm font-bold text-amber-900">{% icon "repeat" "size-4" %}{% translate "إعادات محتاجة حجز" %}</h2>
+  <ul class="divide-y divide-amber-200/60 px-4 text-sm">
     {% for v, suggested in followups %}
     <li class="flex flex-wrap items-center gap-3 py-1.5">
       <span class="font-semibold">{{ v.patient.full_name }}</span>
-      <span class="text-stone-500">{% translate "إعادة حوالي" %} <span dir="ltr">{{ suggested|date:"Y-m-d" }}</span></span>
-      {% if can.appointment_book %}<button type="button" class="ms-auto btn-secondary px-3 py-1 text-xs" hx-get="{% url 'scheduling:booking_panel' %}?patient={{ v.patient.pk }}&day={{ suggested|date:'Y-m-d' }}" hx-target="#modal">{% translate "احجز" %}</button>{% endif %}
-      <form method="post" action="{% url 'reception:followup_dismiss' v.pk %}">{% csrf_token %}<button class="btn-ghost text-xs">{% translate "تجاهل" %}</button></form>
+      <span class="text-stone-600">{% translate "إعادة حوالي" %} <span dir="ltr" class="num">{{ suggested|date:"Y-m-d" }}</span></span>
+      {% if can.appointment_book %}<button type="button" class="ms-auto btn-secondary min-h-8 px-3 py-1 text-xs" hx-get="{% url 'scheduling:booking_panel' %}?patient={{ v.patient.pk }}&day={{ suggested|date:'Y-m-d' }}" hx-target="#modal">{% translate "احجز" %}</button>{% endif %}
+      <form method="post" action="{% url 'reception:followup_dismiss' v.pk %}">{% csrf_token %}<button class="btn-ghost min-h-8 px-2.5 py-1 text-xs">{% translate "تجاهل" %}</button></form>
     </li>
     {% endfor %}
   </ul>
@@ -68,8 +70,12 @@ new bookings (a panel opened by "+ حجز جديد" or a free cell). apps/recept
   // Actions return the fresh board (or close the panel): show the server's toast, close the modal after a board swap.
   document.body.addEventListener("toast", (e) => {
     const box = document.createElement("div");
-    box.className = "fixed inset-x-0 bottom-4 z-[60] mx-auto w-full max-w-md rounded-lg px-4 py-3 text-sm font-semibold text-white shadow-lg " + (e.detail.error ? "bg-red-700" : "bg-ink");
-    box.textContent = e.detail.text;
+    box.className = "pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex justify-center px-4";
+    box.setAttribute("role", "status");
+    const toast = document.createElement("div");
+    toast.className = "toast pointer-events-auto" + (e.detail.error ? " is-error" : "");
+    toast.textContent = e.detail.text;
+    box.appendChild(toast);
     document.body.appendChild(box);
     setTimeout(() => box.remove(), 5000);
   });

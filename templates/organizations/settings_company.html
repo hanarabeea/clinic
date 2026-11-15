@@ -2,14 +2,14 @@
 {% load i18n %}
 {% block title %}{% translate "الإعدادات" %}{% endblock %}
 {% block content %}
-<h1 class="mb-6 text-2xl font-bold">{% translate "الإعدادات" %}</h1>
+<div class="page-head"><h1>{% translate "الإعدادات" %}</h1></div>
 
 {% include "partials/settings_tabs.html" with tab="company" %}
 
 <form method="post" enctype="multipart/form-data" class="space-y-6" novalidate>
   {% csrf_token %}
   <section class="card space-y-4 p-4 sm:p-6">
-    <h2 class="font-bold">{% translate "الاسم والهوية" %}</h2>
+    <h2 class="text-[15px] font-bold">{% translate "الاسم والهوية" %}</h2>
     <div class="grid gap-4 sm:grid-cols-2">
       {% include "partials/field.html" with field=org_form.name_ar %}
       {% include "partials/field.html" with field=org_form.name_en %}
@@ -25,7 +25,7 @@
   </section>
 
   <section class="card space-y-4 p-4 sm:p-6">
-    <h2 class="font-bold">{% translate "بيانات التواصل" %}</h2>
+    <h2 class="text-[15px] font-bold">{% translate "بيانات التواصل" %}</h2>
     <div class="grid gap-4 sm:grid-cols-2">
       {% include "partials/field.html" with field=form.phones_text %}
       {% include "partials/field.html" with field=form.map_link %}
@@ -35,7 +35,7 @@
   </section>
 
   <section class="card space-y-4 p-4 sm:p-6">
-    <h2 class="font-bold">{% translate "الألوان" %}</h2>
+    <h2 class="text-[15px] font-bold">{% translate "الألوان" %}</h2>
     <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
       {% include "partials/field.html" with field=form.primary_color %}
       {% include "partials/field.html" with field=form.dark_color %}
@@ -44,7 +44,7 @@
   </section>
 
   <div class="flex justify-end">
-    <button type="submit" class="btn-primary">{% translate "حفظ" %}</button>
+    <button type="submit" class="btn-primary min-h-10 px-6">{% translate "حفظ" %}</button>
   </div>
 </form>
 {% endblock %}

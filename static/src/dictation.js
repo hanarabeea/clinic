@@ -256,6 +256,9 @@
     try { return localStorage.getItem("dictation-lang") || "ar-EG"; } catch (e) { return "ar-EG"; }
   }
 
+  // Phosphor "microphone" (MIT), the same icon family as the rest of the system
+  const MIC_ICON = '<svg viewBox="0 0 256 256" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M128,176a48.05,48.05,0,0,0,48-48V64a48,48,0,0,0-96,0v64A48.05,48.05,0,0,0,128,176ZM96,64a32,32,0,0,1,64,0v64a32,32,0,0,1-64,0Zm40,143.6V240a8,8,0,0,1-16,0V207.6A80.11,80.11,0,0,1,48,128a8,8,0,0,1,16,0,64,64,0,0,0,128,0,8,8,0,0,1,16,0A80.11,80.11,0,0,1,136,207.6Z"/></svg>';
+
   function attach(el) {
     if (el.dataset.dictateReady) return;
     el.dataset.dictateReady = "1";
@@ -267,8 +270,8 @@
     mic.className = "dictation-mic";
     mic.title = "إملاء صوتي (Ctrl+Space)";
     mic.setAttribute("aria-label", "إملاء صوتي");
-    mic.textContent = "🎤";
-    mic.style.cssText = "border:1px solid #d6d3d1;border-radius:9999px;padding:2px 8px;background:#fff;font-size:13px";
+    mic.innerHTML = MIC_ICON;
+    mic.style.cssText = "display:inline-flex;align-items:center;justify-content:center;width:28px;height:26px;border:1px solid #cfcbd1;border-radius:6px;background:#fff;color:#4a444c";
     const lang = document.createElement("button");
     lang.type = "button";
     lang.className = "dictation-lang";
@@ -371,9 +374,10 @@
         provider.onStatus((t) => {
           if (t === "🎙" && !session.stopped) {
             mic.style.background = "#dc2626";
-            mic.title = "بيسجل — دوس تاني عشان توقف";
+            mic.style.color = "#fff";
+            mic.title = "بيسجل، دوس تاني عشان توقف";
           }
-          if (!failed) interimEl.textContent = t === "🎙" ? "🎙 اتكلم" : t;
+          if (!failed) interimEl.textContent = t === "🎙" ? "اتكلم دلوقتي" : t;
         });
       }
       provider.onInterim((text) => { interimEl.textContent = text; pending = text; if (text) lastSpeech = Date.now(); });

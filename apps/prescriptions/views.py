@@ -109,8 +109,8 @@ def _builder_ctx(request, rx, **extra):
     ctx["frequent_labs"] = [n for n in frequent if kind_for(n) != "imaging" and n not in IMAGING][:8]
     ctx["frequent_imaging"] = [n for n in frequent if kind_for(n) == "imaging" or n in IMAGING][:8]
     ctx["request_groups"] = [
-        ("lab", ctx["lab_requests"], ctx["frequent_labs"], "🧪", _("تحاليل"), "Lab tests"),
-        ("imaging", ctx["imaging_requests"], ctx["frequent_imaging"], "🩻", _("أشعة"), "Imaging"),
+        ("lab", ctx["lab_requests"], ctx["frequent_labs"], "flask", _("تحاليل"), "Lab tests"),
+        ("imaging", ctx["imaging_requests"], ctx["frequent_imaging"], "scan", _("أشعة"), "Imaging"),
     ]
     ctx["request_suggestions"] = [*LABS, *IMAGING]
     # quick-add chips: hide what's already on this prescription
@@ -290,7 +290,7 @@ def item_to_catalog(request, item_pk):
     """ "ضيفه للكتالوج" for a free-typed line."""
     item = _item(request, item_pk)
     if len(item.drug_name.split()) > 6:  # a whole sentence would become a "drug" the voice keeps matching
-        return _error(request, item.prescription, _("ده شكله جملة مش اسم دوا — اكتب الاسم بس قبل ما تضيفه للكتالوج."))
+        return _error(request, item.prescription, _("ده شكله جملة مش اسم دوا، اكتب الاسم بس قبل ما تضيفه للكتالوج."))
     drug, _created = Drug.objects.get_or_create(
         organization=request.organization,
         name=item.drug_name,
@@ -400,7 +400,7 @@ def request_dictate(request, pk):
     if found:
         notice = _("اتضاف: %(l)s") % {"l": "، ".join(n for n, _k in found)}
         return _builder(request, rx, notice=notice)
-    return _builder(request, rx, error=_("مالقيتش تحاليل أو أشعة في الكلام — قول الاسم تاني أو اكتبه."))
+    return _builder(request, rx, error=_("مالقيتش تحاليل أو أشعة في الكلام، قول الاسم تاني أو اكتبه."))
 
 
 @require_POST
@@ -464,7 +464,7 @@ def rx_pdf(request, pk):
         try:
             data = pdf.render_prescription(rx, mode=mode)
         except Exception:
-            return HttpResponse(_("مش قادر أعمل الـPDF دلوقتي — جرب تاني."), status=503)
+            return HttpResponse(_("مش قادر أعمل الـPDF دلوقتي، جرب تاني."), status=503)
     audit.log("prescription.printed", request=request, target=rx, summary=f"{rx.display_number} {mode}")
     resp = HttpResponse(data, content_type="application/pdf")
     resp["Content-Disposition"] = f'inline; filename="{rx.display_number or "draft"}.pdf"'
@@ -477,7 +477,7 @@ def calibration_pdf(request):
     try:
         data = pdf.render_calibration(request.organization)
     except Exception:
-        return HttpResponse(_("مش قادر أعمل الـPDF دلوقتي — جرب تاني."), status=503)
+        return HttpResponse(_("مش قادر أعمل الـPDF دلوقتي، جرب تاني."), status=503)
     resp = HttpResponse(data, content_type="application/pdf")
     resp["Content-Disposition"] = 'inline; filename="calibration.pdf"'
     return resp

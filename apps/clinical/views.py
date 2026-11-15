@@ -419,7 +419,7 @@ def patient_export(request, pk):
         data = engine.render_pdf(render_to_string("pdf/patient_summary.html", ctx), print_background=True,
                                  prefer_css_page_size=True)  # fmt: skip
     except Exception:
-        return HttpResponse(_("مش قادر أعمل الـPDF دلوقتي — جرب تاني."), status=503)
+        return HttpResponse(_("مش قادر أعمل الـPDF دلوقتي، جرب تاني."), status=503)
     audit.log("patient.exported", request=request, target=patient, summary=patient.full_name)
     resp = HttpResponse(data, content_type="application/pdf")
     resp["Content-Disposition"] = f'attachment; filename="patient-{patient.file_number}.pdf"'

@@ -2,32 +2,34 @@
 {% load i18n %}
 {% block title %}{% translate "التقارير" %}{% endblock %}
 {% block content %}
-<div class="mb-4 flex flex-wrap items-end justify-between gap-3">
-  <h1 class="text-2xl font-bold">{% translate "التقارير" %}</h1>
-  <form method="get" class="flex flex-wrap items-end gap-2 text-sm print:hidden">
-    <label>{% translate "من" %} <input type="date" name="from" value="{{ r.start|date:'Y-m-d' }}" class="rounded-lg border border-stone-300 px-2 py-1.5"></label>
-    <label>{% translate "لحد" %} <input type="date" name="to" value="{{ r.end|date:'Y-m-d' }}" class="rounded-lg border border-stone-300 px-2 py-1.5"></label>
+<div class="page-head">
+  <div>
+    <h1>{% translate "التقارير" %}</h1>
+    <p class="page-sub num" dir="ltr">{{ r.start|date:"Y-m-d" }} : {{ r.end|date:"Y-m-d" }}</p>
+  </div>
+  <form method="get" class="ms-auto flex flex-wrap items-end gap-2 text-sm print:hidden">
+    <label class="text-xs font-semibold text-stone-600">{% translate "من" %} <input type="date" name="from" value="{{ r.start|date:'Y-m-d' }}" class="input mt-1 py-1.5"></label>
+    <label class="text-xs font-semibold text-stone-600">{% translate "لحد" %} <input type="date" name="to" value="{{ r.end|date:'Y-m-d' }}" class="input mt-1 py-1.5"></label>
     <button class="btn-secondary">{% translate "عرض" %}</button>
-    <button type="button" class="btn-ghost" onclick="window.print()">{% translate "طباعة" %}</button>
+    <button type="button" class="btn-ghost" onclick="window.print()">{% icon "printer" "size-4" %}{% translate "طباعة" %}</button>
   </form>
 </div>
-<p class="mb-3 text-sm text-stone-500" dir="ltr">{{ r.start|date:"Y-m-d" }} → {{ r.end|date:"Y-m-d" }}</p>
 
 {% include "dashboard/partials/report_cards.html" %}
 
 <div class="card mt-4 overflow-x-auto">
-  <table class="w-full text-sm">
-    <thead class="bg-stone-50 text-xs text-stone-500"><tr>
-      <th class="px-3 py-2 text-start">{% translate "اليوم" %}</th>
-      <th class="px-3 py-2 text-start">{% translate "زيارات" %}</th>
-      <th class="px-3 py-2 text-start">{% translate "غياب" %}</th>
-      <th class="px-3 py-2 text-end">{% translate "الإيراد" %}</th>
+  <table class="data-table">
+    <thead><tr>
+      <th>{% translate "اليوم" %}</th>
+      <th>{% translate "زيارات" %}</th>
+      <th>{% translate "غياب" %}</th>
+      <th class="text-end!">{% translate "الإيراد" %}</th>
     </tr></thead>
-    <tbody class="divide-y divide-stone-100">
+    <tbody>
       {% for d, visits, missed, revenue in r.per_day %}
-      <tr><td class="px-3 py-2 font-mono" dir="ltr">{{ d|date:"Y-m-d" }}</td><td class="px-3 py-2">{{ visits }}</td><td class="px-3 py-2">{{ missed }}</td><td class="px-3 py-2 text-end font-mono" dir="ltr">{{ revenue|floatformat:"-2" }}</td></tr>
+      <tr><td dir="ltr" class="text-end">{{ d|date:"Y-m-d" }}</td><td>{{ visits }}</td><td>{{ missed }}</td><td class="text-end font-semibold" dir="ltr">{{ revenue|floatformat:"-2" }}</td></tr>
       {% empty %}
-      <tr><td colspan="4" class="px-3 py-8 text-center text-stone-400">{% translate "مفيش بيانات في الفترة دي." %}</td></tr>
+      <tr><td colspan="4" class="py-8! text-center text-stone-500">{% translate "مفيش بيانات في الفترة دي." %}</td></tr>
       {% endfor %}
     </tbody>
   </table>

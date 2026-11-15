@@ -1,11 +1,11 @@
 {% extends "reception/partials/modal.html" %}
 {% load i18n %}
-{% block title %}{% blocktranslate with p=a.patient.full_name %}تسجيل دفع — {{ p }}{% endblocktranslate %}{% endblock %}
+{% block title %}{% blocktranslate with p=a.patient.full_name %}تسجيل دفع: {{ p }}{% endblocktranslate %}{% endblock %}
 {% block body %}
-<dl class="mb-4 grid grid-cols-3 gap-2 text-center text-sm">
-  <div class="rounded-lg bg-stone-50 p-2"><dt class="text-xs text-stone-500">{% translate "المستحق" %}</dt><dd class="font-bold" dir="ltr">{{ balance.due|floatformat:0 }}</dd></div>
-  <div class="rounded-lg bg-stone-50 p-2"><dt class="text-xs text-stone-500">{% translate "اتدفع" %}</dt><dd class="font-bold" dir="ltr">{{ balance.paid|floatformat:0 }}</dd></div>
-  <div class="rounded-lg bg-stone-50 p-2"><dt class="text-xs text-stone-500">{% translate "الباقي" %}</dt><dd class="font-bold" dir="ltr">{{ balance.remaining|floatformat:0 }}</dd></div>
+<dl class="num mb-4 grid grid-cols-3 divide-x divide-stone-200 rounded-lg border border-stone-200 text-center text-sm rtl:divide-x-reverse">
+  <div class="p-2.5"><dt class="text-xs text-stone-600">{% translate "المستحق" %}</dt><dd class="text-base font-semibold" dir="ltr">{{ balance.due|floatformat:0 }}</dd></div>
+  <div class="p-2.5"><dt class="text-xs text-stone-600">{% translate "اتدفع" %}</dt><dd class="text-base font-semibold" dir="ltr">{{ balance.paid|floatformat:0 }}</dd></div>
+  <div class="p-2.5"><dt class="text-xs text-stone-600">{% translate "الباقي" %}</dt><dd class="text-base font-bold {% if balance.remaining %}text-brand{% endif %}" dir="ltr">{{ balance.remaining|floatformat:0 }}</dd></div>
 </dl>
 <form hx-post="{% url 'reception:payment' a.pk %}" hx-target="#reception" class="space-y-3" novalidate>
   <div class="grid grid-cols-2 gap-3">

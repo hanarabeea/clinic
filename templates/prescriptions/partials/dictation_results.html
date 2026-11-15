@@ -4,68 +4,68 @@ an empty one is highlighted so it gets filled), and "أضف" IS the doctor's con
 the prescription ready, with no second "تأكيد". "أو …" adds another close match with the same dose; "أضف الكل" adds
 every row's best match with what's in its boxes. Kept across re-renders with hx-preserve (under the drug search).{% endcomment %}
 {% if lines or heard_requests %}
-<div class="space-y-2 rounded-xl border border-brand/20 bg-brand-soft/50 p-3" id="dictation-box">
+<div class="space-y-2 rounded-xl border border-brand/25 bg-brand-soft p-3" id="dictation-box">
   <div class="flex flex-wrap items-center gap-2">
-    <span class="grid size-7 place-items-center rounded-full bg-brand text-sm text-white">🎤</span>
+    <span class="grid size-7 place-items-center rounded-full bg-brand text-white">{% icon "microphone" "size-4" %}</span>
     <p class="text-sm font-bold">
       {% if extracted %}{% with n=lines|length %}{% if n == 1 %}{% translate "سمعت دوا واحد" %}{% elif n == 2 %}{% translate "سمعت دواءين" %}{% else %}{% blocktranslate %}سمعت {{ n }} أدوية{% endblocktranslate %}{% endif %}{% endwith %}
-      <span class="text-xs font-normal text-stone-500">· {% translate "راجع الجرعة واضغط أضف — بتتكتب في الروشتة على طول" %}</span>
+      <span class="ms-1 text-xs font-normal text-stone-600">{% translate "راجع الجرعة واضغط أضف، بتتكتب في الروشتة على طول" %}</span>
       {% else %}{% translate "اختار الدوا الصح لكل سطر" %}{% endif %}
     </p>
     <span class="ms-auto"></span>
-    {% if lines|length|add:heard_requests|length > 1 or lines and heard_requests %}<button type="button" class="btn-primary px-3 py-1.5 text-xs" onclick="rxAddAll(this)">✓ {% translate "أضف الكل" %}</button>{% endif %}
-    <button type="button" class="btn-ghost px-2 py-1 text-xs" onclick="document.getElementById('rx-dictation').innerHTML = ''" aria-label="{% translate 'قفل' %}">✕ {% translate "قفل" %}</button>
+    {% if lines|length|add:heard_requests|length > 1 or lines and heard_requests %}<button type="button" class="btn-primary min-h-8 px-3 py-1 text-xs" onclick="rxAddAll(this)">{% icon "checks" "size-4" %}{% translate "أضف الكل" %}</button>{% endif %}
+    <button type="button" class="btn-ghost min-h-8 px-2 py-1 text-xs" onclick="document.getElementById('rx-dictation').innerHTML = ''">{% icon "x" "size-4" %}{% translate "قفل" %}</button>
   </div>
 
   {% if heard %}
   {# the whole text Chrome understood — so the doctor can see a medicine / test that was misheard or cut off #}
-  <details open class="rounded-lg bg-white/70 px-3 py-2 text-xs text-stone-600">
-    <summary class="cursor-pointer font-semibold">🗣 {% translate "الكلام كله اللي اتسمع" %}</summary>
+  <details open class="rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs text-stone-700">
+    <summary class="cursor-pointer font-semibold">{% icon "waveform" "size-4 text-stone-500" %} {% translate "الكلام كله اللي اتسمع" %}</summary>
     <p class="mt-1 whitespace-pre-line leading-relaxed" dir="auto">{{ heard }}</p>
   </details>
   {% endif %}
   {% for line in lines %}
   {% with best=line.candidates.0 %}
-  <div class="rounded-lg bg-white px-3 py-3 shadow-sm" data-dictated-line>
+  <div class="rounded-lg border border-stone-200 bg-white px-3 py-3" data-dictated-line>
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
       <p class="min-w-0 flex-1 truncate text-base font-bold" dir="ltr">{% if best %}{{ best.drug.name }}{% else %}<span dir="auto">{{ line.text }}</span>{% endif %}</p>
-      <button type="button" class="btn-ghost px-2 py-1 text-stone-400 hover:text-red-600" onclick="rxDictationDone(this)" aria-label="{% translate 'تجاهل' %}" title="{% translate 'تجاهل' %}">✕</button>
+      <button type="button" class="btn-icon hover:bg-red-50 hover:text-red-700" onclick="rxDictationDone(this)" aria-label="{% translate 'تجاهل' %}" title="{% translate 'تجاهل' %}">{% icon "x" "size-4" %}</button>
     </div>
     {% if best %}
-    <p class="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-stone-500">
-      <span class="truncate" title="{{ line.text }}">🗣 <bdi dir="auto">«{{ line.text|truncatechars:60 }}»</bdi></span>
+    <p class="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-stone-600">
+      <span class="truncate" title="{{ line.text }}">{% icon "waveform" "size-3.5 text-stone-400" %} <bdi dir="auto">«{{ line.text|truncatechars:60 }}»</bdi></span>
       {% for c in line.candidates|slice:"1:" %}
       <button type="button" class="font-semibold text-stone-600 underline-offset-2 hover:text-brand hover:underline" dir="ltr"
               hx-post="{% url 'prescriptions:dictate_add' rx.pk %}" hx-target="#rx-builder" hx-swap="outerHTML" hx-include="closest [data-dictated-line]"
               hx-on::after-request="if (event.detail.successful) rxDictationDone(this)"
-              hx-vals='{"drug": "{{ c.drug.pk }}", "spoken": "{{ c.spoken|escapejs }}"}'>{% if forloop.first %}<span class="font-normal" dir="rtl">{% translate "أو" %}</span> {% else %}· {% endif %}{{ c.drug.name|truncatechars:30 }}</button>
+              hx-vals='{"drug": "{{ c.drug.pk }}", "spoken": "{{ c.spoken|escapejs }}"}'><span class="font-normal" dir="rtl">{% translate "أو" %}</span> {{ c.drug.name|truncatechars:30 }}</button>
       {% endfor %}
     </p>
     {% endif %}
     {# dose + duration: what was heard, editable; empty = yellow, with a mic to say it #}
     <div class="mt-2 grid gap-2 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] sm:items-end">
       <label class="block">
-        <span class="text-[11px] font-semibold text-stone-500">{% translate "الجرعة" %}</span>
+        <span class="text-[11px] font-semibold text-stone-600">{% translate "الجرعة" %}</span>
         <span class="dictate-inline block"><input name="instructions" value="{{ line.instructions }}" dir="auto" data-dictate
-               placeholder="{% translate 'متقالتش — قولها أو اكتبها' %}" class="rx-voice-field"></span>
+               placeholder="{% translate 'متقالتش، قولها أو اكتبها' %}" class="rx-voice-field"></span>
       </label>
       <label class="block">
-        <span class="text-[11px] font-semibold text-stone-500">{% translate "المدة" %}</span>
+        <span class="text-[11px] font-semibold text-stone-600">{% translate "المدة" %}</span>
         <span class="dictate-inline block"><input name="duration" value="{{ line.duration }}" dir="auto" data-dictate
                placeholder="{% translate 'مثلاً: لمدة أسبوع' %}" class="rx-voice-field rx-voice-optional"></span>
       </label>
       <div class="flex items-center gap-1">
         {% if best %}
-        <button type="button" data-primary class="btn-primary px-5 py-2.5 text-sm"
+        <button type="button" data-primary class="btn-primary min-h-10 px-5"
                 hx-post="{% url 'prescriptions:dictate_add' rx.pk %}" hx-target="#rx-builder" hx-swap="outerHTML" hx-include="closest [data-dictated-line]"
                 hx-on::after-request="if (event.detail.successful) rxDictationDone(this)"
-                hx-vals='{"drug": "{{ best.drug.pk }}", "spoken": "{{ best.spoken|escapejs }}"}'>✓ {% translate "أضف" %}</button>
-        <button type="button" class="btn-ghost px-2 py-2 text-xs" title="{% translate 'مش في الكتالوج؟ اكتبه زي ما اتقال' %}"
+                hx-vals='{"drug": "{{ best.drug.pk }}", "spoken": "{{ best.spoken|escapejs }}"}'>{% icon "plus" "size-4" %}{% translate "أضف" %}</button>
+        <button type="button" class="btn-ghost min-h-10 px-2 text-xs" title="{% translate 'مش في الكتالوج؟ اكتبه زي ما اتقال' %}"
                 hx-post="{% url 'prescriptions:dictate_add' rx.pk %}" hx-target="#rx-builder" hx-swap="outerHTML" hx-include="closest [data-dictated-line]"
                 hx-on::after-request="if (event.detail.successful) rxDictationDone(this)"
                 hx-vals='{"spoken": "{% if extracted %}{{ best.spoken|escapejs }}{% else %}{{ line.text|escapejs }}{% endif %}"}'>{% translate "زي ما اتقال" %}</button>
         {% else %}
-        <button type="button" data-primary class="btn-secondary px-3 py-2.5 text-xs"
+        <button type="button" data-primary class="btn-secondary min-h-10 px-3 text-xs"
                 hx-post="{% url 'prescriptions:dictate_add' rx.pk %}" hx-target="#rx-builder" hx-swap="outerHTML" hx-include="closest [data-dictated-line]"
                 hx-on::after-request="if (event.detail.successful) rxDictationDone(this)"
                 hx-vals='{"spoken": "{{ line.text|escapejs }}"}'>{% translate "اكتبه زي ما اتقال" %}</button>
@@ -78,32 +78,32 @@ every row's best match with what's in its boxes. Kept across re-renders with hx-
 
   {% if heard_requests %}
   {# tests / scans said while dictating: added to الطلبات (تحاليل | أشعة) under the medicines #}
-  <div class="rounded-lg bg-white px-3 py-3 shadow-sm" data-dictated-line data-requests>
+  <div class="rounded-lg border border-stone-200 bg-white px-3 py-3" data-dictated-line data-requests>
     <div class="flex flex-wrap items-center gap-2">
       <p class="text-sm font-bold">{% translate "الطلبات اللي اتقالت" %}</p>
       <span class="ms-auto"></span>
-      <button type="button" class="btn-ghost px-2 py-1 text-stone-400 hover:text-red-600" onclick="rxDictationDone(this)" aria-label="{% translate 'تجاهل' %}" title="{% translate 'تجاهل' %}">✕</button>
+      <button type="button" class="btn-icon hover:bg-red-50 hover:text-red-700" onclick="rxDictationDone(this)" aria-label="{% translate 'تجاهل' %}" title="{% translate 'تجاهل' %}">{% icon "x" "size-4" %}</button>
     </div>
     <div class="mt-2 flex flex-wrap items-center gap-1.5">
       {% for name, kind in heard_requests %}
-      <span class="inline-flex items-center gap-1 rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-sm" dir="ltr">
-        {% if kind == "imaging" %}🩻{% else %}🧪{% endif %} {{ name }}
+      <span class="inline-flex items-center gap-1.5 rounded-md border border-stone-200 bg-stone-50 px-2.5 py-1 text-sm" dir="ltr">
+        {% if kind == "imaging" %}{% icon "scan" "size-4 text-stone-500" %}{% else %}{% icon "flask" "size-4 text-stone-500" %}{% endif %}{{ name }}
         <input type="hidden" name="names" value="{{ name }}"><input type="hidden" name="kinds" value="{{ kind }}">
       </span>
       {% endfor %}
       <span class="ms-auto"></span>
-      <button type="button" data-primary class="btn-primary px-5 py-2.5 text-sm"
+      <button type="button" data-primary class="btn-primary min-h-10 px-5"
               hx-post="{% url 'prescriptions:request_add_many' rx.pk %}" hx-target="#rx-builder" hx-swap="outerHTML" hx-include="closest [data-dictated-line]"
-              hx-on::after-request="if (event.detail.successful) rxDictationDone(this)" hx-vals='{}'>✓ {% translate "أضف الطلبات" %}</button>
+              hx-on::after-request="if (event.detail.successful) rxDictationDone(this)" hx-vals='{}'>{% icon "plus" "size-4" %}{% translate "أضف الطلبات" %}</button>
     </div>
   </div>
   {% endif %}
 </div>
 {% elif heard %}
-<div class="flex flex-wrap items-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm" id="dictation-box">
-  <span>🎤</span>
+<div class="notice notice-warn flex-wrap items-center" id="dictation-box">
+  {% icon "microphone" "size-5 shrink-0" %}
   <p class="min-w-0 flex-1"><b>{% translate "مالقيتش اسم دوا في الكلام." %}</b>
-    <span class="text-stone-600">{% translate "سمعت:" %} <bdi dir="auto">«{{ heard|truncatechars:90 }}»</bdi> — {% translate "قول اسم الدوا تاني بوضوح، أو اكتبه في البحث." %}</span></p>
-  <button type="button" class="btn-ghost px-2 py-1 text-xs" onclick="document.getElementById('rx-dictation').innerHTML = ''">✕ {% translate "قفل" %}</button>
+    <span>{% translate "سمعت:" %} <bdi dir="auto">«{{ heard|truncatechars:90 }}»</bdi>. {% translate "قول اسم الدوا تاني بوضوح، أو اكتبه في البحث." %}</span></p>
+  <button type="button" class="btn-ghost min-h-8 px-2 py-1 text-xs" onclick="document.getElementById('rx-dictation').innerHTML = ''">{% icon "x" "size-4" %}{% translate "قفل" %}</button>
 </div>
 {% endif %}

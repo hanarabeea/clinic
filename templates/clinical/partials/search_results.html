@@ -1,10 +1,13 @@
 {% load i18n %}
 {% if q %}
-<ul class="mt-2 divide-y divide-stone-100 text-sm">
+<ul class="divide-y divide-stone-100 text-sm">
   {% for p in patients %}
-  <li><a href="{% url 'clinical:record' p.pk %}" class="block px-1 py-1.5 hover:text-brand">{{ p.full_name }} <span class="font-mono text-xs text-stone-500">#{{ p.file_number }}</span></a></li>
+  <li><a href="{% url 'clinical:record' p.pk %}" class="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-stone-100">
+    <span class="min-w-0 flex-1 truncate font-medium">{{ p.full_name }}</span>
+    <span class="num text-xs text-stone-500" dir="ltr">#{{ p.file_number }}</span>
+  </a></li>
   {% empty %}
-  <li class="py-2 text-xs text-stone-400">{% translate "مفيش نتايج" %}</li>
+  <li class="px-3 py-2 text-xs text-stone-500">{% translate "مفيش نتايج" %}</li>
   {% endfor %}
 </ul>
 {% endif %}

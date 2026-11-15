@@ -1,26 +1,26 @@
 {% extends "base.html" %}
 {% load i18n static %}
-{% block content %}
-{% comment %}Full-width desk: a slim toolbar (open any patient's file + catalog links), then the patient. The waiting
-list lives on the reception screen; the doctor calls the next one with "إنهاء الكشف واستدعاء التالي".{% endcomment %}
-<div class="mb-4 flex flex-wrap items-start gap-3">
-  <div class="relative w-full sm:w-80">
-    <input type="search" placeholder="{% translate 'افتح ملف مريض...' %}" autocomplete="off"
-           class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm"
-           hx-get="{% url 'clinical:search' %}" hx-trigger="input changed delay:250ms" hx-target="#desk-search" name="q">
-    <div id="desk-search" class="absolute inset-x-0 z-20 rounded-lg bg-white shadow-lg empty:hidden"></div>
-  </div>
-  {% if can.drug_manage or can.rx_template_manage %}
-  <div class="ms-auto flex flex-wrap gap-3 py-2 text-xs font-semibold">
-    {% if can.drug_manage %}<a href="{% url 'prescriptions:drugs' %}" class="text-brand">{% translate "كتالوج الأدوية" %}</a>{% endif %}
-    {% if can.rx_template_manage %}<a href="{% url 'prescriptions:templates' %}" class="text-brand">{% translate "قوالب الروشتات" %}</a>{% endif %}
-  </div>
-  {% endif %}
+{% comment %}Full-width desk. The top bar's search opens any patient's medical file here (instead of the patients
+list), with the catalog links next to it. The waiting list lives on the reception screen; the doctor calls the next
+one with "إنهاء الكشف واستدعاء التالي".{% endcomment %}
+{% block topbar_search %}
+<div class="relative w-full max-w-sm">
+  <span class="pointer-events-none absolute inset-y-0 start-3 flex items-center text-stone-500">{% icon "magnifying-glass" "size-4" %}</span>
+  <input type="search" placeholder="{% translate 'افتح ملف مريض...' %}" autocomplete="off" aria-label="{% translate 'افتح ملف مريض' %}"
+         class="h-9 w-full rounded-lg border border-transparent bg-stone-100 ps-9 pe-3 text-sm transition-colors placeholder:text-stone-500 hover:bg-stone-200/70 focus:border-brand focus:bg-white focus:ring-2 focus:ring-brand/20"
+         hx-get="{% url 'clinical:search' %}" hx-trigger="input changed delay:250ms" hx-target="#desk-search" name="q">
+  <div id="desk-search" class="menu absolute inset-x-0 z-40 mt-1 py-0 empty:hidden"></div>
 </div>
-<main class="min-w-0">{% block desk %}{% endblock %}</main>
+{% endblock %}
+{% block topbar_actions %}
+{% if can.drug_manage %}<a href="{% url 'prescriptions:drugs' %}" class="btn-ghost hidden min-h-8 px-2.5 py-1 text-xs md:inline-flex">{% icon "pill" "size-4" %}{% translate "كتالوج الأدوية" %}</a>{% endif %}
+{% if can.rx_template_manage %}<a href="{% url 'prescriptions:templates' %}" class="btn-ghost hidden min-h-8 px-2.5 py-1 text-xs md:inline-flex">{% icon "clipboard-text" "size-4" %}{% translate "قوالب الروشتات" %}</a>{% endif %}
+{% endblock %}
+{% block content %}
+<div class="min-w-0">{% block desk %}{% endblock %}</div>
 
 {% if voice_enabled %}
-<p data-dictation-unsupported hidden class="fixed bottom-2 start-2 z-40 rounded-lg bg-stone-800 px-3 py-1.5 text-xs text-white opacity-80">
+<p data-dictation-unsupported hidden class="toast fixed bottom-2 start-2 z-40 w-auto px-3 py-1.5 text-xs">
   {% translate "الإملاء الصوتي شغال على Chrome وEdge بس." %}
 </p>
 {# which recogniser the mics use (speech.engine): local / browser / auto (the browser's while online, the offline service #}

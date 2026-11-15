@@ -5,6 +5,8 @@ colours, name, doctor and logo brand the sign-in pages. With none or several, th
 a shared server never reveals which clinics it hosts.
 """
 
+from pathlib import PurePosixPath
+
 from django.core.exceptions import ObjectDoesNotExist
 
 from .models import Organization
@@ -26,3 +28,13 @@ def public_brand():
         "settings": settings,
         "doctor": Doctor.objects.filter(organization=org).order_by("id").first(),
     }
+
+
+# Not `mimetypes`: on Windows it reads the registry, where another program can remap ".png" (seen: "silenteye/png"),
+# and the browser / the PDF renderer then refuses to draw the logo.
+LOGO_TYPES = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
+              ".gif": "image/gif", ".svg": "image/svg+xml"}  # fmt: skip
+
+
+def logo_content_type(name) -> str:
+    return LOGO_TYPES.get(PurePosixPath(str(name)).suffix.lower(), "application/octet-stream")

@@ -1,28 +1,33 @@
 {% load i18n %}
-{% comment %}Sticky patient header (workspace): one compact line that stays on screen. Allergies come first and in red —
+{% comment %}Sticky patient header (workspace): one compact band that stays on screen. Allergies come first and in red:
 safety information is never collapsed or hidden.{% endcomment %}
-<header id="patient-header" class="sticky top-[53px] z-20 -mx-4 -mt-2 mb-4 border-b border-stone-200 bg-white/95 px-4 py-2.5 shadow-[0_4px_16px_-12px_rgba(0,0,0,.2)] backdrop-blur lg:top-0 lg:-mx-8 lg:px-8">
-  <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+<header id="patient-header" class="sticky top-0 z-20 -mx-4 -mt-6 mb-4 border-b border-stone-200 bg-white/95 px-4 py-2.5 backdrop-blur lg:-mx-8 lg:px-8">
+  <div class="flex flex-wrap items-center gap-x-4 gap-y-1.5">
     <span class="grid size-9 shrink-0 place-items-center rounded-full bg-brand-soft text-sm font-bold text-brand" aria-hidden="true">{{ patient.full_name|slice:":1" }}</span>
-    <h1 class="text-lg font-bold leading-tight">{{ patient.full_name }}</h1>
-    <span class="text-sm text-stone-500">
-      {% if age is not None %}{% blocktranslate with a=age %}{{ a }} سنة{% endblocktranslate %}{% if patient.dob_is_estimated %} ({% translate "تقريبي" %}){% endif %} · {% endif %}{{ patient.get_gender_display }}
-      · {% translate "ملف" %} <span class="font-mono">#{{ patient.file_number }}</span>
-      {% if visit_number %} · {% blocktranslate with n=visit_number %}الزيارة رقم {{ n }}{% endblocktranslate %}{% endif %}
-      {% if last_visit %} · {% translate "آخر زيارة" %} <span dir="ltr">{{ last_visit.finished_at|date:"j/n/Y" }}</span>{% endif %}
-    </span>
-    {% for a in allergies %}<span class="rounded-md bg-red-600 px-2 py-0.5 text-xs font-bold text-white">⚠ {% translate "حساسية" %}: <bdi dir="auto">{{ a.name }}</bdi>{% if a.severity %} · {{ a.get_severity_display }}{% endif %}</span>{% endfor %}
-    {% for c in conditions %}<span class="rounded-md bg-orange-50 px-2 py-0.5 text-xs font-semibold text-orange-800 ring-1 ring-orange-200"><bdi dir="auto">{{ c.name }}</bdi></span>{% endfor %}
+    <div class="min-w-0">
+      <h1 class="text-[17px] leading-tight font-bold">{{ patient.full_name }}</h1>
+      <p class="flex flex-wrap gap-x-3 text-xs text-stone-600">
+        {% if age is not None %}<span>{% blocktranslate with a=age %}{{ a }} سنة{% endblocktranslate %}{% if patient.dob_is_estimated %} ({% translate "تقريبي" %}){% endif %}</span>{% endif %}
+        <span>{{ patient.get_gender_display }}</span>
+        <span>{% translate "ملف" %} <span class="num" dir="ltr">#{{ patient.file_number }}</span></span>
+        {% if visit_number %}<span>{% blocktranslate with n=visit_number %}الزيارة رقم {{ n }}{% endblocktranslate %}</span>{% endif %}
+        {% if last_visit %}<span>{% translate "آخر زيارة" %} <span dir="ltr" class="num">{{ last_visit.finished_at|date:"j/n/Y" }}</span></span>{% endif %}
+      </p>
+    </div>
+    <div class="flex flex-wrap items-center gap-1.5">
+      {% for a in allergies %}<span class="badge bg-red-600 px-2 font-bold text-white">{% icon "warning" "size-3.5" %}{% translate "حساسية" %}: <bdi dir="auto">{{ a.name }}</bdi>{% if a.severity %} ({{ a.get_severity_display }}){% endif %}</span>{% endfor %}
+      {% for c in conditions %}<span class="badge bg-orange-50 px-2 font-semibold text-orange-900 ring-1 ring-orange-200 ring-inset"><bdi dir="auto">{{ c.name }}</bdi></span>{% endfor %}
+    </div>
     {% if vitals and not vitals.is_empty %}
-    <span class="ms-auto text-xs text-stone-600" title="{% translate 'العلامات اليوم' %}">
-      {% if vitals.bp_systolic %}<span dir="ltr">BP {{ vitals.bp_systolic }}/{{ vitals.bp_diastolic }}</span>{% endif %}
-      {% if vitals.weight_kg %} · <span dir="ltr">{{ vitals.weight_kg }} kg</span>{% endif %}
-      {% if vitals.bmi %} · <span dir="ltr">BMI {{ vitals.bmi }}</span>{% endif %}
-      {% if vitals.pulse %} · {% translate "نبض" %} <span dir="ltr">{{ vitals.pulse }}</span>{% endif %}
-      {% if vitals.temperature_c %} · <span dir="ltr">{{ vitals.temperature_c }}°</span>{% endif %}
-      {% if vitals.spo2 %} · <span dir="ltr">SpO₂ {{ vitals.spo2 }}%</span>{% endif %}
-      {% if vitals.blood_glucose %} · {% translate "سكر" %} <span dir="ltr">{{ vitals.blood_glucose }}</span>{% endif %}
-    </span>
+    <dl class="num ms-auto flex flex-wrap gap-x-4 text-xs text-stone-600" title="{% translate 'العلامات اليوم' %}">
+      {% if vitals.bp_systolic %}<div class="flex gap-1"><dt>BP</dt><dd class="font-semibold text-ink" dir="ltr">{{ vitals.bp_systolic }}/{{ vitals.bp_diastolic }}</dd></div>{% endif %}
+      {% if vitals.weight_kg %}<div class="flex gap-1"><dt>{% translate "وزن" %}</dt><dd class="font-semibold text-ink" dir="ltr">{{ vitals.weight_kg }} kg</dd></div>{% endif %}
+      {% if vitals.bmi %}<div class="flex gap-1"><dt>BMI</dt><dd class="font-semibold text-ink" dir="ltr">{{ vitals.bmi }}</dd></div>{% endif %}
+      {% if vitals.pulse %}<div class="flex gap-1"><dt>{% translate "نبض" %}</dt><dd class="font-semibold text-ink" dir="ltr">{{ vitals.pulse }}</dd></div>{% endif %}
+      {% if vitals.temperature_c %}<div class="flex gap-1"><dt>{% translate "حرارة" %}</dt><dd class="font-semibold text-ink" dir="ltr">{{ vitals.temperature_c }}°</dd></div>{% endif %}
+      {% if vitals.spo2 %}<div class="flex gap-1"><dt>SpO₂</dt><dd class="font-semibold text-ink" dir="ltr">{{ vitals.spo2 }}%</dd></div>{% endif %}
+      {% if vitals.blood_glucose %}<div class="flex gap-1"><dt>{% translate "سكر" %}</dt><dd class="font-semibold text-ink" dir="ltr">{{ vitals.blood_glucose }}</dd></div>{% endif %}
+    </dl>
     {% endif %}
   </div>
 </header>

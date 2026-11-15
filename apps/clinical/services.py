@@ -125,7 +125,7 @@ def finish_visit(visit, *, by):
     if visit.status == VisitStatus.FINISHED:
         return visit
     if rx_services.open_drafts_with_items(visit).exists():
-        raise VisitError(_("فيه روشتة لسه مسودة — اعتمدها الأول (أو امسح سطورها)."))
+        raise VisitError(_("فيه روشتة لسه مسودة، اعتمدها الأول (أو امسح سطورها)."))
     visit.status = VisitStatus.FINISHED
     visit.finished_at = timezone.now()
     visit._history_user = by

@@ -4,7 +4,6 @@ touches the network. The prescription-specific rendering (Phase 7) builds on top
 
 import base64
 import logging
-import mimetypes
 import queue
 import threading
 from concurrent.futures import Future
@@ -12,6 +11,8 @@ from functools import cache
 from pathlib import Path
 
 from django.conf import settings
+
+from apps.organizations.branding import logo_content_type
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,8 @@ def logo_uri(org_settings) -> str:
             data = fh.read()
     except FileNotFoundError:
         return ""
-    return _data_uri(data, mimetypes.guess_type(org_settings.logo.name)[0] or "image/png")
+    kind = logo_content_type(org_settings.logo.name)
+    return _data_uri(data, kind if kind.startswith("image/") else "image/png")
 
 
 class PdfRenderError(RuntimeError):

@@ -4,7 +4,7 @@
 {% block body %}
 <form hx-post="{% url 'reception:arrive' a.pk %}" hx-target="#reception" class="space-y-4" novalidate>
   {% if can_vitals %}
-  <p class="text-xs text-stone-500">{% translate "العلامات الحيوية اختيارية — Tab بين الخانات وEnter للحفظ." %}</p>
+  <p class="text-xs text-stone-500">{% translate "العلامات الحيوية اختيارية. Tab بين الخانات وEnter للحفظ." %}</p>
   {% include "reception/partials/vitals_fields.html" %}
   {% endif %}
   <button class="btn-primary w-full" autofocus>{% translate "وصل" %}</button>

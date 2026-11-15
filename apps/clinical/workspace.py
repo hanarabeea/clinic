@@ -120,7 +120,7 @@ def changes_since(visit, prev):
     if due:
         today = timezone.localtime(visit.created_at, CAIRO).date()
         if today > due + timedelta(days=3):
-            out.append(Change(_("الإعادة"), note=_("كانت مطلوبة %(d)s — اتأخر %(n)s يوم")
+            out.append(Change(_("الإعادة"), note=_("كانت مطلوبة %(d)s، اتأخر %(n)s يوم")
                               % {"d": f"{due.day}/{due.month}", "n": (today - due).days}))  # fmt: skip
     return out
 

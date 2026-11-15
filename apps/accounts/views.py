@@ -9,6 +9,7 @@ from django.utils.translation import gettext as _
 from django.views.decorators.http import require_POST
 
 from apps.audit import services as audit
+from apps.core import navigation
 from apps.organizations.models import ClinicRole, Membership, Role
 
 from . import roles
@@ -35,7 +36,7 @@ class LoginView(auth_views.LoginView):
             # already signed in: say so, instead of silently landing on that account's home page
             messages.info(
                 request,
-                _("إنت داخل بالفعل بحساب %(name)s — اعمل «تسجيل الخروج» الأول لو عايز تدخل بحساب تاني.")
+                _("إنت داخل بالفعل بحساب %(name)s، اعمل «تسجيل الخروج» الأول لو عايز تدخل بحساب تاني.")
                 % {"name": request.user.username},
             )
         return super().dispatch(request, *args, **kwargs)
@@ -122,7 +123,7 @@ def member_create(request):
         "user.created",
         request=request,
         target=user,
-        summary=f"{user.full_name} ({user.username}) — {clinic_role or role.label}",
+        summary=f"{user.full_name} ({user.username}): {clinic_role or role.label}",
     )
     messages.success(
         request,
@@ -156,7 +157,7 @@ def member_edit(request, pk):
             user.set_password(d["password1"])
             changed.append("password")
         user.save()
-        audit.log("user.edited", request=request, target=user, summary=f"{user.username}: {', '.join(changed) or '—'}")
+        audit.log("user.edited", request=request, target=user, summary=f"{user.username}: {', '.join(changed) or '-'}")
         messages.success(
             request, _("البيانات اتحفظت.") if "password" not in changed else _("البيانات وكلمة السر اتحفظوا.")
         )
@@ -272,6 +273,7 @@ def roles_list(request):
     for r in items:
         r.perm_count = len(roles.role_perms(r))
         r.can_edit = roles.can_give(request.membership, roles.role_perms(r))
+        r.screen = navigation.BY_KEY.get(r.start_screen)
     return render(request, "accounts/roles.html", {"roles": items})
 
 
@@ -297,15 +299,23 @@ def role_edit(request, pk=None):
     form = ClinicRoleForm(request.POST or None, instance=role)
     if request.method == "POST" and form.is_valid():
         wanted = _wanted(request, mine=mine, current=current)
+        asked = form.cleaned_data["start_screen"]
         roles.save_role(
-            role, name=form.cleaned_data["name"], description=form.cleaned_data["description"], perms=wanted
+            role,
+            name=form.cleaned_data["name"],
+            description=form.cleaned_data["description"],
+            perms=wanted,
+            start_screen=asked,
         )
         audit.log(
             "role.updated" if pk else "role.created",
             request=request,
-            summary=f"{role.name}: {_change_summary(current, wanted) or '—'}",
+            summary=f"{role.name}: {_change_summary(current, wanted) or '-'}",
         )
-        messages.success(request, _("الدور اتحفظ."))
+        if asked and not role.start_screen:  # the ticked permissions don't open that screen
+            messages.warning(request, _("الدور اتحفظ، بس شاشة العمل اتشالت عشان صلاحيات الدور مش بتفتحها."))
+        else:
+            messages.success(request, _("الدور اتحفظ."))
         return redirect("accounts:roles")
     if request.method == "POST":  # invalid name: keep what was ticked
         current = _wanted(request, mine=mine, current=current)

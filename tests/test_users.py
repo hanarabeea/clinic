@@ -47,8 +47,13 @@ def test_add_user_without_email_and_sign_in_with_the_username(client, org_a, own
 
     assert _login(client, "mona").status_code == 302
     assert int(client.session["_auth_user_id"]) == user.pk
-    nav = client.get(reverse("dashboard:home")).content.decode().split("<nav", 1)[1].split("</nav>", 1)[0]
-    assert reverse("reception:today") in nav and reverse("clinical:desk") not in nav  # only the role's pages
+    # reception works in one screen: home is the reception board itself, with no side menu and only her own tools
+    home = client.get(reverse("dashboard:home"))
+    assert home.status_code == 302 and home.url == reverse("reception:today")
+    html = client.get(home.url).content.decode()
+    assert "<aside" not in html and reverse("clinical:desk") not in html
+    tools = html.split("<nav", 1)[1].split("</nav>", 1)[0]
+    assert reverse("patients:list") in tools and reverse("accounts:users") not in tools
 
 
 def test_with_email_both_work_and_case_does_not_matter(client, org_a, owner, role_choice):
@@ -67,7 +72,7 @@ def test_wrong_password_or_unknown_user(client, org_a, owner, role_choice):
     for login, password in (("mona", "wrong-pass-123"), ("nobody", PASSWORD)):
         resp = _login(client, login, password)
         assert resp.status_code == 200
-        assert "اسم المستخدم/الإيميل أو كلمة المرور غلط" in resp.content.decode()
+        assert "اسم المستخدم أو كلمة المرور غلط" in resp.content.decode()
     assert AuditEvent.objects.filter(action="auth.login_failed", summary="nobody").exists()
 
 

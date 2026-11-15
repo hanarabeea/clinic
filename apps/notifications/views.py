@@ -101,7 +101,7 @@ def template_add_reminder(request):
 def template_delete(request, pk):
     tpl = _template(request, pk)
     if tpl.event != Event.REMINDER:
-        messages.error(request, _("القوالب الأساسية مينفعش تتمسح — تقدر تقفلها بس."))
+        messages.error(request, _("القوالب الأساسية مينفعش تتمسح، تقدر تقفلها بس."))
     else:
         tpl.delete()
         messages.success(request, _("التذكير اتمسح."))

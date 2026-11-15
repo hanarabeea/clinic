@@ -2,39 +2,45 @@
 {% load i18n %}
 {% block title %}{% translate "الأدوار" %}{% endblock %}
 {% block content %}
-<div class="mb-4"><h1 class="text-2xl font-bold">{% translate "المستخدمين" %}</h1></div>
+<div class="page-head mb-3"><h1>{% translate "المستخدمين" %}</h1></div>
 {% include "accounts/partials/users_tabs.html" with tab="roles" %}
-<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+<div class="mb-4 flex flex-wrap items-start justify-between gap-3">
   <p class="max-w-2xl text-sm text-stone-600">
     {% translate "الدور = اسم + مجموعة صلاحيات. اعمل الأدوار اللي تناسب عيادتك (مثلاً: ممرضة، محاسب، سكرتارية) وادّي كل موظف دوره. أي تعديل في الدور بيوصل لكل اللي عليه على طول." %}
-    <br><span class="text-xs text-stone-500">{% translate "«المالك» ثابت ومعاه كل حاجة دايمًا." %}</span>
   </p>
-  <a href="{% url 'accounts:role_new' %}" class="btn-primary">＋ {% translate "دور جديد" %}</a>
+  <a href="{% url 'accounts:role_new' %}" class="btn-primary">{% icon "plus" "size-4" %}{% translate "دور جديد" %}</a>
 </div>
 
-<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-  <article class="card flex flex-col gap-2 border-dashed p-4">
-    <div class="flex items-center gap-2">
-      <h2 class="text-lg font-bold">{% translate "مالك" %}</h2>
-      <span class="badge bg-sand text-stone-600">{% translate "ثابت" %}</span>
+<div class="card divide-y divide-stone-100">
+  <article class="flex flex-wrap items-center gap-x-4 gap-y-1 bg-stone-50 px-4 py-3">
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-2">
+        <h2 class="text-[15px] font-bold">{% translate "مالك" %}</h2>
+        <span class="badge bg-stone-200 text-stone-700">{% translate "ثابت" %}</span>
+      </div>
+      <p class="text-sm text-stone-600">{% translate "كل الصلاحيات دايمًا، مايتعدلش ولا يتمسح." %}</p>
     </div>
-    <p class="text-sm text-stone-500">{% translate "كل الصلاحيات دايمًا — مايتعدلش ولا يتمسح." %}</p>
   </article>
   {% for r in roles %}
-  <article class="card flex min-w-0 flex-col gap-2 p-4">
-    <div class="flex flex-wrap items-center gap-2">
-      <h2 class="min-w-0 truncate text-lg font-bold">{{ r.name }}</h2>
-      <span class="badge bg-brand-soft text-brand">{% blocktranslate count n=r.perm_count %}{{ n }} صلاحية{% plural %}{{ n }} صلاحية{% endblocktranslate %}</span>
+  <article class="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
+    <div class="min-w-0 flex-1 basis-64">
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 class="truncate text-[15px] font-bold">{{ r.name }}</h2>
+        {% if r.screen %}<span class="badge bg-brand-soft text-brand" title="{% translate 'بيفتح على الشاشة دي على طول، من غير قائمة' %}">{% icon r.screen.icon "size-3.5" %}{% translate "شاشة واحدة:" %} {{ r.screen.label }}</span>{% endif %}
+      </div>
+      {% if r.description %}<p class="text-sm text-stone-600">{{ r.description }}</p>{% endif %}
     </div>
-    {% if r.description %}<p class="text-sm text-stone-500">{{ r.description }}</p>{% endif %}
-    <p class="text-xs text-stone-500">{% if r.n_members %}{% blocktranslate count n=r.n_members %}موظف واحد{% plural %}{{ n }} موظفين{% endblocktranslate %}{% else %}{% translate "مفيش حد عليه" %}{% endif %}</p>
-    <div class="mt-auto flex flex-wrap gap-2 pt-2">
+    <dl class="num flex gap-6 text-sm">
+      <div><dt class="text-xs text-stone-500">{% translate "الصلاحيات" %}</dt><dd class="font-semibold">{% blocktranslate count n=r.perm_count %}{{ n }} صلاحية{% plural %}{{ n }} صلاحية{% endblocktranslate %}</dd></div>
+      <div><dt class="text-xs text-stone-500">{% translate "عليه" %}</dt><dd class="font-semibold">{% if r.n_members %}{% blocktranslate count n=r.n_members %}موظف واحد{% plural %}{{ n }} موظفين{% endblocktranslate %}{% else %}<span class="font-normal text-stone-500">{% translate "مفيش حد عليه" %}</span>{% endif %}</dd></div>
+    </dl>
+    <div class="flex flex-wrap items-center gap-2">
       {% if r.can_edit %}
-      <a href="{% url 'accounts:role_edit' r.pk %}" class="btn-secondary px-3 py-1.5 text-sm">✎ {% translate "تعديل" %}</a>
+      <a href="{% url 'accounts:role_edit' r.pk %}" class="btn-secondary px-3">{% icon "pencil-simple" "size-4" %}{% translate "تعديل" %}</a>
       {% else %}
-      <span class="text-xs text-stone-400">{% translate "فيه صلاحيات مش معاك — مش هتقدر تعدّله" %}</span>
+      <span class="max-w-40 text-xs text-stone-500">{% translate "فيه صلاحيات مش معاك، مش هتقدر تعدّله" %}</span>
       {% endif %}
-      <a href="{% url 'accounts:role_new' %}?from={{ r.pk }}" class="btn-ghost px-3 py-1.5 text-sm">⧉ {% translate "نسخة" %}</a>
+      <a href="{% url 'accounts:role_new' %}?from={{ r.pk }}" class="btn-ghost px-2.5">{% icon "copy" "size-4" %}{% translate "نسخة" %}</a>
     </div>
   </article>
   {% endfor %}

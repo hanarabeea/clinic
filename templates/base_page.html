@@ -15,14 +15,21 @@
   {% endif %}
   <link rel="stylesheet" href="{% static 'css/app.css' %}">
   {% with s=brand_settings %}{% if s %}
-  {# The clinic's colours (Settings → الألوان, validated #RRGGBB) replace the theme's. The neutral colour is only a light #}
-  {# tint for the page background so text always stays readable. #}
+  {# The clinic's colours (Settings, validated #RRGGBB) replace the theme's three inputs; app.css derives the rest #}
+  {# (hover, soft tint, tinted greys). The neutral colour is only a light page tint so text always stays readable. #}
   <style>
     :root {
       --color-brand: {{ s.primary_color }};
-      --color-brand-dark: {{ s.dark_color }};
-      --color-brand-soft: color-mix(in srgb, {{ s.primary_color }} 10%, white);
+      --color-ink-panel: {{ s.dark_color }};
       --color-sand: color-mix(in srgb, {{ s.neutral_color }} 18%, white);
+    }
+    /* whatever the clinic picks: the neutral keeps its hue but is held to a pale tint, and the dark colour is kept
+       dark enough for the side panel's white text */
+    @supports (color: oklch(from red l c h)) {
+      :root {
+        --color-sand: oklch(from {{ s.neutral_color }} 0.972 min(c, 0.012) h);
+        --color-ink-panel: oklch(from {{ s.dark_color }} min(l, 0.32) c h);
+      }
     }
   </style>
   {% endif %}{% endwith %}

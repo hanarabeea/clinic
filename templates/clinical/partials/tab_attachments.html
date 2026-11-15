@@ -25,17 +25,17 @@
       {% if a.is_image %}
       <button type="button" class="block w-full" @click="open = '{{ file_url }}'"><img src="{{ file_url }}" alt="{{ a }}" loading="lazy" class="h-40 w-full object-cover"></button>
       {% else %}
-      <a href="{{ file_url }}" target="_blank" class="flex h-40 items-center justify-center bg-stone-50 text-3xl">📄</a>
+      <a href="{{ file_url }}" target="_blank" class="flex h-40 items-center justify-center bg-stone-50 text-stone-500 transition-colors hover:text-brand">{% icon "file-pdf" "size-12" %}</a>
       {% endif %}
       <div class="p-3">
         <div class="font-semibold">{{ a }}</div>
-        <div class="text-xs text-stone-500">{{ a.get_kind_display }} · <span dir="ltr">{{ a.taken_on|date:"Y-m-d" }}</span></div>
+        <div class="flex justify-between text-xs text-stone-600"><span>{{ a.get_kind_display }}</span><span dir="ltr" class="num">{{ a.taken_on|date:"Y-m-d" }}</span></div>
       </div>
     </div>
     {% empty %}
-    <p class="text-sm text-stone-400">{% translate "مفيش مرفقات." %}</p>
+    <p class="text-sm text-stone-500">{% translate "مفيش مرفقات." %}</p>
     {% endfor %}
-    <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" @click="open = null" @keydown.escape.window="open = null">
+    <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4" @click="open = null" @keydown.escape.window="open = null">
       <img :src="open" alt="" class="max-h-full max-w-full rounded-lg">
     </div>
   </div>

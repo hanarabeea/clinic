@@ -2,9 +2,9 @@
 {% load i18n %}
 {% block title %}{% translate "المرضى" %}{% endblock %}
 {% block content %}
-<h1 class="mb-6 text-2xl font-bold">{% if mode == "edit" %}{% translate "تعديل بيانات المريض" %}{% else %}{% translate "مريض جديد" %}{% endif %}</h1>
+<div class="page-head"><h1>{% if mode == "edit" %}{% translate "تعديل بيانات المريض" %}{% else %}{% translate "مريض جديد" %}{% endif %}</h1></div>
 
-<form method="post" class="card space-y-4 p-4 sm:p-6" novalidate>
+<form method="post" class="card max-w-3xl space-y-4 p-4 sm:p-6" novalidate>
   {% csrf_token %}
   <div class="grid gap-4 sm:grid-cols-2">
     {% include "partials/field.html" with field=form.full_name %}
@@ -48,8 +48,9 @@
   {% endif %}
   {% include "partials/field.html" with field=form.notes %}
 
-  <div class="flex justify-end gap-2">
-    <button type="submit" class="btn-primary">{% translate "حفظ" %}</button>
+  <div class="flex justify-end gap-2 border-t border-stone-100 pt-4">
+    <a href="{% url 'patients:list' %}" class="btn-ghost">{% translate "رجوع" %}</a>
+    <button type="submit" class="btn-primary min-h-10 px-6">{% translate "حفظ" %}</button>
   </div>
 </form>
 {% endblock %}

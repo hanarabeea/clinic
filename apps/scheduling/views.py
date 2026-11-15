@@ -214,13 +214,13 @@ def booking_confirm(request, patient_pk):
         return redirect(_board(day=_parse_day(request.POST.get("day")), book=patient.pk))
 
     audit.log(
-        "appointment.booked", request=request, target=appt, summary=f"{patient.full_name} — {appt.visit_type.name_ar}"
+        "appointment.booked", request=request, target=appt, summary=f"{patient.full_name}: {appt.visit_type.name_ar}"
     )
     label = f"#{appt.queue_number}" if appt.queue_number else f"{fmt_date(appt.date)} {ampm(appt.start_at)}"
-    done = _("اتحجز لـ%(p)s — %(w)s") % {"p": patient.full_name, "w": label}
+    done = _("اتحجز لـ%(p)s، %(w)s") % {"p": patient.full_name, "w": label}
     if request.htmx:
         if not patient.messaging_consent:
-            done += " · " + _("مفيش رسايل هتتبعت — المريض مش موافق على الرسايل.")
+            done += " " + _("مفيش رسايل هتتبعت، المريض مش موافق على الرسايل.")
         return _toast(HttpResponse(""), done)
     messages.success(request, done)
     scheduled = appt.messages.filter(status=MessageStatus.PENDING).order_by("send_at")
@@ -233,7 +233,7 @@ def booking_confirm(request, patient_pk):
         ]
         messages.info(request, _("الرسايل: %(l)s") % {"l": " · ".join(parts)})
     elif not patient.messaging_consent:
-        messages.warning(request, _("مفيش رسايل هتتبعت — المريض مش موافق على الرسايل."))
+        messages.warning(request, _("مفيش رسايل هتتبعت، المريض مش موافق على الرسايل."))
     return redirect(_board(day=appt.date))
 
 
@@ -346,7 +346,7 @@ def reschedule_confirm(request, pk):
         return redirect(_board(day=_parse_day(week)))
     audit.log("appointment.rescheduled", request=request, target=new, summary=appt.patient.full_name)
     when = f"#{new.queue_number}" if new.queue_number else f"{fmt_date(new.date)} {ampm(new.start_at)}"
-    messages.success(request, _("اتأجل لـ%(w)s — والمريض هتوصله رسالة بالتعديل.") % {"w": when})
+    messages.success(request, _("اتأجل لـ%(w)s، والمريض هتوصله رسالة بالتعديل.") % {"w": when})
     return redirect(_board(day=new.date))
 
 

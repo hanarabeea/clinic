@@ -6,13 +6,13 @@ found → add them right here (new_patient_form) and continue.{% endcomment %}
   <ul class="card divide-y divide-stone-100">
     {% for p in patients %}
     <li>
-      <button type="button" class="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-start hover:bg-sand/60"
+      <button type="button" class="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-start transition-colors hover:bg-stone-50"
               hx-get="{% url 'scheduling:booking_panel' %}?patient={{ p.pk }}&day={{ day }}&at={{ at|urlencode }}&hour={{ hour }}" hx-target="#modal">
-        <span class="font-mono text-xs text-stone-400" dir="ltr">#{{ p.file_number }}</span>
+        <span class="num text-xs text-stone-500" dir="ltr">#{{ p.file_number }}</span>
         <span class="font-semibold">{{ p.full_name }}</span>
-        <span class="text-stone-500" dir="ltr">{{ p.phone }}</span>
-        {% if p.allergies.exists %}<span class="badge bg-red-50 text-red-700">{% translate "حساسية" %}</span>{% endif %}
-        <span class="ms-auto text-xs font-semibold text-brand">{% translate "اختار ←" %}</span>
+        <span class="num text-stone-600" dir="ltr">{{ p.phone }}</span>
+        {% if p.allergies.exists %}<span class="badge bg-red-600 text-white">{% translate "حساسية" %}</span>{% endif %}
+        <span class="ms-auto flex items-center gap-0.5 text-xs font-semibold text-brand">{% translate "اختار" %}{% icon "caret-left" "size-3.5" %}</span>
       </button>
     </li>
     {% endfor %}
@@ -22,7 +22,7 @@ found → add them right here (new_patient_form) and continue.{% endcomment %}
   {% endif %}
   {% if q %}
   <details class="card p-4" {% if not patients %}open{% endif %}>
-    <summary class="cursor-pointer font-semibold text-brand">+ {% translate "مريض جديد" %}</summary>
+    <summary class="flex cursor-pointer items-center gap-1.5 font-semibold text-brand">{% icon "user-plus" "size-4" %}{% translate "مريض جديد" %}</summary>
     <div class="mt-3">{% include "scheduling/partials/new_patient_form.html" %}</div>
   </details>
   {% endif %}

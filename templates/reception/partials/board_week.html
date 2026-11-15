@@ -5,22 +5,22 @@ to reschedule it. A booking opens its day for the reception actions.{% endcommen
 <div class="card overflow-x-auto">
   <table class="w-full min-w-[60rem] table-fixed border-collapse text-xs">
     <thead>
-      <tr class="bg-stone-50">
+      <tr class="bg-stone-50 text-stone-600">
         <th class="w-20 border-b border-stone-200 px-2 py-2 text-start text-stone-500">{% translate "الساعة" %}</th>
         {% for col in board.columns %}
         <th class="border-b border-s border-stone-200 px-2 py-2 text-start align-top {% if col.is_today %}bg-brand-soft{% endif %}">
           <a href="{% url 'reception:today' %}?view=day&date={{ col.day|date:'Y-m-d' }}" class="block hover:text-brand">
-            <span class="text-sm font-bold">{{ col.label }}</span>
-            <span class="font-mono font-normal text-stone-500" dir="ltr">{{ col.day|date:"d/m" }}</span>
+            <span class="text-sm font-bold text-ink">{{ col.label }}</span>
+            <span class="font-normal text-stone-500" dir="ltr">{{ col.day|date:"d/m" }}</span>
           </a>
           <span class="font-normal text-stone-500">
             {% if col.periods %}{% blocktranslate count n=col.count %}{{ n }} حجز{% plural %}{{ n }} حجز{% endblocktranslate %}{% else %}{% translate "مفيش شغل" %}{% endif %}
           </span>
-          {% for exc in col.exceptions %}<span class="mt-0.5 block rounded px-1 font-normal {% if exc.kind == 'closed' %}bg-red-50 text-red-700{% else %}bg-amber-50 text-amber-700{% endif %}">{{ exc.get_kind_display }}{% if exc.reason %}: {{ exc.reason }}{% endif %}</span>{% endfor %}
+          {% for exc in col.exceptions %}<span class="mt-0.5 block rounded px-1 font-normal {% if exc.kind == 'closed' %}bg-red-50 text-red-800{% else %}bg-amber-50 text-amber-900{% endif %}">{{ exc.get_kind_display }}{% if exc.reason %}: {{ exc.reason }}{% endif %}</span>{% endfor %}
           {% if can.schedule_manage and col.periods and not col.is_past %}
           <form method="post" action="{% url 'scheduling:close_day' %}" onsubmit="return confirm('{% translate 'تقفل اليوم ده؟ الحجوزات اللي فيه هتظهرلك عشان تأجلها.' %}')">
             {% csrf_token %}<input type="hidden" name="date" value="{{ col.day|date:'Y-m-d' }}">
-            <button class="font-normal text-stone-400 hover:text-red-600">🔒 {% translate "قفل" %}</button>
+            <button class="inline-flex items-center gap-1 font-normal text-stone-500 hover:text-red-700">{% icon "lock-simple" "size-3.5" %}{% translate "قفل" %}</button>
           </form>
           {% endif %}
         </th>
@@ -30,7 +30,7 @@ to reschedule it. A booking opens its day for the reception actions.{% endcommen
     <tbody>
       {% for row in board.rows %}
       <tr>
-        <th class="border-b border-stone-100 px-2 py-1 text-start align-top font-mono font-semibold text-stone-500" dir="ltr">{{ row.hour|ampm }}</th>
+        <th class="border-b border-stone-100 px-2 py-1 text-start align-top font-semibold text-stone-600" dir="ltr">{{ row.hour|ampm }}</th>
         {% for cell in row.cells %}
         <td class="group h-16 border-b border-s border-stone-100 p-1 align-top {% if not cell.open %}bg-stone-100/60{% elif cell.is_today %}bg-brand-soft/30{% endif %}"
             data-day="{{ cell.day|date:'Y-m-d' }}" {% if cell.bookable %}data-drop{% endif %}>
@@ -38,17 +38,20 @@ to reschedule it. A booking opens its day for the reception actions.{% endcommen
             {% for e in cell.entries %}{% with a=e.a %}
             {% with movable=can.appointment_reschedule %}
             <a href="{% url 'reception:today' %}?view=day&date={{ cell.day|date:'Y-m-d' }}"
-               class="block rounded-md border-s-4 bg-white px-1.5 py-1 shadow-sm ring-1 ring-stone-200 hover:ring-brand {% if a.status == 'arrived' %}bg-amber-50{% elif a.status == 'in_consultation' %}bg-sky-50{% elif a.status == 'completed' or a.status == 'no_show' %}opacity-60{% endif %} {% if movable and a.status == 'booked' or movable and a.status == 'confirmed' %}cursor-grab{% endif %}"
-               style="border-color:{{ a.visit_type.color }}"
+               class="block rounded-md border border-stone-200 bg-white px-1.5 py-1 transition-colors hover:border-brand {% if a.status == 'arrived' %}border-amber-200 bg-amber-50{% elif a.status == 'in_consultation' %}border-sky-200 bg-sky-50{% elif a.status == 'completed' or a.status == 'no_show' %}opacity-60{% endif %} {% if movable and a.status == 'booked' or movable and a.status == 'confirmed' %}cursor-grab{% endif %}"
                {% if movable and a.status == 'booked' or movable and a.status == 'confirmed' %}draggable="true" data-appt="{{ a.pk }}" data-options="{% url 'scheduling:reschedule_options' a.pk %}"{% endif %}
-               title="{{ a.get_status_display }} · {{ a.visit_type.name_ar }}">
-              <span class="block font-mono font-bold" dir="ltr">{% if a.queue_number %}#{{ a.queue_number }} · {% endif %}{{ a.start_at|ampm }}</span>
-              <span class="block truncate font-semibold">{% if a.status == 'confirmed' %}✓ {% elif a.status == 'arrived' %}● {% elif a.status == 'in_consultation' %}▶ {% elif a.status == 'completed' %}✔ {% elif a.status == 'no_show' %}✕ {% endif %}{{ a.patient.full_name }}</span>
+               title="{{ a.get_status_display }}، {{ a.visit_type.name_ar }}">
+              <span class="flex items-center gap-1 font-semibold" dir="ltr">
+                <span class="inline-block size-2 shrink-0 rounded-full" style="background:{{ a.visit_type.color }}"></span>
+                {% if a.queue_number %}#{{ a.queue_number }} {% endif %}{{ a.start_at|ampm }}
+                <span class="ms-auto text-stone-500">{% if a.status == 'confirmed' %}{% icon "check" "size-3.5 text-green-700" %}{% elif a.status == 'arrived' %}{% icon "door-open" "size-3.5 text-amber-700" %}{% elif a.status == 'in_consultation' %}{% icon "stethoscope" "size-3.5 text-sky-700" %}{% elif a.status == 'completed' %}{% icon "checks" "size-3.5" %}{% elif a.status == 'no_show' %}{% icon "x" "size-3.5 text-red-700" %}{% endif %}</span>
+              </span>
+              <span class="block truncate font-medium">{{ a.patient.full_name }}</span>
             </a>
             {% endwith %}{% endwith %}{% endfor %}
             {% if cell.bookable and can.appointment_book %}
-            <button type="button" class="w-full rounded-md border border-dashed border-brand/40 py-0.5 text-brand opacity-0 transition hover:bg-brand-soft focus:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
-                    hx-get="{% url 'scheduling:booking_panel' %}?day={{ cell.day|date:'Y-m-d' }}&hour={{ cell.hour }}" hx-target="#modal">＋ {% translate "احجز" %}</button>
+            <button type="button" class="flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-stone-300 py-0.5 font-semibold text-brand opacity-0 transition hover:border-brand hover:bg-brand-soft focus:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
+                    hx-get="{% url 'scheduling:booking_panel' %}?day={{ cell.day|date:'Y-m-d' }}&hour={{ cell.hour }}" hx-target="#modal">{% icon "plus" "size-3.5" %}{% translate "احجز" %}</button>
             {% endif %}
           </div>
         </td>
@@ -60,8 +63,11 @@ to reschedule it. A booking opens its day for the reception actions.{% endcommen
     </tbody>
   </table>
 </div>
-<div class="mt-2 flex flex-wrap gap-3 text-xs text-stone-500">
-  <span>{% translate "محجوز" %}</span><span>✓ {% translate "مؤكد" %}</span><span>● {% translate "وصل" %}</span>
-  <span>▶ {% translate "جوه الكشف" %}</span><span>✔ {% translate "خلص" %}</span><span>✕ {% translate "لم يحضر" %}</span>
-  {% if can.appointment_reschedule %}<span class="ms-auto">{% translate "اسحب الحجز لخانة يوم تاني عشان تأجله · دوس على يوم أو حجز عشان تفتح اليوم بالتفصيل" %}</span>{% endif %}
+<div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-600">
+  <span class="flex items-center gap-1">{% icon "check" "size-3.5 text-green-700" %}{% translate "مؤكد" %}</span>
+  <span class="flex items-center gap-1">{% icon "door-open" "size-3.5 text-amber-700" %}{% translate "وصل" %}</span>
+  <span class="flex items-center gap-1">{% icon "stethoscope" "size-3.5 text-sky-700" %}{% translate "جوه الكشف" %}</span>
+  <span class="flex items-center gap-1">{% icon "checks" "size-3.5" %}{% translate "خلص" %}</span>
+  <span class="flex items-center gap-1">{% icon "x" "size-3.5 text-red-700" %}{% translate "لم يحضر" %}</span>
+  {% if can.appointment_reschedule %}<span class="ms-auto">{% translate "اسحب الحجز لخانة يوم تاني عشان تأجله. دوس على يوم أو حجز عشان تفتح اليوم بالتفصيل." %}</span>{% endif %}
 </div>

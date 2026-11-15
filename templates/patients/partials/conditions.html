@@ -5,21 +5,21 @@
     <li class="flex items-center gap-2 py-1">
       <span class="flex-1">{{ c.name }}</span>
       {% if can.patient_edit_medical %}
-      <button type="button" class="text-xs text-red-600"
+      <button type="button" class="text-xs font-semibold text-red-700 hover:underline"
               hx-post="{% url 'patients:condition_delete' patient.pk c.pk %}" hx-target="#conditions" hx-swap="innerHTML"
               hx-confirm="{% translate 'تمسح المرض ده؟' %}">{% translate "مسح" %}</button>
       {% endif %}
     </li>
     {% empty %}
-    <li class="py-2 text-stone-400">{% translate "مفيش أمراض مزمنة مسجلة" %}</li>
+    <li class="py-2 text-stone-500">{% translate "مفيش أمراض مزمنة مسجلة" %}</li>
     {% endfor %}
   </ul>
   {% if can.patient_edit_medical %}
   <form class="flex flex-wrap items-end gap-2 border-t border-stone-100 pt-2"
         hx-post="{% url 'patients:condition_add' patient.pk %}" hx-target="#conditions" hx-swap="innerHTML">
     {% csrf_token %}
-    <input type="text" name="name" placeholder="{% translate 'اسم المرض' %}" required class="flex-1 rounded-lg border border-stone-300 px-2 py-1 text-sm">
-    <button type="submit" class="btn-secondary text-xs">{% translate "إضافة" %}</button>
+    <input type="text" name="name" placeholder="{% translate 'اسم المرض' %}" required class="input min-w-0 flex-1 py-1.5">
+    <button type="submit" class="btn-secondary">{% translate "إضافة" %}</button>
   </form>
   {% endif %}
 </div>

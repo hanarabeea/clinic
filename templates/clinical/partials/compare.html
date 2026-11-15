@@ -6,8 +6,8 @@ current visit (empty fields are filled, written ones get the old text appended).
   {% csrf_token %}
   <input type="hidden" name="source" value="{{ other.pk }}">
   <div class="flex flex-wrap items-center gap-2 text-xs text-stone-500">
-    <span>{% translate "الزيارة" %} <span dir="ltr">{{ other.created_at|date:"j/n/Y" }}</span>{% if other.appointment.visit_type %} · {{ other.appointment.visit_type.name_ar }}{% endif %}</span>
-    <a href="{% url 'clinical:visit' other.pk %}" class="ms-auto font-semibold text-brand">{% translate "افتح الزيارة كاملة" %} ↗</a>
+    <span>{% translate "الزيارة" %} <span dir="ltr">{{ other.created_at|date:"j/n/Y" }}</span>{% if other.appointment.visit_type %}، {{ other.appointment.visit_type.name_ar }}{% endif %}</span>
+    <a href="{% url 'clinical:visit' other.pk %}" class="link ms-auto inline-flex items-center gap-1">{% translate "افتح الزيارة كاملة" %}{% icon "arrow-square-out" "size-3.5" %}</a>
   </div>
 
   <table class="w-full table-fixed border-collapse">
@@ -16,7 +16,7 @@ current visit (empty fields are filled, written ones get the old text appended).
         {% if can_edit %}<th class="w-8"></th>{% endif %}
         <th class="w-20 text-start font-semibold"></th>
         <th class="text-start font-semibold">{% translate "الزيارة دي" %} <span dir="ltr">{{ other.created_at|date:"j/n" }}</span></th>
-        <th class="text-start font-semibold text-stone-400">{% translate "النهارده" %}</th>
+        <th class="text-start font-semibold text-stone-500">{% translate "النهارده" %}</th>
       </tr>
     </thead>
     <tbody class="divide-y divide-stone-100 align-top">
@@ -24,8 +24,8 @@ current visit (empty fields are filled, written ones get the old text appended).
       <tr>
         {% if can_edit %}<td></td>{% endif %}
         <th class="py-2 text-start text-xs font-semibold text-stone-500">{% translate "القياسات" %}</th>
-        <td class="py-2" dir="ltr">{% if other_vitals %}{% if other_vitals.bp_systolic %}BP {{ other_vitals.bp_systolic }}/{{ other_vitals.bp_diastolic }} {% endif %}{% if other_vitals.weight_kg %}· {{ other_vitals.weight_kg }} kg {% endif %}{% if other_vitals.blood_glucose %}· {% translate "سكر" %} {{ other_vitals.blood_glucose }}{% endif %}{% else %}—{% endif %}</td>
-        <td class="py-2 text-stone-500" dir="ltr">{% if now_vitals %}{% if now_vitals.bp_systolic %}BP {{ now_vitals.bp_systolic }}/{{ now_vitals.bp_diastolic }} {% endif %}{% if now_vitals.weight_kg %}· {{ now_vitals.weight_kg }} kg {% endif %}{% if now_vitals.blood_glucose %}· {% translate "سكر" %} {{ now_vitals.blood_glucose }}{% endif %}{% else %}—{% endif %}</td>
+        <td class="py-2" dir="ltr">{% if other_vitals %}{% if other_vitals.bp_systolic %}BP {{ other_vitals.bp_systolic }}/{{ other_vitals.bp_diastolic }} {% endif %}{% if other_vitals.weight_kg %}&nbsp; {{ other_vitals.weight_kg }} kg {% endif %}{% if other_vitals.blood_glucose %}&nbsp; {% translate "سكر" %} {{ other_vitals.blood_glucose }}{% endif %}{% else %}-{% endif %}</td>
+        <td class="py-2 text-stone-500" dir="ltr">{% if now_vitals %}{% if now_vitals.bp_systolic %}BP {{ now_vitals.bp_systolic }}/{{ now_vitals.bp_diastolic }} {% endif %}{% if now_vitals.weight_kg %}&nbsp; {{ now_vitals.weight_kg }} kg {% endif %}{% if now_vitals.blood_glucose %}&nbsp; {% translate "سكر" %} {{ now_vitals.blood_glucose }}{% endif %}{% else %}-{% endif %}</td>
       </tr>
       {% endif %}
       {% for name, label, old, new, checked in rows %}
@@ -33,7 +33,7 @@ current visit (empty fields are filled, written ones get the old text appended).
         {% if can_edit %}<td class="py-2"><input type="checkbox" name="fields" value="{{ name }}" class="size-4 pointer-coarse:size-5" {% if checked %}checked{% endif %} aria-label="{{ label }}"></td>{% endif %}
         <th class="py-2 text-start text-xs font-semibold text-stone-500">{{ label }}</th>
         <td class="whitespace-pre-line py-2"><bdi dir="auto">{{ old }}</bdi></td>
-        <td class="whitespace-pre-line py-2 text-stone-500"><bdi dir="auto">{{ new|default:"—" }}</bdi></td>
+        <td class="whitespace-pre-line py-2 text-stone-500"><bdi dir="auto">{{ new|default:"-" }}</bdi></td>
       </tr>
       {% endfor %}
       {% if other_rx %}
@@ -41,10 +41,10 @@ current visit (empty fields are filled, written ones get the old text appended).
         {% if can_edit %}<td class="py-2"><input type="checkbox" name="fields" value="prescription" class="size-4 pointer-coarse:size-5" checked aria-label="{% translate 'الروشتة' %}"></td>{% endif %}
         <th class="py-2 text-start text-xs font-semibold text-stone-500">{% translate "الروشتة" %}</th>
         <td class="py-2">
-          <ul class="space-y-1">{% for it in other_rx.items.all %}<li><span class="font-semibold" dir="ltr">{{ it.drug_name }}</span> <span class="text-xs text-stone-500" dir="auto">{{ it.instructions }}{% if it.duration %} · {{ it.duration }}{% endif %}</span></li>{% endfor %}</ul>
+          <ul class="space-y-1">{% for it in other_rx.items.all %}<li><span class="font-semibold" dir="ltr">{{ it.drug_name }}</span> <span class="text-xs text-stone-500" dir="auto">{{ it.instructions }}{% if it.duration %}، {{ it.duration }}{% endif %}</span></li>{% endfor %}</ul>
         </td>
         <td class="py-2 text-stone-500">
-          {% if now_rx %}<ul class="space-y-1">{% for it in now_rx.items.all %}<li dir="ltr">{{ it.drug_name }}</li>{% empty %}<li>—</li>{% endfor %}</ul>{% else %}—{% endif %}
+          {% if now_rx %}<ul class="space-y-1">{% for it in now_rx.items.all %}<li dir="ltr">{{ it.drug_name }}</li>{% empty %}<li>-</li>{% endfor %}</ul>{% else %}-{% endif %}
         </td>
       </tr>
       {% endif %}
@@ -53,10 +53,10 @@ current visit (empty fields are filled, written ones get the old text appended).
 
   {% if can_edit %}
   <div class="sticky bottom-0 flex flex-wrap items-center justify-end gap-2 border-t border-stone-100 bg-white pt-3">
-    <span class="me-auto text-xs text-stone-500">{% translate "الحقول المكتوبة مش بتتمسح — النص القديم بيتضاف تحتها." %}</span>
+    <span class="me-auto text-xs text-stone-500">{% translate "الحقول المكتوبة مش بتتمسح، النص القديم بيتضاف تحتها." %}</span>
     <button type="button" class="btn-ghost text-sm"
             onclick="if (confirm('{% translate 'نقل كل حاجة من الزيارة دي؟' %}')) { this.form.querySelectorAll('input[name=fields]').forEach(c => c.checked = true); htmx.trigger(this.form, 'submit'); }">{% translate "استخدم الكل" %}</button>
-    <button class="btn-primary text-sm">↻ {% translate "استخدم المختار" %}</button>
+    <button class="btn-primary">{% icon "arrows-clockwise" "size-4" %}{% translate "استخدم المختار" %}</button>
   </div>
   {% endif %}
 </form>

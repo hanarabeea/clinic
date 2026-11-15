@@ -6,15 +6,15 @@
       {% csrf_token %}
       <input type="hidden" name="patient" value="{{ p.pk }}">
       <span class="font-semibold">{{ p.full_name }}</span>
-      <span class="font-mono text-xs text-stone-500" dir="ltr">#{{ p.file_number }} · {{ p.phone }}</span>
-      <select name="visit_type" class="ms-auto rounded-lg border border-stone-300 px-2 py-1 text-sm">
+      <span class="num text-xs text-stone-600" dir="ltr">#{{ p.file_number }}</span><span class="num text-xs text-stone-600" dir="ltr">{{ p.phone }}</span>
+      <select name="visit_type" class="input ms-auto w-auto py-1.5">
         {% for vt in visit_types %}<option value="{{ vt.pk }}">{{ vt.name_ar }}</option>{% endfor %}
       </select>
       {% if can.appointment_overbook %}<label class="flex items-center gap-1 text-xs"><input type="checkbox" name="overbook" value="1"> {% translate "استثنائي" %}</label>{% endif %}
-      <button class="btn-primary px-3 py-1 text-xs">{% translate "حجز ووصل" %}</button>
+      <button class="btn-primary px-3">{% translate "حجز ووصل" %}</button>
     </form>
   </li>
   {% empty %}
-  {% if q %}<li class="py-4 text-center text-sm text-stone-400">{% translate "مفيش نتايج" %}</li>{% endif %}
+  {% if q %}<li class="py-4 text-center text-sm text-stone-500">{% translate "مفيش نتايج" %}</li>{% endif %}
   {% endfor %}
 </ul>

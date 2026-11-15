@@ -2,13 +2,13 @@
 {% load i18n %}
 {% block title %}{% translate "الإعدادات" %}{% endblock %}
 {% block content %}
-<h1 class="mb-6 text-2xl font-bold">{% translate "الإعدادات" %}</h1>
+<div class="page-head"><h1>{% translate "الإعدادات" %}</h1></div>
 {% include "partials/settings_tabs.html" %}
 
 <form method="post" class="space-y-6" novalidate>
   {% csrf_token %}
   <section class="card space-y-4 p-4 sm:p-6">
-    <h2 class="font-bold">{% translate "الطباعة" %}</h2>
+    <h2 class="text-[15px] font-bold">{% translate "الطباعة" %}</h2>
     <div class="grid gap-4 sm:grid-cols-2">
       {% include "partials/field.html" with field=form.page_size %}
       {% include "partials/field.html" with field=form.print_mode %}
@@ -21,12 +21,12 @@
       {% include "partials/field.html" with field=form.margin_right_mm %}
       {% include "partials/field.html" with field=form.margin_left_mm %}
     </div>
-    <p class="text-sm"><a href="{% url 'prescriptions:calibration' %}" target="_blank" class="font-semibold text-brand">{% translate "صفحة المعايرة (PDF) ←" %}</a>
+    <p class="text-sm"><a href="{% url 'prescriptions:calibration' %}" target="_blank" class="link inline-flex items-center gap-1">{% translate "صفحة المعايرة (PDF)" %}{% icon "arrow-square-out" "size-4" %}</a>
       <span class="text-xs text-stone-500">{% translate "اطبعيها على ورقة العيادة وقيسي المسافة من حافة الورقة لحد الهيدر ولحد الفوتر، واحفظي، واطبعيها تاني لحد ما الإطار الأحمر ييجي في المكان الفاضي بالظبط." %}</span></p>
   </section>
 
   <section class="card space-y-4 p-4 sm:p-6">
-    <h2 class="font-bold">{% translate "الإرسال والصلاحيات" %}</h2>
+    <h2 class="text-[15px] font-bold">{% translate "الإرسال والصلاحيات" %}</h2>
     <div class="grid gap-4 sm:grid-cols-2">
       <label class="flex items-center gap-2 text-sm font-semibold">{{ notify_form.send_prescription_after_visit }} {{ notify_form.send_prescription_after_visit.label }}</label>
       {% include "partials/field.html" with field=notify_form.prescription_channel %}
@@ -36,16 +36,16 @@
   </section>
 
   <section class="card space-y-4 p-4 sm:p-6" id="voice-settings">
-    <h2 class="font-bold">🎤 {% translate "الإملاء الصوتي" %}</h2>
+    <h2 class="flex items-center gap-1.5 text-[15px] font-bold">{% icon "microphone" "size-4 text-stone-500" %}{% translate "الإملاء الصوتي" %}</h2>
     <label class="flex items-center gap-2 text-sm font-semibold">{{ form.voice_dictation_enabled }} {{ form.voice_dictation_enabled.label }}</label>
     <div class="max-w-xl">{% include "partials/field.html" with field=form.voice_engine %}</div>
-    <p class="rounded-lg px-3 py-2 text-sm {% if speech_status.ready %}bg-emerald-50 text-emerald-800{% else %}bg-stone-50 text-stone-600{% endif %}">
-      {% if speech_status.ready %}🟢 {% translate "الصوت على الجهاز شغال — مش محتاج إنترنت." %}
-      {% elif speech_status.loading %}🟡 {% translate "الصوت على الجهاز بيحمّل دلوقتي (أول تشغيل بياخد دقيقة)." %}
-      {% else %}⚪ {% translate "الصوت على الجهاز مش متسطب أو مش شغال. عشان يشتغل من غير إنترنت: شغّل speech\setup.bat مرة واحدة، وبعدين run.bat." %}{% endif %}
+    <p class="rounded-lg border px-3 py-2 text-sm {% if speech_status.ready %}border-emerald-200 bg-emerald-50 text-emerald-900{% else %}border-stone-200 bg-stone-50 text-stone-700{% endif %}">
+      {% if speech_status.ready %}<span class="inline-block size-2 rounded-full align-middle bg-green-600"></span> {% translate "الصوت على الجهاز شغال، مش محتاج إنترنت." %}
+      {% elif speech_status.loading %}<span class="inline-block size-2 rounded-full align-middle bg-amber-500"></span> {% translate "الصوت على الجهاز بيحمّل دلوقتي (أول تشغيل بياخد دقيقة)." %}
+      {% else %}<span class="inline-block size-2 rounded-full align-middle bg-stone-400"></span> {% translate "الصوت على الجهاز مش متسطب أو مش شغال. عشان يشتغل من غير إنترنت: شغّل speech\setup.bat مرة واحدة، وبعدين run.bat." %}{% endif %}
     </p>
   </section>
 
-  <div class="flex justify-end"><button class="btn-primary">{% translate "حفظ" %}</button></div>
+  <div class="flex justify-end"><button class="btn-primary min-h-10 px-6">{% translate "حفظ" %}</button></div>
 </form>
 {% endblock %}

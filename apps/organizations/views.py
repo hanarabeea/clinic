@@ -1,5 +1,3 @@
-import mimetypes
-
 from django.contrib import messages
 from django.db import transaction
 from django.http import FileResponse, Http404
@@ -9,7 +7,7 @@ from django.utils.translation import gettext as _
 from apps.accounts.permissions import require_membership, require_perm
 from apps.audit import services as audit
 
-from .branding import public_brand
+from .branding import logo_content_type, public_brand
 from .forms import CompanySettingsForm, OrganizationForm
 from .models import OrganizationSettings
 
@@ -39,8 +37,7 @@ def public_logo(request):
     if brand is None or not brand["settings"].logo:
         raise Http404
     logo_file = brand["settings"].logo
-    content_type = mimetypes.guess_type(logo_file.name)[0] or "application/octet-stream"
-    resp = FileResponse(logo_file.open("rb"), content_type=content_type)
+    resp = FileResponse(logo_file.open("rb"), content_type=logo_content_type(logo_file.name))
     resp["Cache-Control"] = "public, max-age=86400"  # the URL carries ?v=<updated_at>
     return resp
 
@@ -51,5 +48,4 @@ def logo(request):
     org_settings = getattr(request.organization, "settings", None)
     if org_settings is None or not org_settings.logo:
         raise Http404
-    content_type = mimetypes.guess_type(org_settings.logo.name)[0] or "application/octet-stream"
-    return FileResponse(org_settings.logo.open("rb"), content_type=content_type)
+    return FileResponse(org_settings.logo.open("rb"), content_type=logo_content_type(org_settings.logo.name))

@@ -10,22 +10,22 @@
   {% for v in visits %}
   <li class="relative rounded-xl border border-stone-200 bg-white p-4 text-sm before:absolute before:-start-[1.72rem] before:top-5 before:size-3 before:rounded-full before:border-2 before:border-white before:bg-brand {% if v.pk == current_visit %}ring-2 ring-brand/20{% endif %}">
     <div class="mb-1 flex flex-wrap items-center gap-2">
-      <span class="font-mono text-xs" dir="ltr">{{ v.created_at|date:"Y-m-d" }}</span>
+      <span class="num text-xs font-semibold" dir="ltr">{{ v.created_at|date:"Y-m-d" }}</span>
       <span class="badge bg-stone-100 text-stone-600">{{ v.appointment.visit_type.name_ar }}</span>
       {% if v.status == "open" %}<span class="badge bg-sky-50 text-sky-700">{% translate "مفتوحة" %}</span>{% endif %}
       {% if current_visit and v.pk != current_visit %}
       <button type="button" class="ms-auto text-xs font-semibold text-brand pointer-coarse:py-1" hx-get="{% url 'clinical:visit_compare' current_visit v.pk %}" hx-target="#drawer-body">{% translate "عرض ومقارنة" %}</button>
       {% elif can.clinical_view and v.pk != current_visit %}<a href="{% url 'clinical:visit' v.pk %}" class="ms-auto text-xs font-semibold text-brand">{% translate "فتح" %}</a>{% endif %}
-      {% if v.pk == current_visit %}<span class="ms-auto text-xs text-stone-400">{% translate "الزيارة الحالية" %}</span>{% endif %}
+      {% if v.pk == current_visit %}<span class="ms-auto text-xs text-stone-500">{% translate "الزيارة الحالية" %}</span>{% endif %}
     </div>
     {% if v.diagnosis %}<p><span class="text-stone-500">{% translate "التشخيص" %}:</span> <bdi dir="auto">{{ v.diagnosis }}</bdi></p>{% endif %}
     {% if v.chief_complaint %}<p class="text-stone-600"><span class="text-stone-500">{% translate "الشكوى" %}:</span> <bdi dir="auto">{{ v.chief_complaint|truncatechars:160 }}</bdi></p>{% endif %}
     {% if v.plan %}<p class="text-stone-600"><span class="text-stone-500">{% translate "الخطة" %}:</span> <bdi dir="auto">{{ v.plan|truncatechars:160 }}</bdi></p>{% endif %}
     {% if v.attachments.all %}
-    <p class="mt-1 flex flex-wrap gap-2 text-xs">{% for a in v.attachments.all %}<a href="{% url 'clinical:attachment_file' a.pk %}" target="_blank" class="text-brand">📎 {{ a }}</a>{% endfor %}</p>
+    <p class="mt-1 flex flex-wrap gap-2 text-xs">{% for a in v.attachments.all %}<a href="{% url 'clinical:attachment_file' a.pk %}" target="_blank" class="inline-flex items-center gap-1 text-brand hover:underline">{% icon "paperclip" "size-3.5" %}{{ a }}</a>{% endfor %}</p>
     {% endif %}
   </li>
   {% empty %}
-  <li class="py-6 text-center text-sm text-stone-400">{% translate "مفيش زيارات قبل كده." %}</li>
+  <li class="py-6 text-center text-sm text-stone-500">{% translate "مفيش زيارات قبل كده." %}</li>
   {% endfor %}
 </ol>

@@ -18,11 +18,13 @@ from .permissions import ALL_PERMISSIONS, ROLE_PERMISSIONS, effective_permission
 OWNER_CHOICE = "owner"
 
 DEFAULT_ROLES = [
-    (Role.ADMIN, "مدير النظام", "المستخدمين والإعدادات وسجل النشاط والمواعيد والمرضى — من غير الملف الطبي"),
+    (Role.ADMIN, "مدير النظام", "المستخدمين والإعدادات وسجل النشاط والمواعيد والمرضى، من غير الملف الطبي"),
     (Role.DOCTOR, "دكتور", "الكشف والروشتة والملف الطبي والمواعيد والاستقبال والتقارير"),
-    (Role.RECEPTION, "استقبال", "الحجز والاستقبال والخزنة وبيانات المرضى — من غير الملف الطبي"),
+    (Role.RECEPTION, "استقبال", "الحجز والاستقبال والخزنة وبيانات المرضى، من غير الملف الطبي"),
     (Role.VIEWER, "مشاهد", "يشوف المواعيد بس"),
 ]
+# Roles that work in one screen open straight onto it, with no side menu (ClinicRole.start_screen).
+DEFAULT_START_SCREENS = {Role.RECEPTION: "reception"}
 
 
 def ensure_defaults(org):
@@ -37,6 +39,7 @@ def ensure_defaults(org):
                 description=desc,
                 permissions=sorted(ROLE_PERMISSIONS[key]),
                 order=i,
+                start_screen=DEFAULT_START_SCREENS.get(key, ""),
             )
             for i, (key, name, desc) in enumerate(DEFAULT_ROLES)
         )
@@ -81,11 +84,19 @@ def resolve(org, value):
 
 
 @transaction.atomic
-def save_role(role, *, name, description, perms):
+def save_role(role, *, name, description, perms, start_screen=None):
     """Create / update a role. Members' own adjustments that became redundant are dropped (a permission they were
-    given that the role now has, or a removed one the role no longer has)."""
+    given that the role now has, or a removed one the role no longer has). A work screen the role's permissions don't
+    open is cleared (None leaves it as it is)."""
+    from apps.core.navigation import BY_KEY  # here: navigation imports the permission tables this module builds on
+
     role.name, role.description = name, description
     role.permissions = sorted(with_implied(set(perms) & ALL_PERMISSIONS))
+    if start_screen is not None:
+        role.start_screen = start_screen
+    screen = BY_KEY.get(role.start_screen)
+    if screen is None or not screen.work_screen or not screen.allowed(set(role.permissions)):
+        role.start_screen = ""
     if role.order == 0 and role.pk is None:
         last = ClinicRole.objects.filter(organization=role.organization).order_by("-order").first()
         role.order = (last.order + 1) if last else 0
@@ -104,5 +115,5 @@ def in_use(role) -> str:
     """Why a role can't be deleted ("" when it can)."""
     n = Membership.objects.filter(clinic_role=role).count()
     if n:
-        return _("فيه %(n)s موظف على الدور ده — انقلهم لدور تاني الأول.") % {"n": n}
+        return _("فيه %(n)s موظف على الدور ده. انقلهم لدور تاني الأول.") % {"n": n}
     return ""

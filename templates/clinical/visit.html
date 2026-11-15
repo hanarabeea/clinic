@@ -11,10 +11,10 @@ in a drawer over the page, so the visit being written is never left (or reloaded
 <div id="workspace" class="pb-24">
   {% if can.prescription_write %}
   {# Two full-width tabs: the visit, and the prescription on its own (room for the categories and the lines). #}
-  <div id="pane-switch" class="mb-3 flex gap-2" role="tablist">
-    <button type="button" role="tab" data-pane="visit" class="pane-tab flex-1 rounded-xl border-2 border-brand bg-white px-4 py-3 text-base font-bold text-brand shadow-sm sm:flex-none sm:px-8">📝 {% translate "الكشف" %}</button>
-    <button type="button" role="tab" data-pane="rx" class="pane-tab flex-1 rounded-xl border-2 border-transparent bg-white/60 px-4 py-3 text-base font-bold text-stone-500 hover:bg-white sm:flex-none sm:px-8">💊 {% translate "الروشتة" %} <span id="rx-count" class="ms-1 rounded-full bg-stone-200 px-2 text-xs text-stone-600 empty:hidden"></span></button>
-    <span class="ms-auto hidden self-center text-xs text-stone-400 lg:inline">{% translate "/ للروشتة" %}</span>
+  <div id="pane-switch" class="mb-4 flex items-end gap-1 border-b border-stone-200" role="tablist">
+    <button type="button" role="tab" data-pane="visit" aria-selected="true" class="pane-tab">{% icon "note-pencil" "size-5" %}{% translate "الكشف" %}</button>
+    <button type="button" role="tab" data-pane="rx" aria-selected="false" class="pane-tab">{% icon "pill" "size-5" %}{% translate "الروشتة" %}<span id="rx-count" class="num rounded-sm bg-stone-200 px-1.5 text-xs leading-5 text-stone-700 empty:hidden"></span></button>
+    <span class="ms-auto hidden self-center pb-2 text-xs text-stone-500 lg:inline"><kbd class="rounded-sm border border-stone-300 bg-white px-1.5 py-0.5 text-[11px]">/</kbd> {% translate "للروشتة" %}</span>
   </div>
   {% endif %}
   <div>
@@ -24,7 +24,7 @@ in a drawer over the page, so the visit being written is never left (or reloaded
     {% if can.prescription_write %}
     <section id="pane-rx" class="ws-panel hidden min-w-0 scroll-mt-28">
       <div hx-get="{% url 'prescriptions:builder' visit.pk %}" hx-trigger="load" hx-swap="outerHTML">
-        <p class="py-8 text-center text-sm text-stone-400">{% translate "بيحمّل الروشتة..." %}</p>
+        <p class="py-8 text-center text-sm text-stone-500">{% translate "بيحمّل الروشتة..." %}</p>
       </div>
     </section>
     {% endif %}
@@ -32,30 +32,30 @@ in a drawer over the page, so the visit being written is never left (or reloaded
 </div>
 
 {# --- action bar: file on one side, the visit's final actions on the other --- #}
-<div id="action-bar" class="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white/95 shadow-[0_-4px_16px_-8px_rgba(0,0,0,.12)] backdrop-blur lg:start-64">
+<div id="action-bar" class="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white/95 backdrop-blur lg:start-(--side-w)">
   <div class="flex items-center gap-1 px-3 py-2 text-sm lg:px-8">
     <div class="flex min-w-0 items-center gap-0.5 overflow-x-auto">
-      <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:history' patient.pk %}?visit={{ visit.pk }}">🗂 {% translate "التاريخ" %}</button>
-      {% if can.clinical_view %}<button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'prescriptions:patient_list' patient.pk %}">💊 {% translate "الروشتات" %}</button>{% endif %}
-      <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:attachments' patient.pk %}?visit={{ visit.pk }}">📎 {% translate "المرفقات" %}</button>
-      <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:data' patient.pk %}">👤 {% translate "البيانات" %}</button>
+      <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:history' patient.pk %}?visit={{ visit.pk }}">{% icon "folders" "size-4" %} {% translate "التاريخ" %}</button>
+      {% if can.clinical_view %}<button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'prescriptions:patient_list' patient.pk %}">{% icon "pill" "size-4" %} {% translate "الروشتات" %}</button>{% endif %}
+      <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:attachments' patient.pk %}?visit={{ visit.pk }}">{% icon "paperclip" "size-4" %} {% translate "المرفقات" %}</button>
+      <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:data' patient.pk %}">{% icon "user" "size-4" %} {% translate "البيانات" %}</button>
     </div>
     {% if can.clinical_edit and visit.status != "finished" %}
     <span class="ms-auto"></span>
-    <span class="hidden whitespace-nowrap px-2 text-xs text-stone-400 xl:inline">Ctrl+Enter</span>
-    <button type="button" class="btn-primary whitespace-nowrap px-5 py-2.5" onclick="finishVisit()">✓ {% translate "إنهاء الكشف" %}</button>
+    <kbd class="hidden rounded-sm border border-stone-300 bg-white px-1.5 py-0.5 text-[11px] whitespace-nowrap text-stone-600 xl:inline">Ctrl+Enter</kbd>
+    <button type="button" class="btn-primary min-h-10 px-6" onclick="finishVisit()">{% icon "check" "size-4" %}{% translate "إنهاء الكشف" %}</button>
     {% endif %}
   </div>
 </div>
 
 {# --- drawer: one panel with tabs (history / prescriptions / attachments / data), or a previous visit --- #}
-<div id="drawer-backdrop" class="fixed inset-0 z-40 hidden bg-black/25" onclick="closeDrawer()"></div>
-<aside id="drawer" class="fixed inset-y-0 end-0 z-50 hidden w-full max-w-2xl flex-col bg-white shadow-2xl" aria-hidden="true">
+<div id="drawer-backdrop" class="fixed inset-0 z-40 hidden" style="background: color-mix(in oklch, var(--color-ink-panel) 40%, transparent)" onclick="closeDrawer()"></div>
+<aside id="drawer" class="fixed inset-y-0 end-0 z-50 hidden w-full max-w-2xl flex-col border-s border-stone-200 bg-white shadow-xl" aria-hidden="true">
   <div class="border-b border-stone-200 px-4 pt-3">
     <div class="flex items-center gap-3">
       <h2 id="drawer-title" class="text-lg font-bold"></h2>
-      <span class="text-sm text-stone-400">{{ patient.full_name }}</span>
-      <button type="button" class="btn-ghost ms-auto px-3 text-lg" onclick="closeDrawer()" aria-label="{% translate 'قفل' %}">✕</button>
+      <span class="text-sm text-stone-500">{{ patient.full_name }}</span>
+      <button type="button" class="btn-icon ms-auto" onclick="closeDrawer()" aria-label="{% translate 'قفل' %}">{% icon "x" %}</button>
     </div>
     <nav id="drawer-tabs" class="-mb-px mt-2 flex gap-1 overflow-x-auto text-sm font-semibold">
       <button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'clinical:history' patient.pk %}?visit={{ visit.pk }}">{% translate "التاريخ" %}</button>
@@ -68,11 +68,11 @@ in a drawer over the page, so the visit being written is never left (or reloaded
 </aside>
 
 {# --- finish summary (warnings never block) --- #}
-<dialog id="finish-dialog" class="m-auto w-full max-w-md rounded-xl p-0 shadow-2xl backdrop:bg-black/30">
+<dialog id="finish-dialog" class="m-auto w-full max-w-md rounded-xl p-0 shadow-xl backdrop:bg-ink-panel/45">
   <div class="space-y-4 p-5">
     <h2 class="text-lg font-bold">{% translate "إنهاء الكشف" %}</h2>
     <ul id="finish-checks" class="space-y-1.5 text-sm"></ul>
-    <p id="finish-error" class="hidden rounded-md bg-red-50 px-3 py-2 text-sm font-semibold text-red-700"></p>
+    <p id="finish-error" class="hidden rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-800" role="alert"></p>
     <div class="flex flex-wrap justify-end gap-2">
       <button type="button" class="btn-ghost" onclick="document.getElementById('finish-dialog').close()">{% translate "رجوع" %}</button>
       <button type="button" id="finish-go" class="btn-primary" onclick="doFinish()"></button>
@@ -87,14 +87,14 @@ in a drawer over the page, so the visit being written is never left (or reloaded
     rx: "{% translate 'الروشتة' %}", fu: "{% translate 'الإعادة' %}", noRx: "{% translate 'مفيش أدوية' %}",
     rxDraft: "{% translate 'هتتعتمد وتتطبع' %}", rxFinal: "{% translate 'معتمدة' %}", noFu: "{% translate 'مش محددة' %}",
     empty: "{% translate 'فاضي' %}", finishPrint: "{% translate 'إنهاء وطباعة الروشتة' %}", finish: "{% translate 'إنهاء الكشف' %}",
-    reprint: "{% translate 'إنهاء وطباعة' %}", rxBlocked: "{% translate 'الروشتة محتاجة مراجعة (تحذيرات أو سطور متعلمة بالصوت) — شوفها وبعدين اضغط إنهاء تاني.' %}",
+    reprint: "{% translate 'إنهاء وطباعة' %}", rxBlocked: "{% translate 'الروشتة محتاجة مراجعة (تحذيرات أو سطور متعلمة بالصوت). شوفها وبعدين اضغط إنهاء تاني.' %}",
     days: "{% translate 'بعد' %}", dayUnit: "{% translate 'يوم' %}",
   };
 
   // Drawer: loads a partial over the workspace; the visit underneath is untouched (no navigation, no reload).
   window.openDrawer = (url, title) => {
     document.getElementById("drawer-title").textContent = title || "";
-    document.getElementById("drawer-body").innerHTML = '<p class="py-8 text-center text-sm text-stone-400">…</p>';
+    document.getElementById("drawer-body").innerHTML = '<p class="py-8 text-center text-sm text-stone-500">…</p>';
     htmx.ajax("GET", url, { target: "#drawer-body", swap: "innerHTML" });
     const d = document.getElementById("drawer");
     d.classList.remove("hidden"); d.classList.add("flex");
@@ -112,7 +112,7 @@ in a drawer over the page, so the visit being written is never left (or reloaded
     const url = e.detail.pathInfo?.requestPath || "";
     document.querySelectorAll("#drawer-tabs .drawer-tab").forEach((t) => {
       const on = url && t.dataset.drawer.split("?")[0] === url.split("?")[0];
-      t.classList.toggle("border-brand", on); t.classList.toggle("text-brand", on); t.classList.toggle("text-stone-500", !on);
+      t.classList.toggle("border-brand", on); t.classList.toggle("text-ink", on); t.classList.toggle("text-stone-500", !on);
     });
   });
   // "الكشف | الروشتة" tabs: one full-width pane at a time. Both stay in the page (hidden, never reloaded), so
@@ -124,8 +124,6 @@ in a drawer over the page, so the visit being written is never left (or reloaded
     document.getElementById("pane-visit").classList.toggle("hidden", !!rx);
     document.querySelectorAll("#pane-switch [data-pane]").forEach((b) => {
       const on = b.dataset.pane === (rx ? "rx" : "visit");
-      b.classList.toggle("border-brand", on); b.classList.toggle("text-brand", on); b.classList.toggle("bg-white", on);
-      b.classList.toggle("shadow-sm", on); b.classList.toggle("border-transparent", !on); b.classList.toggle("text-stone-500", !on);
       b.setAttribute("aria-selected", on);
     });
     try { sessionStorage.setItem(paneKey, rx ? "rx" : "visit"); } catch (e) { /* ignore */ }
@@ -167,7 +165,7 @@ in a drawer over the page, so the visit being written is never left (or reloaded
     if (rx) rows.push([T.rx, rx.items > 0, T.noRx, rx.items > 0 ? (rx.status === "draft" ? `${rx.items} · ${T.rxDraft}` : T.rxFinal) : ""]);
     rows.push([T.fu, !!fu, T.noFu, fu ? `${T.days} ${fu} ${T.dayUnit}` : ""]);
     document.getElementById("finish-checks").innerHTML = rows.map(([label, ok, missing, extra]) =>
-      `<li class="flex gap-2 ${ok ? "text-stone-700" : "text-amber-700"}"><span>${ok ? "✓" : "⚠"}</span><span class="font-semibold">${label}</span><span class="text-stone-500">${ok ? (extra || "") : missing}</span></li>`).join("");
+      `<li class="flex gap-2 ${ok ? "text-stone-700" : "text-amber-700"}"><span class="font-bold">${ok ? "+" : "!"}</span><span class="font-semibold">${label}</span><span class="text-stone-500">${ok ? (extra || "") : missing}</span></li>`).join("");
     document.getElementById("finish-error").classList.add("hidden");
     document.getElementById("finish-go").textContent = rx && rx.items > 0 ? T.finishPrint : T.finish;
     document.getElementById("finish-dialog").showModal();

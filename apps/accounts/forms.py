@@ -13,10 +13,11 @@ from .models import USERNAME_RE, User
 
 
 class EmailAuthenticationForm(AuthenticationForm):
-    """Username or email + password (accounts.backends.UsernameOrEmailBackend)."""
+    """Username + password. (An e-mail still signs in for accounts that have one, accounts.backends
+    .UsernameOrEmailBackend, but the box asks for the username: the clinic's staff are created without e-mails.)"""
 
     username = forms.CharField(
-        label=_("اسم المستخدم أو الإيميل"),
+        label=_("اسم المستخدم"),
         max_length=254,
         widget=forms.TextInput(
             attrs={"autofocus": True, "autocomplete": "username", "autocapitalize": "none", "dir": "ltr"}
@@ -29,7 +30,7 @@ class EmailAuthenticationForm(AuthenticationForm):
     )
 
     error_messages = {
-        "invalid_login": _("اسم المستخدم/الإيميل أو كلمة المرور غلط."),
+        "invalid_login": _("اسم المستخدم أو كلمة المرور غلط."),
         "inactive": _("الحساب ده متوقف."),
     }
 
@@ -54,7 +55,7 @@ class UserDetailsForm(forms.Form):
     username = forms.CharField(
         label=_("اسم المستخدم"),
         max_length=150,
-        help_text=_("بيدخل بيه بدل الإيميل — حروف وأرقام و . _ - من غير مسافات (مثلاً: mona أو mona.ali)."),
+        help_text=_("بيدخل بيه. حروف وأرقام و . _ - من غير مسافات (مثلاً: mona أو mona.ali)."),
         widget=forms.TextInput(attrs={"dir": "ltr", "autocomplete": "off", "autocapitalize": "none"}),
     )
     email = forms.EmailField(
@@ -86,7 +87,7 @@ class UserDetailsForm(forms.Form):
         if not unchanged and not re.match(USERNAME_RE, username):
             raise forms.ValidationError(_("حروف وأرقام و . _ - بس، من غير مسافات ولا @."))
         if self._others().filter(Q(username__iexact=username) | Q(email__iexact=username)).exists():
-            raise forms.ValidationError(_("اسم المستخدم ده مستخدم قبل كده — اختار اسم تاني."))
+            raise forms.ValidationError(_("اسم المستخدم ده مستخدم قبل كده، اختار اسم تاني."))
         return username
 
     def clean_email(self):
@@ -136,9 +137,24 @@ class RoleForm(forms.Form):
 
 
 class ClinicRoleForm(forms.ModelForm):
+    start_screen = forms.ChoiceField(
+        label=_("شاشة العمل"),
+        required=False,
+        help_text=_(
+            "النظام كامل = القائمة الجانبية بكل الصفحات المسموحة. لو اخترت شاشة، صاحب الدور يفتح عليها على طول "
+            "وتبقى قدامه كأنها برنامج لوحده، من غير قائمة."
+        ),
+    )
+
     class Meta:
         model = ClinicRole
-        fields = ["name", "description"]
+        fields = ["name", "description", "start_screen"]
+
+    def __init__(self, *args, **kwargs):
+        from apps.core.navigation import WORK_SCREENS
+
+        super().__init__(*args, **kwargs)
+        self.fields["start_screen"].choices = [("", _("النظام كامل بالقائمة الجانبية")), *WORK_SCREENS]
 
     def clean_name(self):
         name = " ".join(self.cleaned_data["name"].split())

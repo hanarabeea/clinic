@@ -2,9 +2,10 @@
 {% load i18n %}
 {% block title %}{% translate "الحساب مقفول مؤقتًا" %}{% endblock %}
 {% block card %}
-<div class="space-y-3 text-center">
-  <h2 class="text-lg font-bold text-brand">{% translate "الحساب مقفول مؤقتًا" %}</h2>
-  <p class="text-sm text-stone-600">{% translate "حصل 5 محاولات دخول غلط. جرّب تاني بعد 15 دقيقة، أو استخدم «نسيت كلمة المرور»." %}</p>
-  <a href="{% url 'accounts:password_reset' %}" class="btn-secondary w-full">{% translate "نسيت كلمة المرور" %}</a>
+<div class="space-y-4">
+  <span class="grid size-12 place-items-center rounded-full bg-red-50 text-red-800">{% icon "lock-simple" "size-6" %}</span>
+  <h1 class="text-lg font-bold">{% translate "الحساب مقفول مؤقتًا" %}</h1>
+  <p class="text-sm text-stone-600">{% translate "حصل 5 محاولات دخول غلط. جرّب تاني بعد 15 دقيقة، أو اطلب من مسؤول العيادة يكتبلك كلمة سر جديدة." %}</p>
+  <a href="{% url 'accounts:login' %}" class="btn-secondary w-full">{% translate "رجوع لتسجيل الدخول" %}</a>
 </div>
 {% endblock %}

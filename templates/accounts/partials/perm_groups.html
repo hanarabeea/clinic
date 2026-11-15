@@ -4,12 +4,12 @@
 needs (IMPLIES); unchecking one unchecks what depends on it. Boxes the editor can't change are disabled.{% endcomment %}
 <div class="grid gap-4 lg:grid-cols-2" data-perm-grid>
   {% for title, items in groups %}
-  <section class="card p-4">
-    <h2 class="mb-3 font-bold">{{ title }}</h2>
-    <ul class="space-y-1">
+  <section class="card overflow-hidden">
+    <h2 class="border-b border-stone-200 bg-stone-50 px-4 py-2 text-[13px] font-semibold text-stone-700">{{ title }}</h2>
+    <ul class="divide-y divide-stone-100">
       {% for it in items %}
       <li>
-        <label class="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-stone-50 {% if not it.editable %}cursor-not-allowed opacity-60{% endif %}">
+        <label class="flex cursor-pointer items-start gap-3 px-4 py-2.5 transition-colors hover:bg-stone-50 {% if not it.editable %}cursor-not-allowed opacity-60{% endif %}">
           <input type="checkbox" name="perms" value="{{ it.perm }}" class="mt-1 size-4 pointer-coarse:size-5"
                  data-implies="{{ it.implies }}" data-from-role="{{ it.from_role|yesno:'1,' }}"
                  {% if it.checked %}checked{% endif %} {% if not it.editable %}disabled{% endif %}>
@@ -18,11 +18,11 @@ needs (IMPLIES); unchecking one unchecks what depends on it. Boxes the editor ca
               {{ it.label }}
               {% if badges %}
               {% if it.from_role %}<span class="inline-block size-2 rounded-full bg-brand" title="{% translate 'من الدور' %}"></span>{% endif %}
-              <span class="badge bg-emerald-100 text-emerald-800" data-badge="added" {% if it.from_role or not it.checked %}hidden{% endif %}>{% translate "زيادة" %}</span>
-              <span class="badge bg-red-100 text-red-700" data-badge="removed" {% if not it.from_role or it.checked %}hidden{% endif %}>{% translate "متشالة" %}</span>
+              <span class="badge bg-emerald-50 text-emerald-800" data-badge="added" {% if it.from_role or not it.checked %}hidden{% endif %}>{% translate "زيادة" %}</span>
+              <span class="badge bg-red-50 text-red-800" data-badge="removed" {% if not it.from_role or it.checked %}hidden{% endif %}>{% translate "متشالة" %}</span>
               {% endif %}
             </span>
-            <span class="block text-xs text-stone-500">{{ it.help }}{% if not it.editable %} — {% translate "مش معاك الصلاحية دي فمتقدرش تغيّرها" %}{% endif %}</span>
+            <span class="block text-xs text-stone-600">{{ it.help }}{% if not it.editable %} ({% translate "مش معاك الصلاحية دي فمتقدرش تغيّرها" %}){% endif %}</span>
           </span>
         </label>
       </li>

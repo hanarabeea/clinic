@@ -4,9 +4,9 @@
   "settings": {
     "clinic_name_ar": "عيادة د. سارة علي",
     "clinic_name_en": "Dr. Sara Ali Clinic",
-    "primary_color": "#0E7C86",
-    "dark_color": "#0B2A33",
-    "neutral_color": "#F3F7F8",
+    "primary_color": "#A21E48",
+    "dark_color": "#24131E",
+    "neutral_color": "#F4F2F5",
     "phones": ["01000000000", "0230000000"],
     "address_ar": "الشيخ زايد — (عنوان تجريبي)",
     "map_link": "https://maps.google.com/?q=Sheikh+Zayed",

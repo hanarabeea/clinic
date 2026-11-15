@@ -198,7 +198,7 @@ def step(request, pk, action):
             rebooked = booking.mark_no_show(appt, by=request.user)
             if rebooked:
                 when = f"{fmt_date(rebooked.date)} {fmt_time(rebooked.start_at)}"
-                return _refresh(request, toast=_("لم يحضر — اتحجزله %(w)s") % {"w": when})
+                return _refresh(request, toast=_("لم يحضر، اتحجزله %(w)s") % {"w": when})
             return _refresh(request, toast=_("لم يحضر"))
         if action == "undo":
             if appt.status == AppointmentStatus.NO_SHOW:

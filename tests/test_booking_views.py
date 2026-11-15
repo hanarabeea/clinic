@@ -78,7 +78,7 @@ def test_a_taken_slot_keeps_the_panel_open_with_the_reason(client, world):
             HTTP_HX_REQUEST="true",
         )
     html = r.content.decode()
-    assert r.status_code == 200 and 'id="booking-panel"' in html and "bg-red-50" in html
+    assert r.status_code == 200 and 'id="booking-panel"' in html and "notice-danger" in html
 
 
 def test_a_free_cell_preselects_its_time(client, world):

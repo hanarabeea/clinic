@@ -1,27 +1,29 @@
 {% extends "base.html" %}
 {% load i18n %}
-{% block title %}{% translate "الصلاحيات" %} — {{ member.user.full_name }}{% endblock %}
+{% block title %}{% translate "الصلاحيات" %}: {{ member.user.full_name }}{% endblock %}
 {% block content %}
-<div class="mb-6 flex flex-wrap items-center gap-3">
-  <a href="{% url 'accounts:users' %}" class="btn-ghost px-2 py-1 text-sm">→ {% translate "المستخدمين" %}</a>
-  <h1 class="text-2xl font-bold">{% translate "صلاحيات" %} {{ member.user.full_name }}</h1>
-  <span class="badge bg-sand text-stone-700">{{ member.role_name }}</span>
-  {% if customised %}<span class="badge bg-amber-100 text-amber-800">{% translate "متعدّلة عن الدور" %}</span>{% endif %}
+<div class="page-head">
+  <a href="{% url 'accounts:users' %}" class="btn-ghost min-h-8 px-2 py-1">{% icon "arrow-right" "size-4" %}{% translate "المستخدمين" %}</a>
+  <h1>{% translate "صلاحيات" %} {{ member.user.full_name }}</h1>
+  <span class="badge bg-stone-100 text-stone-700">{{ member.role_name }}</span>
+  {% if customised %}<span class="badge bg-amber-50 text-amber-900">{% translate "متعدّلة عن الدور" %}</span>{% endif %}
 </div>
 
-<p class="mb-4 max-w-3xl text-sm text-stone-600">
+<p class="mb-2 max-w-3xl text-sm text-stone-600">
   {% translate "الدور بيدي مجموعة صلاحيات جاهزة. تقدر تزوّد أو تشيل أي صلاحية للموظف ده بس. الموظف مش هيشوف أي صفحة أو زرار مش مفتوح له." %}
-  {% if member.clinic_role_id %}{% translate "عايز تغيّر الدور نفسه لكل اللي عليه؟" %} <a href="{% url 'accounts:role_edit' member.clinic_role_id %}" class="font-semibold text-brand">{% translate "عدّل الدور" %} «{{ member.role_name }}»</a>.{% endif %}
-  <span class="whitespace-nowrap"><span class="inline-block size-2 rounded-full bg-brand align-middle"></span> {% translate "من الدور" %}</span>
-  · <span class="badge bg-emerald-100 text-emerald-800">{% translate "زيادة" %}</span>
-  · <span class="badge bg-red-100 text-red-700">{% translate "متشالة" %}</span>
+  {% if member.clinic_role_id %}{% translate "عايز تغيّر الدور نفسه لكل اللي عليه؟" %} <a href="{% url 'accounts:role_edit' member.clinic_role_id %}" class="link">{% translate "عدّل الدور" %} «{{ member.role_name }}»</a>.{% endif %}
+</p>
+<p class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-stone-600">
+  <span class="flex items-center gap-1.5"><span class="inline-block size-2 rounded-full bg-brand"></span>{% translate "من الدور" %}</span>
+  <span class="badge bg-emerald-50 text-emerald-800">{% translate "زيادة" %}</span>
+  <span class="badge bg-red-50 text-red-800">{% translate "متشالة" %}</span>
 </p>
 
 <form method="post" id="perm-form" class="space-y-4">
   {% csrf_token %}
   {% include "accounts/partials/perm_groups.html" with badges=True %}
-  <div class="sticky bottom-0 flex flex-wrap items-center gap-2 border-t border-stone-200 bg-white/95 py-3">
-    <button type="submit" class="btn-primary px-6">{% translate "حفظ الصلاحيات" %}</button>
+  <div class="sticky bottom-0 -mx-4 flex flex-wrap items-center gap-2 border-t border-stone-200 bg-sand/95 px-4 py-3 backdrop-blur lg:-mx-8 lg:px-8">
+    <button type="submit" class="btn-primary min-h-10 px-6">{% translate "حفظ الصلاحيات" %}</button>
     {% if customised %}
     <button type="submit" class="btn-secondary" form="perm-reset">{% translate "رجّع صلاحيات الدور" %}</button>
     {% endif %}

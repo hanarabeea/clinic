@@ -2,24 +2,24 @@
 {% load i18n %}
 {% block title %}{% translate "الحجوزات المتأثرة" %}{% endblock %}
 {% block content %}
-<h1 class="mb-2 text-2xl font-bold">{% translate "الحجوزات المتأثرة" %}</h1>
-<p class="mb-6 text-sm text-stone-500">{% blocktranslate with d=day|date:"Y/m/d" %}يوم {{ d }} اتقفل وفيه حجوزات هتتأثر. اختاري ميعاد مقترح لكل حجز، أو أجّليه يدوي من شاشة المواعيد.{% endblocktranslate %}</p>
+<div class="page-head mb-2"><h1>{% translate "الحجوزات المتأثرة" %}</h1></div>
+<p class="mb-6 max-w-3xl text-sm text-stone-600">{% blocktranslate with d=day|date:"Y/m/d" %}يوم {{ d }} اتقفل وفيه حجوزات هتتأثر. اختاري ميعاد مقترح لكل حجز، أو أجّليه يدوي من شاشة المواعيد.{% endblocktranslate %}</p>
 
 <div class="card overflow-hidden">
   <ul class="divide-y divide-stone-100">
     {% for appt, suggestion in affected %}
     <li class="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
-      <span class="font-mono" dir="ltr">{{ appt.start_at|date:"H:i" }}</span>
+      <span class="num" dir="ltr">{{ appt.start_at|date:"H:i" }}</span>
       <span class="font-semibold">{{ appt.patient.full_name }}</span>
       <span class="text-stone-500">{{ appt.visit_type.name_ar }}</span>
       {% if suggestion %}
-      <span class="text-brand">← {% translate "مقترح" %}: <b dir="ltr">{{ suggestion.day|date:"Y/m/d" }} {{ suggestion.start_at|date:"H:i" }}</b></span>
+      <span class="flex items-center gap-1 text-brand">{% icon "caret-left" "size-4" %}{% translate "مقترح" %}: <b dir="ltr">{{ suggestion.day|date:"Y/m/d" }} {{ suggestion.start_at|date:"H:i" }}</b></span>
       <form method="post" action="{% url 'scheduling:affected_reschedule' appt.pk %}" class="ms-auto">
         {% csrf_token %}
-        <button type="submit" class="btn-primary text-xs">{% translate "أجّل للمقترح" %}</button>
+        <button type="submit" class="btn-primary min-h-8 px-3 py-1 text-xs">{% translate "أجّل للمقترح" %}</button>
       </form>
       {% else %}
-      <span class="ms-auto text-xs text-red-600">{% translate "مفيش ميعاد قريب — لازم تأجيل يدوي" %}</span>
+      <span class="ms-auto text-xs font-semibold text-red-700">{% translate "مفيش ميعاد قريب، لازم تأجيل يدوي" %}</span>
       {% endif %}
     </li>
     {% empty %}
@@ -27,5 +27,5 @@
     {% endfor %}
   </ul>
 </div>
-<a href="{% url 'reception:today' %}?view=day&date={{ day|date:'Y-m-d' }}" class="mt-4 inline-block text-sm text-brand">{% translate "→ شاشة المواعيد" %}</a>
+<a href="{% url 'reception:today' %}?view=day&date={{ day|date:'Y-m-d' }}" class="link mt-4 inline-flex items-center gap-1 text-sm">{% icon "arrow-right" "size-4" %}{% translate "شاشة المواعيد" %}</a>
 {% endblock %}

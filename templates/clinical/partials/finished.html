@@ -1,8 +1,8 @@
 {% load i18n %}
 <div class="ws-panel mx-auto mt-8 flex max-w-lg flex-col items-center gap-4 py-12 text-center">
-  <span class="grid size-14 place-items-center rounded-full bg-green-50 text-3xl text-green-600">✓</span>
-  <p class="text-2xl font-bold">{% translate "الكشف خلص" %}</p>
-  <p class="text-sm text-stone-500">{{ visit.patient.full_name }}{% if visit.followup_after_days %} · {% blocktranslate with n=visit.followup_after_days %}إعادة بعد {{ n }} يوم — الاستقبال هيحجزها{% endblocktranslate %}{% endif %}</p>
+  <span class="grid size-12 place-items-center rounded-full bg-green-50 text-green-800">{% icon "check" "size-6" %}</span>
+  <p class="text-xl font-bold">{% translate "الكشف خلص" %}</p>
+  <p class="text-sm text-stone-600">{{ visit.patient.full_name }}{% if visit.followup_after_days %}<br>{% blocktranslate with n=visit.followup_after_days %}إعادة بعد {{ n }} يوم، والاستقبال هيحجزها{% endblocktranslate %}{% endif %}</p>
   {% include "clinical/partials/next_patient.html" %}
-  <a href="{% url 'clinical:visit' visit.pk %}" class="text-xs text-stone-400 underline">{% translate "رجوع للزيارة" %}</a>
+  <a href="{% url 'clinical:visit' visit.pk %}" class="text-xs text-stone-500 underline underline-offset-4 hover:text-ink">{% translate "رجوع للزيارة" %}</a>
 </div>

@@ -61,7 +61,7 @@ def warnings_for(rx):
                 out.append({
                     "key": f"allergy:{allergy.pk}:{item.pk}",
                     "kind": "allergy",
-                    "text": f"المريض عنده حساسية من {allergy.name} — و{item.drug_name} ممكن يكون منها",
+                    "text": f"المريض عنده حساسية من {allergy.name}، و{item.drug_name} ممكن يكون منها",
                 })  # fmt: skip
     seen = {}
     for item in items:

@@ -22,7 +22,7 @@ def ratelimit(key: str, *, per_minute: int):
                 cache.set(bucket, 1, timeout=70)
                 count = 1
             if count > per_minute:
-                return HttpResponse(_("طلبات كتير — استنى دقيقة."), status=429)
+                return HttpResponse(_("طلبات كتير، استنى دقيقة."), status=429)
             return view(request, *args, **kwargs)
 
         wrapper.ratelimit_key = key  # copied up through functools.wraps by outer decorators (tests check it)

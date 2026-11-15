@@ -4,10 +4,10 @@
   <ul class="divide-y divide-stone-100">
     {% for e in page.object_list %}
     <li class="flex flex-wrap items-start gap-x-3 gap-y-1 px-4 py-3 text-sm">
-      <span class="badge shrink-0 {% if e.action == 'delivery.failed' or e.action == 'auth.login_failed' %}bg-red-50 text-red-700{% elif e.group == 'delivery' %}bg-green-50 text-green-700{% else %}bg-stone-100 text-stone-600{% endif %}">{{ e.action_label }}</span>
+      <span class="badge shrink-0 {% if e.action == 'delivery.failed' or e.action == 'auth.login_failed' %}bg-red-50 text-red-800{% elif e.group == 'delivery' %}bg-green-50 text-green-800{% else %}bg-stone-100 text-stone-700{% endif %}">{{ e.action_label }}</span>
       <span class="min-w-0 flex-1 break-words">{{ e.summary }}</span>
-      <span class="w-full text-xs text-stone-500 sm:w-auto">
-        {{ e.actor.full_name|default:_("النظام") }} · <span dir="ltr">{{ e.created_at|date:"Y/m/d H:i" }}</span>
+      <span class="flex w-full gap-3 text-xs text-stone-600 sm:w-auto">
+        <span>{{ e.actor.full_name|default:_("النظام") }}</span><span dir="ltr" class="num">{{ e.created_at|date:"Y/m/d H:i" }}</span>
       </span>
     </li>
     {% endfor %}
@@ -15,7 +15,7 @@
   {% if page.has_other_pages %}
   <div class="flex items-center justify-between border-t border-stone-100 px-4 py-2 text-sm">
     {% if page.has_previous %}<a class="btn-ghost" href="?page={{ page.previous_page_number }}&group={{ f.group }}&user={{ f.user }}&q={{ f.q|urlencode }}&from={{ f.from }}&to={{ f.to }}">{% translate "الأحدث" %}</a>{% else %}<span></span>{% endif %}
-    <span class="text-stone-500">{{ page.number }} / {{ page.paginator.num_pages }}</span>
+    <span class="num text-stone-600">{{ page.number }} / {{ page.paginator.num_pages }}</span>
     {% if page.has_next %}<a class="btn-ghost" href="?page={{ page.next_page_number }}&group={{ f.group }}&user={{ f.user }}&q={{ f.q|urlencode }}&from={{ f.from }}&to={{ f.to }}">{% translate "الأقدم" %}</a>{% else %}<span></span>{% endif %}
   </div>
   {% endif %}

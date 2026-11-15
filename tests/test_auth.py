@@ -80,7 +80,7 @@ def test_clinic_colours_apply_to_the_whole_interface(client, org_a, make_member)
                                                                    neutral_color="#3EA0BC")  # fmt: skip
     client.force_login(make_member(org_a, "owner"))
     html = client.get("/").content.decode()
-    assert "--color-brand: #246770" in html and "--color-brand-dark: #1B4F56" in html
+    assert "--color-brand: #246770" in html and "--color-ink-panel: #1B4F56" in html  # dark = the side panel
     assert "color-mix(in srgb, #3EA0BC 18%, white)" in html  # neutral only as a light background tint
 
 

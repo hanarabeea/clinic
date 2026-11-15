@@ -62,7 +62,7 @@ def _suggested_next_visit(visit):
 
 def _require_draft(rx):
     if not rx.is_editable:
-        raise PrescriptionError(_("الروشتة دي معتمدة — اعمل نسخة معدلة."))
+        raise PrescriptionError(_("الروشتة دي معتمدة، اعمل نسخة معدلة."))
 
 
 def search_drugs(org, q, limit=8, *, category=None):

@@ -3,10 +3,10 @@
 {% block title %}{% translate "غير مسموح" %}{% endblock %}
 {% block body %}
 <div class="flex min-h-screen items-center justify-center px-4">
-  <div class="card max-w-md p-8 text-center">
-    <div class="text-5xl font-bold text-brand">403</div>
-    <h1 class="mt-3 text-lg font-bold">{% translate "مش مسموحلك تفتح الصفحة دي" %}</h1>
-    <p class="mt-2 text-sm text-stone-500">{% translate "لو محتاج الصلاحية دي، كلّم مدير النظام." %}</p>
+  <div class="max-w-md text-center">
+    <span class="mx-auto grid size-14 place-items-center rounded-full bg-stone-200 text-stone-600">{% icon "lock-simple" "size-7" %}</span>
+    <h1 class="mt-4 text-xl font-bold">{% translate "مش مسموحلك تفتح الصفحة دي" %}</h1>
+    <p class="mt-2 text-sm text-stone-600">{% translate "لو محتاج الصلاحية دي، كلّم مدير النظام." %}</p>
     <a href="/" class="btn-primary mt-6">{% translate "الرجوع للرئيسية" %}</a>
   </div>
 </div>

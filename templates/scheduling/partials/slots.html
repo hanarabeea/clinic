@@ -7,7 +7,7 @@
       {% csrf_token %}
       <input type="hidden" name="visit_type" value="{{ visit_type.pk }}">
       <input type="hidden" name="start_at" value="{{ s.isoformat }}">
-      <button type="submit" class="badge bg-stone-100 px-3 py-2 text-sm font-mono hover:bg-brand hover:text-white" dir="ltr">{{ s|ampm }}</button>
+      <button type="submit" class="num rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-medium transition-colors hover:border-brand hover:bg-brand hover:text-white" dir="ltr">{{ s|ampm }}</button>
     </form>
     {% endfor %}
   </div>
@@ -19,12 +19,12 @@
   <ul class="divide-y divide-stone-100">
     {% for p in periods %}
     <li class="flex flex-wrap items-center gap-3 py-2 text-sm">
-      <span dir="ltr" class="font-mono">{{ p.label_start|ampm }}</span>
+      <span dir="ltr" class="num font-semibold">{{ p.label_start|ampm }}</span>
       <span>{% translate "رقم الدور الجاي:" %} <b>{{ p.next_number }}</b></span>
       <span class="text-stone-500">{% translate "حوالي" %} {{ p.estimated_time|ampm }}</span>
       {% if p.remaining is not None %}<span class="text-stone-500">({% translate "متبقي" %} {{ p.remaining }})</span>{% endif %}
       {% if p.remaining == 0 and not can.appointment_overbook %}
-      <span class="ms-auto text-xs text-stone-400">{% translate "الطاقة خلصت" %}</span>
+      <span class="ms-auto text-xs text-stone-500">{% translate "الطاقة خلصت" %}</span>
       {% else %}
       <form method="post" action="{% url 'scheduling:booking_confirm' patient.pk %}" class="ms-auto">
         {% csrf_token %}
@@ -32,7 +32,7 @@
         <input type="hidden" name="day" value="{{ day|date:'Y-m-d' }}">
         <input type="hidden" name="period_key" value="{{ p.period_id }}">
         {% if p.remaining == 0 %}<input type="hidden" name="overbook" value="1">{% endif %}
-        <button type="submit" class="btn-primary text-xs">{% if p.remaining == 0 %}{% translate "حجز استثنائي" %}{% else %}{% translate "احجز" %}{% endif %}</button>
+        <button type="submit" class="btn-primary min-h-8 px-3 py-1 text-xs">{% if p.remaining == 0 %}{% translate "حجز استثنائي" %}{% else %}{% translate "احجز" %}{% endif %}</button>
       </form>
       {% endif %}
     </li>

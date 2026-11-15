@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% load i18n %}
-{% block title %}{% translate "تعديل" %} — {{ member.user.full_name }}{% endblock %}
+{% block title %}{% translate "تعديل" %}: {{ member.user.full_name }}{% endblock %}
 {% block content %}
-<div class="mb-6 flex flex-wrap items-center gap-3">
-  <a href="{% url 'accounts:users' %}" class="btn-ghost px-2 py-1 text-sm">→ {% translate "المستخدمين" %}</a>
-  <h1 class="text-2xl font-bold">{{ member.user.full_name }}</h1>
-  <span class="badge bg-sand text-stone-700">{{ member.role_name }}</span>
+<div class="page-head">
+  <a href="{% url 'accounts:users' %}" class="btn-ghost min-h-8 px-2 py-1">{% icon "arrow-right" "size-4" %}{% translate "المستخدمين" %}</a>
+  <h1>{{ member.user.full_name }}</h1>
+  <span class="badge bg-stone-100 text-stone-700">{{ member.role_name }}</span>
 </div>
 <form method="post" class="card max-w-xl space-y-4 p-4 sm:p-6" novalidate autocomplete="off">
   {% csrf_token %}
@@ -20,7 +20,7 @@
     </div>
   </div>
   <div class="flex gap-2">
-    <button type="submit" class="btn-primary px-6">{% translate "حفظ" %}</button>
+    <button type="submit" class="btn-primary min-h-10 px-6">{% translate "حفظ" %}</button>
     <a href="{% url 'accounts:users' %}" class="btn-ghost">{% translate "رجوع" %}</a>
   </div>
 </form>
