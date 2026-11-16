@@ -24,8 +24,15 @@ def logo_upload_to(instance, filename):
     return f"org_{instance.organization_id}/branding/logo.{ext}"
 
 
+class Specialty(models.TextChoices):
+    GENERAL = "general", _("عام (كل التخصصات)")
+    OBGYN = "obgyn", _("نسا وتوليد")
+
+
 class OrganizationSettings(BaseModel):
     organization = models.OneToOneField(Organization, on_delete=models.CASCADE, related_name="settings")
+    # Switches on what only that specialty needs: "obgyn" = the pregnancy file (apps/obstetrics).
+    specialty = models.CharField(_("تخصص العيادة"), max_length=10, choices=Specialty.choices, default=Specialty.GENERAL)
     clinic_name_ar = models.CharField(_("اسم العيادة بالعربي"), max_length=200, blank=True)
     clinic_name_en = models.CharField(_("اسم العيادة بالإنجليزي"), max_length=200, blank=True)
     logo = models.ImageField(_("اللوجو"), upload_to=logo_upload_to, blank=True)

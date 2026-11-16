@@ -28,6 +28,7 @@ class CompanySettingsForm(forms.ModelForm):
     class Meta:
         model = OrganizationSettings
         fields = [
+            "specialty",
             "logo",
             "clinic_name_ar",
             "clinic_name_en",

@@ -6,6 +6,7 @@
 the visit and the prescription side by side → a sticky action bar. History, prescriptions, attachments and data open
 in a drawer over the page, so the visit being written is never left (or reloaded).{% endcomment %}
 {% include "clinical/partials/header.html" %}
+{% if ob_patient %}{% include "obstetrics/partials/band.html" %}{% endif %}
 {% include "clinical/partials/snapshot.html" %}
 
 <div id="workspace" class="pb-24">
@@ -35,6 +36,7 @@ in a drawer over the page, so the visit being written is never left (or reloaded
 <div id="action-bar" class="fixed inset-x-0 bottom-0 z-30 border-t border-stone-200 bg-white/95 backdrop-blur lg:start-(--side-w)">
   <div class="flex items-center gap-1 px-3 py-2 text-sm lg:px-8">
     <div class="flex min-w-0 items-center gap-0.5 overflow-x-auto">
+      {% if ob_patient %}<button type="button" id="ob-open" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'obstetrics:panel' patient.pk %}">{% icon "baby" "size-4" %} {% translate "ملف الحمل" %}</button>{% endif %}
       <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:history' patient.pk %}?visit={{ visit.pk }}">{% icon "folders" "size-4" %} {% translate "التاريخ" %}</button>
       {% if can.clinical_view %}<button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'prescriptions:patient_list' patient.pk %}">{% icon "pill" "size-4" %} {% translate "الروشتات" %}</button>{% endif %}
       <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:attachments' patient.pk %}?visit={{ visit.pk }}">{% icon "paperclip" "size-4" %} {% translate "المرفقات" %}</button>
@@ -58,6 +60,7 @@ in a drawer over the page, so the visit being written is never left (or reloaded
       <button type="button" class="btn-icon ms-auto" onclick="closeDrawer()" aria-label="{% translate 'قفل' %}">{% icon "x" %}</button>
     </div>
     <nav id="drawer-tabs" class="-mb-px mt-2 flex gap-1 overflow-x-auto text-sm font-semibold">
+      {% if ob_patient %}<button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'obstetrics:panel' patient.pk %}">{% translate "ملف الحمل" %}</button>{% endif %}
       <button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'clinical:history' patient.pk %}?visit={{ visit.pk }}">{% translate "التاريخ" %}</button>
       {% if can.clinical_view %}<button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'prescriptions:patient_list' patient.pk %}">{% translate "الروشتات" %}</button>{% endif %}
       <button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'clinical:attachments' patient.pk %}?visit={{ visit.pk }}">{% translate "المرفقات" %}</button>
@@ -139,6 +142,8 @@ in a drawer over the page, so the visit being written is never left (or reloaded
     const badge = document.getElementById("rx-count");
     if (badge) badge.textContent = n ? n : "";
   });
+  // the band's "ملف الحمل" button (obstetrics/partials/band.html)
+  window.openObPanel = () => document.getElementById("ob-open")?.click();
   window.closeDrawer = () => {
     const d = document.getElementById("drawer");
     d.classList.add("hidden"); d.classList.remove("flex");

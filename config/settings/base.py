@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "apps.billing",
     "apps.reception",
     "apps.prescriptions",
+    "apps.obstetrics",
 ]
 
 X_FRAME_OPTIONS = "SAMEORIGIN"  # the prescription print iframe (05 §5.4); other sites still can't frame us

@@ -28,6 +28,7 @@ def clinic(db, make_member):
     for cmd in ("seed_notifications", "import_drugs"):
         call_command(cmd, org=org.slug, stdout=out)
     call_command("seed_demo", org=org.slug, stdout=out)
+    call_command("seed_pregnancies", org=org.slug, stdout=out)  # the OB/GYN layer has something to show
     call_command("simulate_day", org=org.slug, stdout=out)
     return {role: make_member(org, role, email=f"crawl-{role}@example.com") for role in ROLES}
 

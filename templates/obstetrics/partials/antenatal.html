@@ -1,0 +1,62 @@
+{% load i18n %}
+{% comment %}The antenatal sheet inside the visit form (weight and blood pressure are the visit's vitals, taken at
+reception). Each field saves itself. Re-read when the pregnancy file changes (a pregnancy starts, the dating moves).{% endcomment %}
+<div id="antenatal" hx-get="{% url 'obstetrics:antenatal' visit.pk %}" hx-trigger="ob-changed from:body" hx-swap="outerHTML">
+  {% if an_pregnancy %}
+  {% if an_edit %}{% url 'obstetrics:antenatal_field' visit.pk as an_url %}{% endif %}
+  <section class="ws-section">
+    <div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <h3 class="flex items-center gap-1.5 text-[15px] font-bold">{% icon "baby" "size-4 text-brand" %}{% translate "متابعة الحمل" %}</h3>
+      <span class="badge bg-brand-soft text-brand">{{ an_ga.weeks_label }}، {{ an_ga.month_label }}</span>
+      <span id="an-status" class="text-xs"></span>
+      {% if an_edit and visit.status != "finished" %}
+      <button type="button" class="fu-chip chip ms-auto" data-days="{{ an_next_days }}" title="{% translate 'المعتاد في العمر ده' %}">
+        {% icon "calendar-plus" "size-3.5" %}{% blocktranslate count n=an_next_weeks %}الزيارة الجاية بعد أسبوع{% plural %}الزيارة الجاية بعد {{ n }} أسابيع{% endblocktranslate %}
+      </button>
+      {% endif %}
+    </div>
+
+    <div class="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+      {% for name, label, value, unit, step in an_numbers %}
+      <div class="form-field">
+        <label for="an-{{ name }}">{{ label }}</label>
+        <input id="an-{{ name }}" name="value" type="number" step="{{ step }}" inputmode="decimal" dir="ltr" value="{{ value|stringformat:'s' }}" placeholder="{{ unit }}"
+               {% if an_edit %}hx-post="{{ an_url }}" hx-vals='{"field": "{{ name }}"}' hx-trigger="change, input changed delay:900ms" hx-target="#an-status" hx-swap="innerHTML"{% else %}disabled{% endif %}>
+      </div>
+      {% endfor %}
+      {% for name, label, value, choices in an_selects %}
+      <div class="form-field">
+        <label for="an-{{ name }}">{{ label }}</label>
+        <select id="an-{{ name }}" name="value" {% if an_edit %}hx-post="{{ an_url }}" hx-vals='{"field": "{{ name }}"}' hx-trigger="change" hx-target="#an-status" hx-swap="innerHTML"{% else %}disabled{% endif %}>
+          <option value="">-</option>
+          {% for key, text in choices %}<option value="{{ key }}" {% if key == value %}selected{% endif %}>{{ text }}</option>{% endfor %}
+        </select>
+      </div>
+      {% endfor %}
+    </div>
+
+    <details class="group mt-3" {% if an_placenta or an_scan_notes or an_scan_numbers.0.2 != "" or an_scan_numbers.1.2 != "" %}open{% endif %}>
+      <summary class="flex cursor-pointer list-none items-center gap-1 text-xs font-semibold text-stone-600 hover:text-brand [&::-webkit-details-marker]:hidden">{% icon "scan" "size-3.5" %}{% translate "السونار" %}{% icon "caret-down" "size-3.5 transition-transform group-open:rotate-180" %}</summary>
+      <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
+        {% for name, label, value, unit, step in an_scan_numbers %}
+        <div class="form-field">
+          <label for="an-{{ name }}">{{ label }}</label>
+          <input id="an-{{ name }}" name="value" type="number" step="{{ step }}" inputmode="decimal" dir="ltr" value="{{ value|stringformat:'s' }}" placeholder="{{ unit }}"
+                 {% if an_edit %}hx-post="{{ an_url }}" hx-vals='{"field": "{{ name }}"}' hx-trigger="change, input changed delay:900ms" hx-target="#an-status" hx-swap="innerHTML"{% else %}disabled{% endif %}>
+        </div>
+        {% endfor %}
+        <div class="form-field col-span-2">
+          <label for="an-placenta">{% translate "المشيمة" %}</label>
+          <input id="an-placenta" name="value" dir="auto" value="{{ an_placenta }}" placeholder="{% translate 'مثلاً: أمامية، عالية' %}"
+                 {% if an_edit %}hx-post="{{ an_url }}" hx-vals='{"field": "placenta"}' hx-trigger="change, input changed delay:900ms" hx-target="#an-status" hx-swap="innerHTML"{% else %}disabled{% endif %}>
+        </div>
+        <div class="form-field col-span-2 sm:col-span-4">
+          <label for="an-us-notes">{% translate "ملاحظات السونار" %}</label>
+          <div class="dictate-corner"><textarea id="an-us-notes" name="value" rows="2" dir="auto" {% if an_edit %}data-dictate{% endif %}
+                 {% if an_edit %}hx-post="{{ an_url }}" hx-vals='{"field": "ultrasound_notes"}' hx-trigger="change, input changed delay:900ms" hx-target="#an-status" hx-swap="innerHTML"{% else %}disabled{% endif %}>{{ an_scan_notes }}</textarea></div>
+        </div>
+      </div>
+    </details>
+  </section>
+  {% endif %}
+</div>

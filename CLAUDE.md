@@ -607,3 +607,43 @@ gotchas and conventions introduced in that phase.
 - Tests on a new machine need Chromium once: `.venv/Scripts/python -m playwright install chromium` (PDF + dictation tests).
 - Local preview gotcha: `.claude/launch.json` runs `runserver --noreload`, and Django caches templates in that mode:
   restart the preview server to see a template edit.
+
+## Obstetrics notes (Phase 12, 2026-11-16)
+- `apps/obstetrics` = the OB/GYN layer (plan 14 §14.2). On only for clinics with **`OrganizationSettings.specialty =
+  "obgyn"`** (Settings → العيادة; `services.enabled(org)`, template flag `obgyn`) and only for female patients
+  (`services.applies_to`). With the layer off its URLs answer 404 and nothing of it renders.
+- `calc.py` is pure date arithmetic. **The EDD is the one stored anchor** (`Pregnancy.edd`); the three dating methods
+  (LMP with cycle length, ultrasound, IVF transfer) only differ in how it is found (`services.Dating.edd()`), and
+  **gestational age is never stored**: `pregnancy.ga(on)` → `calc.GestationalAge` (weeks/days, trimester, the month
+  "the way patients count it" = completed calendar months + 1 capped at 9, days left, term status, the Arabic labels).
+  Dates only, Cairo calendar day (`services.today()`). `AntenatalVisit.ga_days` is the one exception: the age written
+  on that visit's day, kept so old visits read right after a re-dating.
+- Models: `ObstetricProfile` (blood group, cycle, contraception; one per patient), `Pregnancy` (one `active` per
+  patient, **partial unique constraint**), `PregnancyHistory` (typed rows + the row written when a followed pregnancy
+  is closed; wrong rows get `is_removed`, never deleted), `AntenatalVisit` (OneToOne on `clinical.Visit`, created on
+  the first field written), `Milestone` (the clinic's schedule, seeded by `ensure_milestones`) + `MilestoneCheck`.
+  **G/P/A/L are counted, never typed** (`services.gpal`): G = history rows + the followed pregnancy, P = births
+  (vaginal / cesarean / stillbirth), A = the rest, L = sum of `living_children`.
+- `services.py` is the only way in: `start_pregnancy`, `set_dating`, `update_details`, `close_pregnancy` (writes the
+  history row; `DELIVERED` for births, `LOST` otherwise), `transfer_pregnancy`, `reopen_pregnancy` (takes the auto row
+  out of the count), `add_history` / `remove_history`, `risk_flags` (only from recorded facts), `milestones_for`
+  (done / due / overdue / upcoming), `toggle_milestone`, `save_antenatal_field` (autosave whitelist, like
+  `clinical.save_field`), and for lists **`badges_for(org, patient_ids)` = one query** / `badge_for(patient)`.
+- Where the week shows: doctor's sticky header (`header_tag.html`), the band under it (`band.html`: week, month,
+  trimester, EDD, G/P/A/L, risk flags, what is due), the antenatal sheet inside the visit form (`antenatal.html`), the
+  pregnancy file (`panel.html`: drawer on the visit page, tab on the medical file); and for reception the small
+  `ga_badge.html` tag on the board (as of each booking's day, attached in `reception.board.appointments`), the
+  patients list, the patient page and the booking panel. `apps/obstetrics/context.py` holds what clinical pages need
+  (`overview`, `antenatal_ctx`) so `clinical.views` can import it without a circle.
+- Every change in the panel answers with the fresh panel + **`HX-Trigger: ob-changed`**; the header tag, the band and
+  the antenatal sheet carry `hx-trigger="ob-changed from:body"` and re-read themselves, so a re-dating moves every
+  open screen. The band's button calls `window.openObPanel()` (defined by `visit.html` and `record.html`).
+- Permissions: the file itself is `clinical.view` / `clinical.edit` (reception gets 403 on every obstetrics URL, tested).
+  New **`pregnancy.view_basic`** (reception / doctor / admin / owner; implied by `clinical.view`) only shows the tag
+  and the expected date, never the history, blood group or risk. Migration `organizations/0006` adds it to existing
+  clinic roles that started as reception / doctor / admin.
+- Demo: `clinic.json` is now an OB/GYN clinic; `manage.py seed_pregnancies [--org]` gives the `seed_demo` women 8
+  pregnancies from 7 to 40 weeks with history and blood groups (run once; the crawl tests use it).
+- Not done in this phase (still in plan 14 §14.2): pregnancy message templates (antenatal reminder with the week,
+  milestone due, post-partum), a settings screen to edit the milestone list (Django admin for now), structured
+  ultrasound biometry (BPD/FL/AC), and the pregnancy summary in the patient export PDF.

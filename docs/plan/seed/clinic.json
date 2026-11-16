@@ -2,21 +2,22 @@
   "_note": "بيانات تجريبية للتطوير. weekday: 0=السبت 1=الأحد 2=الاثنين 3=الثلاثاء 4=الأربعاء 5=الخميس 6=الجمعة",
   "organization": {"slug": "demo-clinic", "name_ar": "عيادة ديمو", "name_en": "Demo Clinic"},
   "settings": {
+    "specialty": "obgyn",
     "clinic_name_ar": "عيادة د. سارة علي",
     "clinic_name_en": "Dr. Sara Ali Clinic",
     "primary_color": "#A21E48",
     "dark_color": "#24131E",
     "neutral_color": "#F4F2F5",
     "phones": ["01000000000", "0230000000"],
-    "address_ar": "الشيخ زايد — (عنوان تجريبي)",
+    "address_ar": "الشيخ زايد (عنوان تجريبي)",
     "map_link": "https://maps.google.com/?q=Sheikh+Zayed",
     "working_hours_text": "يوميًا ما عدا الخميس والجمعة من 2 م إلى 9 م",
     "timezone": "Africa/Cairo"
   },
   "doctor": {
     "name_ar": "سارة علي", "name_en": "Sara Ali", "title_ar": "د.",
-    "specialty_ar": "أخصائي الباطنة",
-    "qualifications": ["بكالوريوس الطب والجراحة — جامعة القاهرة", "ماجستير الأمراض الباطنة"],
+    "specialty_ar": "استشاري النسا والتوليد",
+    "qualifications": ["بكالوريوس الطب والجراحة، جامعة القاهرة", "ماجستير أمراض النسا والتوليد"],
     "booking_mode": "slots", "slot_minutes": 10, "booking_horizon_days": 60, "min_notice_minutes": 0,
     "queue_avg_minutes": 15, "near_turn_threshold": 3, "allow_overbooking": true
   },

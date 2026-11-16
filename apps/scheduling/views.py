@@ -18,6 +18,7 @@ from apps.doctors.models import BookingMode, ScheduleException, ScheduleExceptio
 from apps.doctors.services import get_doctor
 from apps.notifications.models import Event, MessageStatus
 from apps.notifications.templating import fmt_date
+from apps.obstetrics import services as obstetrics
 from apps.patients import services as patient_services
 from apps.patients.forms import PatientForm
 from apps.patients.models import Patient
@@ -98,6 +99,8 @@ def _panel_ctx(request, doctor, patient, error=""):
         "slots_mode": doctor.booking_mode == BookingMode.SLOTS,
         "error": error,
     }
+    if patient is not None and has_perm(request.membership, "pregnancy.view_basic"):
+        ctx["ga"] = obstetrics.badge_for(patient, on=day)  # how far along she will be on the day being booked
     if patient is None or visit_type is None:
         return ctx
     ctx["upcoming"] = (

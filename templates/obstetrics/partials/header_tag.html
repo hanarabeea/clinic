@@ -1,0 +1,5 @@
+{% load i18n %}
+{# In the doctor's sticky patient header: always on screen while she is pregnant. Re-reads itself after a change. #}
+<span id="ob-tag" class="contents" hx-get="{% url 'obstetrics:tag' ob_patient.pk %}" hx-trigger="ob-changed from:body" hx-swap="outerHTML">
+  {% if ga %}<span class="badge bg-brand px-2 font-bold text-white">{% icon "baby" "size-3.5" %}{% translate "حامل" %}: {{ ga.weeks_label }}، {{ ga.month_label }}</span>{% endif %}
+</span>

@@ -39,7 +39,14 @@ class Command(BaseCommand):
             raise CommandError(f"Organization '{o['org']}' not found. Run `manage.py seed_org` first.") from e
 
         if o["remove"]:
-            count, _ = Patient.objects.filter(organization=org, notes=MARKER).delete()
+            demo = Patient.objects.filter(organization=org, notes=MARKER)
+            # demo pregnancies (seed_pregnancies) hang off these patients with PROTECT: take them out first
+            from apps.obstetrics.models import ObstetricProfile, Pregnancy, PregnancyHistory
+
+            PregnancyHistory.objects.filter(patient__in=demo).delete()
+            Pregnancy.objects.filter(patient__in=demo).delete()
+            ObstetricProfile.objects.filter(patient__in=demo).delete()
+            count, _ = demo.delete()
             self.stdout.write(self.style.SUCCESS(f"{count} اتمسحوا."))
             return
 

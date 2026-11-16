@@ -20,6 +20,7 @@ def organization(request):
         "current_membership": membership,
         "can": permissions_for(membership),
         "desk_idle_lock_minutes": settings.DESK_IDLE_LOCK_MINUTES,
+        "obgyn": bool(org_settings and org_settings.specialty == "obgyn"),  # the pregnancy layer (apps/obstetrics)
         # the side menu (nav_groups), or the role's single work screen (work): apps/core/navigation.py
         **navigation.for_request(request),
     }

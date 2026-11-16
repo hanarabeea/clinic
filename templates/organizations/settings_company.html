@@ -10,6 +10,10 @@
   {% csrf_token %}
   <section class="card space-y-4 p-4 sm:p-6">
     <h2 class="text-[15px] font-bold">{% translate "الاسم والهوية" %}</h2>
+    <div class="max-w-sm">
+      {% include "partials/field.html" with field=form.specialty %}
+      <p class="mt-1 text-xs text-stone-600">{% translate "«نسا وتوليد» بيفتح ملف الحمل: أسبوع وشهر الحمل جنب اسم المريضة، ميعاد الولادة، التاريخ الولادي ومتابعة الحمل في الكشف." %}</p>
+    </div>
     <div class="grid gap-4 sm:grid-cols-2">
       {% include "partials/field.html" with field=org_form.name_ar %}
       {% include "partials/field.html" with field=org_form.name_en %}

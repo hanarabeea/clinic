@@ -8,6 +8,12 @@
     <h1>{{ patient.full_name }}</h1>
     <p class="page-sub flex flex-wrap gap-x-3"><span>{% translate "ملف" %} <span class="num" dir="ltr">#{{ patient.file_number }}</span></span><span class="num" dir="ltr">{{ patient.phone }}</span></p>
   </div>
+  {% if ga %}
+  <div class="rounded-lg border border-brand/25 bg-brand-soft px-3 py-1.5 text-sm">
+    <p class="flex items-center gap-1.5 font-bold text-brand">{% icon "baby" "size-4" %}{% translate "حامل" %}: {{ ga.weeks_label }}، {{ ga.month_label }}</p>
+    <p class="text-xs text-stone-700">{% translate "الولادة المتوقعة" %} <span class="num" dir="ltr">{{ ga.edd|date:"j/n/Y" }}</span> ({{ ga.left_label }})</p>
+  </div>
+  {% endif %}
   <div class="ms-auto flex flex-wrap gap-2">
     {% if can.appointment_book %}<a href="{% url 'reception:today' %}?book={{ patient.pk }}" class="btn-secondary">{% icon "calendar-plus" "size-4" %}{% translate "حجز" %}</a>{% endif %}
     {% if can.clinical_view %}<a href="{% url 'clinical:record' patient.pk %}" class="btn-primary">{% icon "folders" "size-4" %}{% translate "الملف الطبي" %}</a>{% endif %}

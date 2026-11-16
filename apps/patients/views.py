@@ -5,6 +5,7 @@ from django.utils.translation import gettext as _
 from apps.accounts.permissions import has_perm, require_perm
 from apps.audit import services as audit
 from apps.core.ratelimit import search_limit
+from apps.obstetrics import services as obstetrics
 from apps.prescriptions import views as rx_views
 
 from . import services
@@ -16,7 +17,11 @@ from .models import Allergy, ChronicCondition, Patient
 @search_limit
 def patient_list(request):
     q = request.GET.get("q", "")
-    patients = Patient.objects.for_org(request.organization).filter(is_active=True).search(q)[:50]
+    patients = list(Patient.objects.for_org(request.organization).filter(is_active=True).search(q)[:50])
+    if has_perm(request.membership, "pregnancy.view_basic"):
+        pregnant = obstetrics.badges_for(request.organization, [p.pk for p in patients])
+        for p in patients:
+            p.ga = pregnant.get(p.pk)
     ctx = {"patients": patients, "q": q}
     if request.htmx:
         return render(request, "patients/partials/list_rows.html", ctx)
@@ -62,6 +67,8 @@ def patient_detail(request, pk):
     }
     if can_view_medical:
         ctx["chronic_conditions"] = patient.chronic_conditions.all()
+    if has_perm(request.membership, "pregnancy.view_basic"):
+        ctx["ga"] = obstetrics.badge_for(patient)  # the week / month and the expected date; nothing else of the file
     # 03 §3.7: bookings (upcoming + past), messages (sent + received, 06 §6.7) and payments.
     ctx["appointments"] = patient.appointments.select_related("visit_type").order_by("-start_at")[:20]
     if has_perm(request.membership, "messages.view"):

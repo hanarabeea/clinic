@@ -85,6 +85,12 @@ when chosen, GA never negative or beyond 45 weeks without a warning, month mappi
 Messages: new templates (antenatal visit reminder with the week, milestone due, post-partum check) through the
 existing outbox, with consent.
 
+Built in Phase 12 (2026-11-16), with these differences from the sketch above: the profile keeps blood groups, cycle
+and contraception (marital status and menarche age left to the clinic's custom patient fields); risk flags are computed
+from recorded facts instead of stored; the milestone model is `Milestone` + `MilestoneCheck`; the ultrasound part of
+the antenatal sheet is EFW, AFI, placenta and free notes. Still open from this section: the message templates, a
+settings screen for the milestone list, structured biometry, and the pregnancy summary on the export PDF.
+
 Permissions: read/write follow `clinical.view` / `clinical.edit`; reception sees **only** the GA badge and EDD
 (new `pregnancy.view_basic`), never the obstetric history.
 

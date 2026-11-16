@@ -9,6 +9,7 @@
       <span class="inline-block size-2 shrink-0 rounded-full" style="background:{{ a.visit_type.color }}" title="{{ a.visit_type.name_ar }}"></span>
       {% if can.patient_view_basic %}<a href="{% url 'patients:detail' a.patient.pk %}" class="font-semibold hover:text-brand">{{ a.patient.full_name }}</a>{% else %}<span class="font-semibold">{{ a.patient.full_name }}</span>{% endif %}
     </span>
+    {% if a.ga and can.pregnancy_view_basic %}{% include "obstetrics/partials/ga_badge.html" with ga=a.ga %}{% endif %}
     {% if a.source == "walk_in" %}<span class="badge bg-stone-100 text-stone-600">{% translate "فوري" %}</span>{% endif %}
     {% if a.is_overbooked %}<span class="badge bg-amber-50 text-amber-800">{% translate "استثنائي" %}</span>{% endif %}
   </td>

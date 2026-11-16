@@ -15,6 +15,7 @@ VIEWER = {
     "appointment.view",
 }
 RECEPTION = VIEWER | {
+    "pregnancy.view_basic",
     "attachment.upload",
     "reception.operate",
     "vitals.record",
@@ -28,6 +29,7 @@ RECEPTION = VIEWER | {
     "messages.retry",
 }
 DOCTOR = VIEWER | {
+    "pregnancy.view_basic",
     "prescription.write",
     "prescription.print",
     "drug.manage",
@@ -53,6 +55,7 @@ DOCTOR = VIEWER | {
     "messages.retry",
 }
 ADMIN = VIEWER | {
+    "pregnancy.view_basic",
     "user.manage",
     "settings.manage",
     "audit.view",
@@ -102,6 +105,7 @@ PERMISSION_GROUPS = [
         ("patient.edit_medical", "يعدّل الأمراض المزمنة", "إضافة وتعديل الأمراض المزمنة"),
         ("patient.merge", "دمج ملفات مكررة", "دمج مريضين متسجلين مرتين"),
         ("attachment.upload", "يرفع مرفقات", "رفع تحاليل وأشعة على ملف المريض"),
+        ("pregnancy.view_basic", "يشوف عمر الحمل", "أسبوع وشهر الحمل وميعاد الولادة جنب اسم المريضة، من غير تفاصيل"),
     ]),
     ("الكشف والروشتة", [
         ("clinical.view", "شاشة الدكتور والملف الطبي", "يشوف الكشوفات والتاريخ المرضي والمرفقات"),
@@ -125,6 +129,7 @@ PERMISSION_LABELS = {p: label for _g, items in PERMISSION_GROUPS for p, label, _
 
 # A permission that only makes sense with another one brings it along (edit → view).
 IMPLIES = {
+    "clinical.view": {"pregnancy.view_basic"},  # whoever opens the medical file sees the pregnancy week too
     "clinical.edit": {"clinical.view"},
     "prescription.write": {"clinical.view", "prescription.print"},
     "patient.edit_basic": {"patient.view_basic"},

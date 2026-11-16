@@ -17,6 +17,8 @@ from apps.billing.models import Payment
 from apps.core.timeutils import CAIRO, WEEKDAY_LABELS, local_dt, weekday_egypt
 from apps.doctors.models import BookingMode, ScheduleException
 from apps.notifications.templating import fmt_date
+from apps.obstetrics import calc
+from apps.obstetrics import services as obstetrics
 from apps.scheduling.availability import periods_for
 from apps.scheduling.models import ACTIVE_STATUSES, Appointment, AppointmentStatus
 
@@ -61,7 +63,13 @@ def appointments(org, doctor, start: date, end: date) -> list[Appointment]:
         .prefetch_related(Prefetch("payments", queryset=Payment.objects.order_by("id")))
     )
     order = ("date", "queue_number", "start_at") if doctor.booking_mode == BookingMode.QUEUE else ("start_at", "id")
-    return list(qs.order_by(*order))
+    rows = list(qs.order_by(*order))
+    # OB/GYN clinics: the pregnancy week next to the name, as of each booking's own day (one query for the board)
+    pregnant = obstetrics.badges_for(org, [a.patient_id for a in rows])
+    for a in rows:
+        ga = pregnant.get(a.patient_id)
+        a.ga = calc.gestational_age(ga.edd, a.date) if ga else None
+    return rows
 
 
 def _entry(a, now) -> Entry:

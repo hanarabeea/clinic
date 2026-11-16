@@ -37,6 +37,7 @@ class Command(BaseCommand):
         if opts["force"]:
             org.name_ar, org.name_en = o["name_ar"], o.get("name_en", "")
             org.save()
+        s.specialty = c.get("specialty", s.specialty)
         s.clinic_name_ar = c.get("clinic_name_ar", "")
         s.clinic_name_en = c.get("clinic_name_en", "")
         s.primary_color = c["primary_color"]

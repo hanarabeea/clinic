@@ -1,0 +1,238 @@
+{% load i18n %}
+{% comment %}The pregnancy file (drawer on the visit page, tab on the medical file): the followed pregnancy (dating,
+details, milestones, antenatal visits, closing it), the obstetric history with the G/P/A/L counted from it, and what
+stays true between pregnancies. Every form answers with this whole panel again.{% endcomment %}
+<div id="ob-panel" class="space-y-4 text-sm">
+  {% if error %}<p class="notice notice-danger font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}<span>{{ error }}</span></p>{% endif %}
+
+  {% if not applies %}
+  <p class="card p-4 text-stone-600">{% translate "ملف الحمل للمريضات بس." %}</p>
+  {% else %}
+
+  {# ---------------------------------------------------------------- the followed pregnancy #}
+  <section class="card">
+    <header class="flex flex-wrap items-center gap-2 border-b border-stone-200 bg-stone-50 px-4 py-2">
+      <h3 class="text-[13px] font-semibold text-stone-700">{% translate "الحمل الحالي" %}</h3>
+      {% if ob_pregnancy and ob_pregnancy.risk_level == "high" %}<span class="badge bg-amber-50 font-semibold text-amber-900 ring-1 ring-amber-200 ring-inset">{% translate "عالي الخطورة" %}</span>{% endif %}
+    </header>
+
+    {% if ob_pregnancy %}
+    <div class="grid gap-x-6 gap-y-2 px-4 py-3 sm:grid-cols-3">
+      <div>
+        <p class="ws-label">{% translate "عمر الحمل النهارده" %}</p>
+        <p class="text-lg leading-7 font-bold text-brand">{{ ga.weeks_label }}</p>
+        <p class="text-xs text-stone-600">{{ ga.month_label }}، {{ ga.trimester_label }}</p>
+      </div>
+      <div>
+        <p class="ws-label">{% translate "الولادة المتوقعة" %}</p>
+        <p class="num text-base leading-7 font-semibold" dir="ltr">{{ ga.edd|date:"j/n/Y" }}</p>
+        <p class="text-xs {% if ga.overdue %}font-semibold text-red-700{% else %}text-stone-600{% endif %}">{{ ga.left_label }}</p>
+      </div>
+      <div>
+        <p class="ws-label">{% translate "محسوب من" %}</p>
+        <p class="leading-7 font-semibold">{{ ob_pregnancy.get_edd_method_display }}</p>
+        <p class="num text-xs text-stone-600">
+          {% if ob_pregnancy.edd_method == "lmp" %}<span dir="ltr">{{ ob_pregnancy.lmp|date:"j/n/Y" }}</span>{% if ob_pregnancy.cycle_days != 28 %} ({% blocktranslate with n=ob_pregnancy.cycle_days %}دورة {{ n }} يوم{% endblocktranslate %}){% endif %}
+          {% elif ob_pregnancy.edd_method == "ultrasound" %}<span dir="ltr">{{ ob_pregnancy.us_date|date:"j/n/Y" }}: {{ ob_pregnancy.us_weeks }}+{{ ob_pregnancy.us_days }}</span>
+          {% else %}<span dir="ltr">{{ ob_pregnancy.transfer_date|date:"j/n/Y" }}</span> ({% blocktranslate with n=ob_pregnancy.embryo_age_days %}جنين {{ n }} أيام{% endblocktranslate %}){% endif %}
+        </p>
+      </div>
+    </div>
+    {% if ob_flags %}<p class="flex flex-wrap gap-1 border-t border-stone-100 px-4 py-2">{% for f in ob_flags %}<span class="badge bg-amber-50 px-2 font-semibold text-amber-900 ring-1 ring-amber-200 ring-inset">{{ f }}</span>{% endfor %}</p>{% endif %}
+
+    {% if can_edit %}
+    <details class="group border-t border-stone-100" {% if dating_form.is_bound %}open{% endif %}>
+      <summary class="flex cursor-pointer list-none items-center gap-1.5 px-4 py-2.5 font-semibold text-stone-700 hover:text-brand [&::-webkit-details-marker]:hidden">{% icon "calendar-blank" "size-4 text-stone-500" %}{% translate "تعديل طريقة الحساب" %}{% icon "caret-down" "size-3.5 transition-transform group-open:rotate-180" %}</summary>
+      <form class="space-y-3 px-4 pb-4" hx-post="{% url 'obstetrics:dating' ob_pregnancy.pk %}" hx-target="#ob-panel" hx-swap="outerHTML">
+        {% include "obstetrics/partials/dating_fields.html" with form=dating_form %}
+        <p class="text-xs text-stone-600">{% translate "أي تغيير هنا بيغيّر عمر الحمل وميعاد الولادة في كل الشاشات." %}</p>
+        <button class="btn-primary">{% translate "حفظ التواريخ" %}</button>
+      </form>
+    </details>
+
+    <details class="group border-t border-stone-100" {% if details_form.is_bound %}open{% endif %}>
+      <summary class="flex cursor-pointer list-none items-center gap-1.5 px-4 py-2.5 font-semibold text-stone-700 hover:text-brand [&::-webkit-details-marker]:hidden">{% icon "note-pencil" "size-4 text-stone-500" %}{% translate "عدد الأجنة والخطورة والملاحظات" %}{% icon "caret-down" "size-3.5 transition-transform group-open:rotate-180" %}</summary>
+      <form class="grid gap-3 px-4 pb-4 sm:grid-cols-2" hx-post="{% url 'obstetrics:details' ob_pregnancy.pk %}" hx-target="#ob-panel" hx-swap="outerHTML">
+        {% include "partials/field.html" with field=details_form.fetuses %}
+        {% include "partials/field.html" with field=details_form.risk_level %}
+        <div class="sm:col-span-2">{% include "partials/field.html" with field=details_form.risk_notes %}</div>
+        <div class="sm:col-span-2">{% include "partials/field.html" with field=details_form.notes %}</div>
+        <div><button class="btn-primary">{% translate "حفظ" %}</button></div>
+      </form>
+    </details>
+    {% elif ob_pregnancy.notes %}
+    <p class="border-t border-stone-100 px-4 py-2 text-stone-700" dir="auto">{{ ob_pregnancy.notes }}</p>
+    {% endif %}
+
+    {# milestones: the clinic's schedule laid over this pregnancy #}
+    {% if milestones %}
+    <div class="border-t border-stone-200">
+      <p class="bg-stone-50 px-4 py-1.5 text-xs font-semibold text-stone-600">{% translate "محطات المتابعة" %}</p>
+      <ul class="divide-y divide-stone-100">
+        {% for m in milestones %}
+        <li class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2">
+          {% if can_edit %}
+          <button type="button" class="grid size-6 shrink-0 place-items-center rounded-md border transition-colors {% if m.state == 'done' %}border-green-700 bg-green-700 text-white{% else %}border-stone-300 bg-white text-transparent hover:border-brand hover:text-stone-400{% endif %}"
+                  hx-post="{% url 'obstetrics:milestone' ob_pregnancy.pk m.milestone.pk %}" hx-target="#ob-panel" hx-swap="outerHTML"
+                  aria-pressed="{% if m.state == 'done' %}true{% else %}false{% endif %}" aria-label="{% if m.state == 'done' %}{% translate 'اتعمل، دوس عشان تشيل العلامة' %}{% else %}{% translate 'علّمه اتعمل' %}{% endif %}: {{ m.milestone.name }}">{% icon "check" "size-4" %}</button>
+          {% elif m.state == "done" %}<span class="grid size-6 shrink-0 place-items-center rounded-md bg-green-700 text-white">{% icon "check" "size-4" %}</span>
+          {% else %}<span class="size-6 shrink-0 rounded-md border border-stone-300"></span>{% endif %}
+          <span class="min-w-0 flex-1 basis-48 {% if m.state == 'done' %}text-stone-500{% endif %}">{{ m.milestone.name }}</span>
+          <span class="num text-xs text-stone-600">{% blocktranslate with a=m.milestone.from_week b=m.milestone.to_week %}أسبوع {{ a }} لـ{{ b }}{% endblocktranslate %}</span>
+          {% if m.state == "done" %}<span class="badge bg-green-50 text-green-800">{% translate "اتعمل" %} <span dir="ltr" class="num">{{ m.check.done_on|date:"j/n" }}</span></span>
+          {% elif m.state == "due" %}<span class="badge bg-sky-50 text-sky-900">{% translate "ميعاده دلوقتي" %}</span>
+          {% elif m.state == "overdue" %}<span class="badge bg-amber-50 font-semibold text-amber-900">{% translate "فات ميعاده" %}</span>
+          {% else %}<span class="num text-xs text-stone-500" dir="ltr">{{ m.from_date|date:"j/n" }}</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {# antenatal visits so far #}
+    {% if sheets %}
+    <div class="overflow-x-auto border-t border-stone-200">
+      <table class="w-full text-xs">
+        <thead class="bg-stone-50 text-stone-600"><tr>
+          <th class="px-3 py-1.5 text-start font-semibold">{% translate "الزيارة" %}</th>
+          <th class="px-3 py-1.5 text-start font-semibold">{% translate "العمر" %}</th>
+          <th class="px-3 py-1.5 text-start font-semibold">{% translate "الوزن" %}</th>
+          <th class="px-3 py-1.5 text-start font-semibold">{% translate "الضغط" %}</th>
+          <th class="px-3 py-1.5 text-start font-semibold">{% translate "ارتفاع الرحم" %}</th>
+          <th class="px-3 py-1.5 text-start font-semibold">{% translate "نبض الجنين" %}</th>
+          <th class="px-3 py-1.5 text-start font-semibold">{% translate "الوضع" %}</th>
+          <th class="px-3 py-1.5 text-start font-semibold">Hb</th>
+        </tr></thead>
+        <tbody class="divide-y divide-stone-100">
+          {% for s in sheets %}
+          <tr>
+            <td class="px-3 py-1.5" dir="ltr">{{ s.visit.created_at|date:"j/n/Y" }}</td>
+            <td class="px-3 py-1.5 font-semibold" dir="ltr">{{ s.ga_label }}</td>
+            <td class="px-3 py-1.5" dir="ltr">{{ s.visit.vitals.weight_kg|default_if_none:"-" }}</td>
+            <td class="px-3 py-1.5" dir="ltr">{% if s.visit.vitals.bp_systolic %}{{ s.visit.vitals.bp_systolic }}/{{ s.visit.vitals.bp_diastolic }}{% else %}-{% endif %}</td>
+            <td class="px-3 py-1.5" dir="ltr">{{ s.fundal_height_cm|default_if_none:"-" }}</td>
+            <td class="px-3 py-1.5" dir="ltr">{{ s.fetal_heart_rate|default_if_none:"-" }}</td>
+            <td class="px-3 py-1.5">{{ s.get_presentation_display|default:"-" }}</td>
+            <td class="px-3 py-1.5" dir="ltr">{{ s.hemoglobin|default_if_none:"-" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {# ending the follow-up #}
+    {% if can_edit %}
+    <details class="group border-t border-stone-200" {% if close_form.is_bound %}open{% endif %}>
+      <summary class="flex cursor-pointer list-none items-center gap-1.5 px-4 py-2.5 font-semibold text-stone-700 hover:text-brand [&::-webkit-details-marker]:hidden">{% icon "check-circle" "size-4 text-stone-500" %}{% translate "الحمل انتهى (ولادة أو غيره)" %}{% icon "caret-down" "size-3.5 transition-transform group-open:rotate-180" %}</summary>
+      <form class="grid gap-3 px-4 pb-3 sm:grid-cols-3" hx-post="{% url 'obstetrics:close' ob_pregnancy.pk %}" hx-target="#ob-panel" hx-swap="outerHTML"
+            hx-confirm="{% translate 'تقفل متابعة الحمل وتسجله في التاريخ الولادي؟' %}">
+        {% include "partials/field.html" with field=close_form.outcome %}
+        {% include "partials/field.html" with field=close_form.ended_on %}
+        {% include "partials/field.html" with field=close_form.living_children %}
+        {% include "partials/field.html" with field=close_form.baby_sex %}
+        {% include "partials/field.html" with field=close_form.baby_weight_g %}
+        {% include "partials/field.html" with field=close_form.place %}
+        <div class="sm:col-span-3">{% include "partials/field.html" with field=close_form.complications %}</div>
+        <div class="sm:col-span-3"><button class="btn-primary">{% translate "سجّل وانهي المتابعة" %}</button></div>
+      </form>
+      <form class="flex flex-wrap items-center gap-2 border-t border-stone-100 px-4 py-3 text-xs text-stone-600" hx-post="{% url 'obstetrics:transfer' ob_pregnancy.pk %}" hx-target="#ob-panel" hx-swap="outerHTML"
+            hx-confirm="{% translate 'توقف متابعة الحمل هنا من غير ما تسجل نهايته؟' %}">
+        <span>{% translate "بتتابع في مكان تاني أو مبقتش تيجي؟" %}</span>
+        <button class="btn-ghost min-h-8 px-2.5 py-1 text-xs">{% translate "وقّف المتابعة من غير نتيجة" %}</button>
+      </form>
+    </details>
+    {% endif %}
+
+    {% else %}
+    {# no followed pregnancy: start one #}
+    {% if can_edit %}
+    <form class="space-y-3 px-4 py-4" hx-post="{% url 'obstetrics:start' patient.pk %}" hx-target="#ob-panel" hx-swap="outerHTML">
+      <p class="font-semibold">{% translate "تسجيل حمل جديد" %}</p>
+      {% include "obstetrics/partials/dating_fields.html" with form=dating_form with_fetuses=True %}
+      <button class="btn-primary min-h-10 px-6">{% icon "baby" "size-4" %}{% translate "ابدأ متابعة الحمل" %}</button>
+    </form>
+    {% else %}
+    <p class="px-4 py-4 text-stone-600">{% translate "مفيش حمل متابَع دلوقتي." %}</p>
+    {% endif %}
+    {% if last_closed and can_edit %}
+    <form class="flex flex-wrap items-center gap-2 border-t border-stone-100 px-4 py-3 text-xs text-stone-600" hx-post="{% url 'obstetrics:reopen' last_closed.pk %}" hx-target="#ob-panel" hx-swap="outerHTML"
+          hx-confirm="{% translate 'ترجع تتابع آخر حمل اتقفل؟' %}">
+      <span>{% blocktranslate with s=last_closed.get_status_display d=last_closed.ended_on|date:"j/n/Y" %}آخر حمل: {{ s }} ({{ d }}). اتقفل بالغلط؟{% endblocktranslate %}</span>
+      <button class="btn-ghost min-h-8 px-2.5 py-1 text-xs">{% translate "افتح متابعته تاني" %}</button>
+    </form>
+    {% endif %}
+    {% endif %}
+  </section>
+
+  {# ---------------------------------------------------------------- obstetric history #}
+  <section class="card">
+    <header class="flex flex-wrap items-center gap-3 border-b border-stone-200 bg-stone-50 px-4 py-2">
+      <h3 class="text-[13px] font-semibold text-stone-700">{% translate "التاريخ الولادي" %}</h3>
+      <span class="num text-base font-bold" dir="ltr" title="{% translate 'عدد مرات الحمل / الولادات / الإجهاض وما في حكمه / الأطفال العايشين' %}">{{ ob_counts.label }}</span>
+      {% if ob_counts.cesareans %}<span class="badge bg-amber-50 text-amber-900">{% blocktranslate count n=ob_counts.cesareans %}قيصرية واحدة{% plural %}{{ n }} قيصريات{% endblocktranslate %}</span>{% endif %}
+    </header>
+    {% if rows %}
+    <ul class="divide-y divide-stone-100">
+      {% for r in rows %}
+      <li class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2">
+        <span class="num w-12 shrink-0 font-semibold" dir="ltr">{{ r.year|default_if_none:"-" }}</span>
+        <span class="font-semibold">{{ r.get_outcome_display }}</span>
+        {% if r.weeks is not None %}<span class="num text-xs text-stone-600">{% blocktranslate with n=r.weeks %}أسبوع {{ n }}{% endblocktranslate %}</span>{% endif %}
+        {% if r.baby_sex %}<span class="text-xs text-stone-600">{{ r.get_baby_sex_display }}</span>{% endif %}
+        {% if r.baby_weight_g %}<span class="num text-xs text-stone-600" dir="ltr">{{ r.baby_weight_g }} g</span>{% endif %}
+        {% if r.living_children > 1 %}<span class="badge bg-stone-100 text-stone-700">{% blocktranslate with n=r.living_children %}{{ n }} عايشين{% endblocktranslate %}</span>{% endif %}
+        {% if r.place %}<span class="text-xs text-stone-600">{{ r.place }}</span>{% endif %}
+        {% if r.complications %}<span class="basis-full text-xs text-stone-700" dir="auto">{{ r.complications }}</span>{% endif %}
+        {% if r.pregnancy_id %}<span class="badge ms-auto bg-brand-soft text-brand">{% translate "اتابع هنا" %}</span>
+        {% elif can_edit %}
+        <button type="button" class="ms-auto text-xs font-semibold text-red-700 hover:underline" hx-post="{% url 'obstetrics:history_remove' r.pk %}" hx-target="#ob-panel" hx-swap="outerHTML"
+                hx-confirm="{% translate 'تشيل السطر ده من التاريخ الولادي؟' %}">{% translate "شيله" %}</button>
+        {% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <p class="px-4 py-3 text-stone-600">{% translate "مفيش حمل سابق متسجل." %}</p>
+    {% endif %}
+    {% if can_edit %}
+    <details class="group border-t border-stone-100" {% if history_form.is_bound %}open{% endif %}>
+      <summary class="flex cursor-pointer list-none items-center gap-1.5 px-4 py-2.5 font-semibold text-brand [&::-webkit-details-marker]:hidden">{% icon "plus" "size-4" %}{% translate "إضافة حمل سابق" %}</summary>
+      <form class="grid gap-3 px-4 pb-4 sm:grid-cols-3" hx-post="{% url 'obstetrics:history_add' patient.pk %}" hx-target="#ob-panel" hx-swap="outerHTML">
+        {% include "partials/field.html" with field=history_form.outcome %}
+        {% include "partials/field.html" with field=history_form.year %}
+        {% include "partials/field.html" with field=history_form.weeks %}
+        {% include "partials/field.html" with field=history_form.living_children %}
+        {% include "partials/field.html" with field=history_form.baby_sex %}
+        {% include "partials/field.html" with field=history_form.baby_weight_g %}
+        {% include "partials/field.html" with field=history_form.place %}
+        <div class="sm:col-span-2">{% include "partials/field.html" with field=history_form.complications %}</div>
+        <div class="sm:col-span-3"><button class="btn-primary">{% translate "إضافة" %}</button></div>
+      </form>
+    </details>
+    {% endif %}
+  </section>
+
+  {# ---------------------------------------------------------------- what stays true between pregnancies #}
+  <section class="card">
+    <header class="border-b border-stone-200 bg-stone-50 px-4 py-2"><h3 class="text-[13px] font-semibold text-stone-700">{% translate "بيانات نسا عامة" %}</h3></header>
+    {% if can_edit %}
+    <form class="grid gap-3 px-4 py-4 sm:grid-cols-3" hx-post="{% url 'obstetrics:profile' patient.pk %}" hx-target="#ob-panel" hx-swap="outerHTML">
+      {% include "partials/field.html" with field=profile_form.blood_group %}
+      {% include "partials/field.html" with field=profile_form.husband_blood_group %}
+      {% include "partials/field.html" with field=profile_form.contraception %}
+      {% include "partials/field.html" with field=profile_form.cycle_days %}
+      {% include "partials/field.html" with field=profile_form.cycle_regular %}
+      <div class="sm:col-span-3">{% include "partials/field.html" with field=profile_form.notes %}</div>
+      <div class="sm:col-span-3"><button class="btn-secondary">{% translate "حفظ" %}</button></div>
+    </form>
+    {% else %}
+    <dl class="grid gap-x-6 gap-y-2 px-4 py-3 sm:grid-cols-3">
+      <div><dt class="ws-label">{% translate "فصيلة الدم" %}</dt><dd dir="ltr" class="text-end">{{ ob_profile.blood_group|default:"-" }}</dd></div>
+      <div><dt class="ws-label">{% translate "فصيلة دم الزوج" %}</dt><dd dir="ltr" class="text-end">{{ ob_profile.husband_blood_group|default:"-" }}</dd></div>
+      <div><dt class="ws-label">{% translate "وسيلة منع الحمل" %}</dt><dd>{{ ob_profile.contraception|default:"-" }}</dd></div>
+    </dl>
+    {% endif %}
+  </section>
+  {% endif %}
+</div>

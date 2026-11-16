@@ -3,12 +3,15 @@
 {% block title %}{{ patient.full_name }}{% endblock %}
 {% block desk %}
 {% include "clinical/partials/header.html" %}
+{% if ob_patient %}{% include "obstetrics/partials/band.html" %}{% endif %}
 <div class="tabs" id="tabs" x-data
      @click="if ($event.target.matches('.tab')) { $el.querySelectorAll('.tab').forEach(b => b.classList.remove('is-active')); $event.target.classList.add('is-active') }">
   <button type="button" class="tab is-active" hx-get="{% url 'clinical:history' patient.pk %}" hx-target="#tab-body">{% translate "التاريخ" %}</button>
   <button type="button" class="tab" hx-get="{% url 'clinical:attachments' patient.pk %}" hx-target="#tab-body">{% translate "المرفقات" %}</button>
   <button type="button" class="tab" hx-get="{% url 'prescriptions:patient_list' patient.pk %}" hx-target="#tab-body">{% translate "الروشتات" %}</button>
   <button type="button" class="tab" hx-get="{% url 'clinical:data' patient.pk %}" hx-target="#tab-body">{% translate "البيانات" %}</button>
+  {% if ob_patient %}<button type="button" id="ob-open" class="tab" hx-get="{% url 'obstetrics:panel' patient.pk %}" hx-target="#tab-body">{% translate "ملف الحمل" %}</button>{% endif %}
 </div>
 <div id="tab-body" hx-get="{% url 'clinical:history' patient.pk %}" hx-trigger="load"></div>
+{% if ob_patient %}<script>window.openObPanel = () => document.getElementById("ob-open").click();</script>{% endif %}
 {% endblock %}

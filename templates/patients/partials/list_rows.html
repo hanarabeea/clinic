@@ -10,7 +10,7 @@
         <span class="num text-xs text-stone-500" dir="ltr">#{{ p.file_number }}</span>
         <span class="truncate font-semibold">{{ p.full_name }}</span>
         <span class="num text-stone-600" dir="ltr">{{ p.phone }}</span>
-        <span class="flex justify-end">{% if p.allergies.exists %}<span class="badge bg-red-600 text-white">{% translate "حساسية" %}</span>{% endif %}</span>
+        <span class="flex justify-end gap-1">{% if p.ga %}{% include "obstetrics/partials/ga_badge.html" with ga=p.ga %}{% endif %}{% if p.allergies.exists %}<span class="badge bg-red-600 text-white">{% translate "حساسية" %}</span>{% endif %}</span>
       </a>
     </li>
     {% empty %}

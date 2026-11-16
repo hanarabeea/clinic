@@ -38,6 +38,7 @@ def test_settings_edit_only_touches_own_org(client, org_a, org_b, make_member):
     data = {
         "org-name_ar": "اسم جديد",
         "org-name_en": "",
+        "specialty": "general",
         "clinic_name_ar": "",
         "clinic_name_en": "",
         "address_ar": "",

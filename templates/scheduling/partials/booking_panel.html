@@ -31,6 +31,7 @@ Every step swaps this panel in #modal; a booking empties #modal and the board re
       <span class="text-base font-bold">{{ patient.full_name }}</span>
       <span class="num text-xs text-stone-600" dir="ltr">#{{ patient.file_number }}</span><span class="num text-xs text-stone-600" dir="ltr">{{ patient.phone }}</span>
       {% if patient.allergies.exists %}<span class="badge bg-red-600 text-white">{% translate "حساسية" %}</span>{% endif %}
+      {% if ga %}{% include "obstetrics/partials/ga_badge.html" %}{% endif %}
       <button type="button" class="link ms-auto text-xs"
               hx-get="{% url 'scheduling:booking_panel' %}?day={{ day|date:'Y-m-d' }}&at={{ at|urlencode }}&hour={{ hour }}" hx-target="#modal">{% translate "مريض تاني" %}</button>
     </div>

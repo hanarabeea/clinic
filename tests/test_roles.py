@@ -59,7 +59,8 @@ def test_create_a_role_and_give_it_to_an_employee(client, org_a, owner, make_mem
     assert resp.status_code == 302
     nurse = ClinicRole.objects.get(organization=org_a, name="ممرضة")
     assert nurse.description == "القياسات" and nurse.key == ""
-    assert set(nurse.permissions) == {"vitals.record", "clinical.view"}
+    # the medical file brings the pregnancy week with it (IMPLIES)
+    assert set(nurse.permissions) == {"vitals.record", "clinical.view", "pregnancy.view_basic"}
 
     emp = make_member(org_a, "viewer")
     m = Membership.objects.get(user=emp)

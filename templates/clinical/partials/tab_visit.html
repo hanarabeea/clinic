@@ -22,6 +22,8 @@
   {% include "clinical/partials/visit_text.html" with name="notes" label=_("ملاحظات") value=visit.notes rows=2 chips=phrases.notes %}
   </div>
 
+  {% if ob_patient %}{% include "obstetrics/partials/antenatal.html" %}{% endif %}
+
   {% if custom %}
   <div class="grid gap-3 sm:grid-cols-2">
     {% for name, d, value in custom %}

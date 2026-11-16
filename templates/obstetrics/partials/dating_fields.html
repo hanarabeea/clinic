@@ -1,0 +1,28 @@
+{% load i18n %}
+{% comment %}How the pregnancy is dated: pick the method, fill only its fields (the others stay as they were). Used to
+start a pregnancy and to re-date one.{% endcomment %}
+<div x-data="{ method: '{{ form.method.value|default:'lmp' }}' }" class="space-y-3">
+  <div class="segmented" role="radiogroup" aria-label="{{ form.method.label }}">
+    {% for value, label in form.fields.method.choices %}
+    <label class="cursor-pointer" :class="method === '{{ value }}' && 'is-active'">
+      <input type="radio" name="method" value="{{ value }}" class="sr-only" x-model="method">{{ label }}
+    </label>
+    {% endfor %}
+  </div>
+  <div class="grid gap-3 sm:grid-cols-3" x-show="method === 'lmp'">
+    {% include "partials/field.html" with field=form.lmp %}
+    {% include "partials/field.html" with field=form.cycle_days %}
+  </div>
+  <div class="grid gap-3 sm:grid-cols-3" x-show="method === 'ultrasound'" x-cloak>
+    {% include "partials/field.html" with field=form.us_date %}
+    {% include "partials/field.html" with field=form.us_weeks %}
+    {% include "partials/field.html" with field=form.us_days %}
+  </div>
+  <div class="grid gap-3 sm:grid-cols-3" x-show="method === 'ivf'" x-cloak>
+    {% include "partials/field.html" with field=form.transfer_date %}
+    {% include "partials/field.html" with field=form.embryo_age_days %}
+  </div>
+  {% if with_fetuses %}
+  <div class="grid gap-3 sm:grid-cols-3">{% include "partials/field.html" with field=form.fetuses %}</div>
+  {% endif %}
+</div>

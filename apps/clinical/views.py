@@ -16,6 +16,8 @@ from apps.audit import services as audit
 from apps.core.ratelimit import search_limit
 from apps.core.timeutils import CAIRO
 from apps.doctors.services import get_doctor
+from apps.obstetrics import context as ob_context
+from apps.obstetrics import services as obstetrics
 from apps.patients import custom_fields
 from apps.patients.models import FieldScope, Patient
 from apps.prescriptions import services as rx_services
@@ -68,7 +70,7 @@ def _header_ctx(patient, current=None):
     previous = visits.filter(status=VisitStatus.FINISHED)
     if current is not None:
         previous = previous.exclude(pk=current.pk)
-    return {
+    ctx = {
         "patient": patient,
         "age": _age(patient),
         "allergies": list(patient.allergies.all()),
@@ -77,6 +79,9 @@ def _header_ctx(patient, current=None):
         "visit_number": (visits.filter(created_at__lte=current.created_at).count() if current else None),
         "vitals": Vitals.objects.filter(visit=current).first() if current else None,
     }
+    if obstetrics.enabled(patient.organization) and obstetrics.applies_to(patient):
+        ctx.update(ob_context.overview(patient))  # the pregnancy tag in the header + the band under it
+    return ctx
 
 
 def _queue_ctx(request):
@@ -156,6 +161,8 @@ def visit_view(request, pk):
     services.log_clinical_view(request, visit.patient)
     ctx = {**_queue_ctx(request), **_header_ctx(visit.patient, visit), **_visit_form_ctx(visit), "tab": "visit",
            **workspace.snapshot(visit)}  # fmt: skip
+    if ctx.get("ob_patient"):
+        ctx.update(ob_context.antenatal_ctx(request, visit))
     return render(request, "clinical/visit.html", ctx)
 
 

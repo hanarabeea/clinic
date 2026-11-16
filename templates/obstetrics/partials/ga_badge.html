@@ -1,0 +1,2 @@
+{% load i18n %}{% comment %}The pregnancy tag next to a patient's name on reception screens (needs pregnancy.view_basic): the month the
+way patients say it, and weeks+days the way doctors write it. Nothing else of the obstetric file.{% endcomment %}<span class="badge bg-brand-soft text-brand" title="{% translate 'حامل' %}: {{ ga.weeks_label }}. {% translate 'الولادة المتوقعة' %} {{ ga.edd|date:'j/n/Y' }}">{% icon "baby" "size-3.5" %}{{ ga.month_label }}<span class="num font-semibold" dir="ltr">{{ ga.short_label }}</span></span>
