@@ -77,7 +77,13 @@ def patient_detail(request, pk):
     if has_perm(request.membership, "payment.record"):
         from apps.billing.models import Payment
 
-        ctx["payments"] = Payment.objects.filter(appointment__patient=patient).select_related("appointment")[:20]
+        ctx["payments"] = Payment.objects.filter(patient=patient).order_by("-received_at", "-id")[:20]
+    if has_perm(request.membership, "theatre.view"):
+        from apps.theatre.models import Operation
+
+        ctx["operations"] = (
+            Operation.objects.filter(patient=patient).select_related("room").order_by("-planned_start")[:10]
+        )
     return render(request, "patients/detail.html", ctx)
 
 

@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "الشيكات" %}{% endblock %}
+{% block content %}
+{% comment %}Post-dated cheques. Issued ones wait in "أوراق الدفع" until the bank pays them; received ones in
+"أوراق القبض" until they are collected. The list opens on what is still on its way, the nearest date first.{% endcomment %}
+<div class="page-head">
+  <h1>{% translate "الخزن والسندات" %}</h1>
+  <span class="ms-auto"></span>
+  {% if can.cheque_manage %}<a href="{% url 'treasury:cheque_new' %}?direction={{ direction }}" class="btn-primary">{% icon "plus" "size-4" %}{% translate "شيك جديد" %}</a>{% endif %}
+</div>
+{% include "treasury/partials/tabs.html" %}
+{% include "treasury/partials/cheques_due.html" %}
+
+<div class="mb-4 flex flex-wrap items-center gap-3">
+  <div class="segmented">
+    {% for v, l in directions %}<a href="{% url 'treasury:cheques' %}?direction={{ v }}{% if show_all %}&all=1{% endif %}" class="{% if v == direction %}is-active{% endif %}">{{ l }}</a>{% endfor %}
+  </div>
+  <a href="{% url 'treasury:cheques' %}?direction={{ direction }}{% if not show_all %}&all=1{% endif %}" class="link text-sm">{% if show_all %}{% translate "اللي لسه في الطريق بس" %}{% else %}{% translate "كل الشيكات" %}{% endif %}</a>
+  <span class="ms-auto text-sm text-stone-600">{% translate "لسه في الطريق" %} <b class="num text-ink" dir="ltr">{{ open_total|money0 }}</b></span>
+</div>
+
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th class="w-28">{% translate "يستحق" %}</th><th>{% translate "الشيك" %}</th><th>{% translate "الطرف" %}</th><th>{% translate "الحالة" %}</th><th class="text-end!">{% translate "المبلغ" %}</th></tr></thead>
+    <tbody>
+      {% for c in rows %}
+      <tr class="{% if not c.is_open %}text-stone-500{% endif %}">
+        <td class="num {% if c.late %}font-semibold text-red-700{% else %}text-stone-600{% endif %}" dir="ltr">{{ c.due_date|date:"d/m/Y" }}</td>
+        <td><a href="{% url 'treasury:cheque' c.pk %}" class="num font-semibold hover:text-brand" dir="ltr">{{ c.number }}</a> <span class="text-xs text-stone-600">{{ c.bank_name }}</span></td>
+        <td>{{ c.party_name }}</td>
+        <td class="text-stone-600">{{ c.get_status_display }}</td>
+        <td class="num text-end font-semibold" dir="ltr">{{ c.amount|money0 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="py-10! text-center text-stone-600">{% translate "مفيش شيكات هنا." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

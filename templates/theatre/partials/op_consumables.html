@@ -1,0 +1,36 @@
+{% load i18n %}
+{% comment %}What was used in the case. A store item leaves the store when it is added here and goes back when the
+line is taken off; anything else is written as free text.{% endcomment %}
+<div id="op-consumables" class="max-w-2xl">
+  {% if error %}<p class="notice notice-danger mb-3 font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ error }}</p>{% endif %}
+  <ul class="card divide-y divide-stone-100">
+    {% for c in consumables %}
+    <li class="flex items-center gap-3 px-4 py-2 text-sm">
+      <span class="font-semibold">{{ c.name }}</span>
+      <span class="num text-stone-700" dir="ltr">{{ c.quantity|floatformat:"-2" }}</span>{% if c.unit %}<span class="text-stone-600">{{ c.unit }}</span>{% endif %}
+      {% if c.item_id %}<span class="text-xs text-stone-600">{% translate "من المخزن" %}</span>{% endif %}
+      {% if can.theatre_operate and editable %}
+      <button type="button" class="btn-icon ms-auto size-7 hover:bg-red-50 hover:text-red-700" aria-label="{% translate 'شيل الصنف' %}"
+              hx-post="{% url 'theatre:consumable_remove' c.pk %}" hx-target="#op-consumables" hx-swap="outerHTML">{% icon "x" "size-4" %}</button>
+      {% endif %}
+    </li>
+    {% empty %}
+    <li class="px-4 py-6 text-center text-sm text-stone-600">{% translate "لسه مفيش مستلزمات متسجلة." %}</li>
+    {% endfor %}
+  </ul>
+  {% if can.theatre_operate and editable %}
+  {% if kit %}
+  <button type="button" class="btn-secondary mt-4" hx-post="{% url 'theatre:consumable_kit' op.pk %}" hx-target="#op-consumables" hx-swap="outerHTML"
+          hx-confirm="{% translate 'تصرف المستلزمات المعتادة للعملية دي من المخزن؟' %}">{% icon "package" "size-4" %}{% translate "صرف المستلزمات المعتادة" %}</button>
+  {% endif %}
+  <form class="mt-4 flex flex-wrap items-end gap-3" hx-post="{% url 'theatre:consumable_add' op.pk %}" hx-target="#op-consumables" hx-swap="outerHTML">
+    {% if stock_items %}
+    <div class="form-field min-w-48 flex-1"><label for="c-item">{% translate "صنف من المخزن" %}</label>
+      <select id="c-item" name="item" class="input"><option value="">{% translate "مش من المخزن (اكتب الاسم)" %}</option>{% for i in stock_items %}<option value="{{ i.pk }}">{{ i.name }} ({{ i.unit }})</option>{% endfor %}</select></div>
+    {% endif %}
+    <div class="form-field min-w-40 flex-1"><label for="c-name">{% if stock_items %}{% translate "أو اسم الصنف" %}{% else %}{% translate "الصنف" %}{% endif %}</label><input id="c-name" type="text" name="name" maxlength="120" {% if not stock_items %}required{% endif %}></div>
+    <div class="form-field w-24"><label for="c-qty">{% translate "الكمية" %}</label><input id="c-qty" type="text" name="quantity" value="1" inputmode="decimal" dir="ltr"></div>
+    <button class="btn-secondary">{% icon "plus" "size-4" %}{% translate "إضافة" %}</button>
+  </form>
+  {% endif %}
+</div>

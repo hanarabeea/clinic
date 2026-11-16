@@ -1,0 +1,20 @@
+{% comment %}Pages whose actions answer over HTMX (the reception board, the emergency log, the doctor's workspace): show
+the server's `toast` event, and let Escape close the dialog in #modal.{% endcomment %}
+<script>
+  document.body.addEventListener("toast", (e) => {
+    const box = document.createElement("div");
+    box.className = "pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-4";
+    box.style.bottom = document.getElementById("action-bar") ? "4.5rem" : "1rem";  // clear of a fixed action bar
+    box.setAttribute("role", "status");
+    const toast = document.createElement("div");
+    toast.className = "toast pointer-events-auto" + (e.detail.error ? " is-error" : "");
+    toast.textContent = e.detail.text;
+    box.appendChild(toast);
+    document.body.appendChild(box);
+    setTimeout(() => box.remove(), 5000);
+  });
+  document.addEventListener("keydown", (e) => {
+    const modal = document.getElementById("modal");
+    if (e.key === "Escape" && modal) modal.innerHTML = "";
+  });
+</script>

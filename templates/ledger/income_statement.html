@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "قائمة الدخل" %}{% endblock %}
+{% block content %}
+{% comment %}What was earned and spent in the period, and what is left. Press an amount to see the entries behind it.{% endcomment %}
+<div class="page-head"><h1>{% translate "الحسابات" %}</h1></div>
+{% include "ledger/partials/tabs.html" %}
+{% url 'ledger:income_statement' as action %}
+{% include "ledger/partials/range.html" %}
+
+<form method="get" class="mb-4 flex flex-wrap items-center gap-2 print:hidden">
+  <input type="hidden" name="from" value="{{ start|date:'Y-m-d' }}"><input type="hidden" name="to" value="{{ end|date:'Y-m-d' }}">
+  <select name="center" class="input h-9 w-auto py-0" aria-label="{% translate 'مركز التكلفة' %}" onchange="this.form.submit()">
+    <option value="">{% translate "كل الأقسام" %}</option>
+    {% for c in centers %}<option value="{{ c.pk }}" {% if center and c.pk == center.pk %}selected{% endif %}>{{ c.name_ar }}</option>{% endfor %}
+  </select>
+  <select name="compare" class="input h-9 w-auto py-0" aria-label="{% translate 'المقارنة' %}" onchange="this.form.submit()">
+    {% for v, l in compare_choices %}<option value="{{ v }}" {% if v == compare %}selected{% endif %}>{{ l }}</option>{% endfor %}
+  </select>
+</form>
+
+{% with compared=st.compare_start drill="?from="|add:start_s|add:"&to="|add:end_s %}
+<div class="card max-w-3xl overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>{% translate "البند" %}</th>
+        <th class="text-end!">{% translate "الفترة" %}</th>
+        {% if compared %}<th class="text-end!"><span class="num" dir="ltr">{{ st.compare_start|date:"d/m/y" }} - {{ st.compare_end|date:"d/m/y" }}</span></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% include "ledger/partials/statement_section.html" with section=st.revenue %}
+      {% include "ledger/partials/statement_section.html" with section=st.expenses %}
+    </tbody>
+    <tfoot>
+      <tr class="border-t-2 border-stone-400 bg-stone-50 text-[15px] font-bold">
+        <td class="px-3 py-2.5">{% if st.net < 0 %}{% translate "صافي الخسارة" %}{% else %}{% translate "صافي الربح" %}{% endif %}</td>
+        <td class="num px-3 py-2.5 text-end {% if st.net < 0 %}text-red-700{% endif %}" dir="ltr">{{ st.net|money0 }}</td>
+        {% if compared %}<td class="num px-3 py-2.5 text-end text-stone-600" dir="ltr">{{ st.compare_net|money0 }}</td>{% endif %}
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{% endwith %}
+
+{% if by_center %}
+<h2 class="section-title mt-8">{% translate "حسب القسم" %}</h2>
+<div class="card max-w-3xl overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th>{% translate "القسم" %}</th><th class="text-end!">{% translate "الإيرادات" %}</th><th class="text-end!">{% translate "المصروفات" %}</th><th class="text-end!">{% translate "الصافي" %}</th></tr></thead>
+    <tbody>
+      {% for row in by_center %}
+      <tr>
+        <td><a href="{% url 'ledger:income_statement' %}?from={{ start|date:'Y-m-d' }}&to={{ end|date:'Y-m-d' }}&center={{ row.center.pk }}" class="font-semibold hover:text-brand">{{ row.center.name_ar }}</a></td>
+        <td class="num text-end" dir="ltr">{{ row.revenue|money0 }}</td>
+        <td class="num text-end" dir="ltr">{{ row.expenses|money0 }}</td>
+        <td class="num text-end font-semibold {% if row.net < 0 %}text-red-700{% endif %}" dir="ltr">{{ row.net|money0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

@@ -11,7 +11,8 @@
     <li class="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
       <span class="num" dir="ltr">{{ appt.start_at|date:"H:i" }}</span>
       <span class="font-semibold">{{ appt.patient.full_name }}</span>
-      <span class="text-stone-500">{{ appt.visit_type.name_ar }}</span>
+      <span class="text-stone-600">{{ appt.visit_type.name_ar }}</span>
+      {% if several %}<span class="text-stone-600">{{ appt.doctor }}</span>{% endif %}
       {% if suggestion %}
       <span class="flex items-center gap-1 text-brand">{% icon "caret-left" "size-4" %}{% translate "مقترح" %}: <b dir="ltr">{{ suggestion.day|date:"Y/m/d" }} {{ suggestion.start_at|date:"H:i" }}</b></span>
       <form method="post" action="{% url 'scheduling:affected_reschedule' appt.pk %}" class="ms-auto">

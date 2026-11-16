@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load i18n money clock %}
+{% block title %}{% translate "شيك" %} {{ cheque.number }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'treasury:cheques' %}?direction={{ cheque.direction }}" class="btn-icon" aria-label="{% translate 'رجوع للشيكات' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{% translate "شيك" %} <span class="num" dir="ltr">{{ cheque.number }}</span></h1>
+    <p class="page-sub">{{ cheque.get_direction_display }}{% if cheque.party_name %}، {{ cheque.party_name }}{% endif %}</p>
+  </div>
+</div>
+
+<dl class="card mb-5 grid divide-stone-200 text-sm sm:grid-cols-4 sm:divide-x sm:rtl:divide-x-reverse">
+  <div class="px-4 py-3"><dt class="text-xs text-stone-600">{% translate "الحالة" %}</dt><dd class="font-bold">{{ cheque.get_status_display }}</dd></div>
+  <div class="px-4 py-3"><dt class="text-xs text-stone-600">{% translate "المبلغ" %}</dt><dd class="font-semibold"><span class="num" dir="ltr">{{ cheque.amount|money0 }}</span></dd></div>
+  <div class="px-4 py-3"><dt class="text-xs text-stone-600">{% translate "يستحق" %}</dt><dd class="font-semibold"><span class="num" dir="ltr">{{ cheque.due_date|date:"d/m/Y" }}</span></dd></div>
+  <div class="px-4 py-3"><dt class="text-xs text-stone-600">{% translate "البنك" %}</dt><dd class="font-semibold">{{ cheque.bank.name|default:cheque.bank_name|default:"-" }}</dd></div>
+</dl>
+{% if payment %}<p class="mb-4 text-sm text-stone-600">{% translate "ده شيك" %} <a class="link num" dir="ltr" href="{% url 'purchasing:payment' payment.pk %}">{{ payment.label }}</a>. {% translate "إلغاؤه بيلغي السداد ويرجّع المبلغ على حساب المورد." %}</p>{% endif %}
+{% if cheque.notes %}<p class="mb-4 text-sm text-stone-700">{{ cheque.notes }}</p>{% endif %}
+
+{% if can.cheque_manage and steps %}
+<div class="mb-6 flex flex-wrap items-end gap-2">
+  {% for value, label in steps %}
+  <form method="post" action="{% url 'treasury:cheque_move' cheque.pk %}" class="flex items-end gap-2" {% if value == "cancelled" or value == "returned" or value == "bounced" %}onsubmit="return confirm('{{ label }}؟')"{% endif %}>
+    {% csrf_token %}
+    <input type="hidden" name="to" value="{{ value }}">
+    {% if value == "deposited" or value == "collected" and not cheque.bank %}
+    <select name="bank" class="input h-9 w-44 py-0" aria-label="{% translate 'الحساب البنكي' %}" required>{% for b in banks %}<option value="{{ b.pk }}">{{ b.name }}</option>{% endfor %}</select>
+    {% endif %}
+    {% if value == "endorsed" %}
+    <select name="supplier" class="input h-9 w-44 py-0" aria-label="{% translate 'المورد' %}" required><option value="">{% translate "اختار المورد" %}</option>{% for s in suppliers %}<option value="{{ s.pk }}">{{ s.name }}</option>{% endfor %}</select>
+    {% endif %}
+    <button class="{% if forloop.first %}btn-primary{% else %}btn-secondary{% endif %} min-h-9 px-3 py-0">{{ label }}</button>
+  </form>
+  {% endfor %}
+</div>
+{% endif %}
+
+<h2 class="section-title">{% translate "السجل" %}</h2>
+<ul class="card divide-y divide-stone-100 text-sm">
+  {% for e in events %}
+  <li class="flex flex-wrap items-center gap-2 px-4 py-2.5 {% if e.undone %}text-stone-500 line-through{% endif %}">
+    <span class="num text-stone-600" dir="ltr">{{ e.at|date:"d/m/Y" }} {{ e.at|ampm }}</span>
+    <span class="font-semibold">{% if e.is_undo %}{% translate "رجوع خطوة" %}{% else %}{{ e.get_to_status_display|default:e.to_status }}{% endif %}</span>
+    {% if e.notes %}<span class="text-stone-600">{{ e.notes }}</span>{% endif %}
+    <span class="ms-auto text-xs text-stone-600">{{ e.by.full_name|default:e.by.username }}{% if e.entry and can.ledger_view %}، {% translate "قيد" %} <a class="link num" dir="ltr" href="{% url 'ledger:entry' e.entry.pk %}">{{ e.entry.number }}</a>{% endif %}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% if can.cheque_manage and can_undo %}
+<form method="post" action="{% url 'treasury:cheque_undo' cheque.pk %}" class="mt-3" onsubmit="return confirm('{% translate 'ترجع في آخر خطوة؟ قيدها هيتعكس.' %}')">{% csrf_token %}
+  <button class="btn-ghost min-h-8 px-2.5 py-1 text-xs">{% icon "arrow-u-up-left" "size-4" %}{% translate "رجوع في آخر خطوة" %}</button>
+</form>
+{% endif %}
+{% endblock %}

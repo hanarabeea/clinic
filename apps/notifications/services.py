@@ -149,6 +149,44 @@ def enqueue(*, appt, template, event, send_at, context=None, by=None, ns=None, k
     return rows
 
 
+def enqueue_for_patient(*, org, patient, event, send_at, context, key, by=None):
+    """Outbox rows for a message that hangs off no appointment (an operation). `context` holds everything the text
+    needs, fixed at the moment it is planned; `key` makes it idempotent. Same consent / quiet-hours rules."""
+    ns = NotificationSettings.for_org(org)
+    tpls = list(NotificationTemplate.objects.filter(organization=org, event=event).order_by("order", "id"))
+    template = next((t for t in tpls if t.is_enabled), tpls[0] if tpls else None)
+    if template is None:
+        return []
+    channels = channels_for(template, patient, ns)
+    forced_reason = ""
+    if not channels:
+        channels, forced_reason = [MessageChannel.WHATSAPP], _("المريض مختار من غير رسايل")
+    send_at, quiet_reason = apply_quiet(send_at, ns, event=event)
+    rows = []
+    for channel in channels:
+        recipient = recipient_for(patient, channel)
+        reason = forced_reason or _blocking_reason(ns, template, patient, recipient) or quiet_reason
+        row, _created = ScheduledMessage.objects.get_or_create(
+            dedupe_key=f"{key}:{channel}",
+            defaults={
+                "organization": org,
+                "patient": patient,
+                "template": template,
+                "event": event,
+                "channel": channel,
+                "recipient": recipient,
+                "send_at": send_at,
+                "next_attempt_at": send_at,
+                "status": MessageStatus.SKIPPED if reason else MessageStatus.PENDING,
+                "status_reason": reason,
+                "context": context or {},
+                "created_by": by,
+            },
+        )
+        rows.append(row)
+    return rows
+
+
 def _templates(org, event, booking_mode):
     return [
         t

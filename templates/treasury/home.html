@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load i18n money clock %}
+{% block title %}{% translate "الخزن والسندات" %}{% endblock %}
+{% block content %}
+{% comment %}Where the money is. Each balance is the treasury account's posted balance, so this screen and the books
+are the same number by construction.{% endcomment %}
+<div class="page-head">
+  <h1>{% translate "الخزن والسندات" %}</h1>
+  <span class="ms-auto"></span>
+  {% if can.treasury_operate %}<a href="{% url 'treasury:voucher_new' %}" class="btn-primary">{% icon "plus" "size-4" %}{% translate "سند جديد" %}</a>{% endif %}
+</div>
+{% include "treasury/partials/tabs.html" %}
+{% include "treasury/partials/cheques_due.html" %}
+
+{% for count in pending %}
+<div class="notice notice-warn mb-4 flex-wrap items-center">
+  {% icon "warning" "size-5 shrink-0" %}
+  <span>{% blocktranslate with t=count.treasury.name %}فرق في جرد {{ t }}:{% endblocktranslate %}
+    <b class="num" dir="ltr">{{ count.difference|money0 }}</b>
+    {% if count.difference < 0 %}({% translate "عجز" %}){% else %}({% translate "زيادة" %}){% endif %}،
+    {% translate "عدّها" %} {{ count.counted_by.full_name|default:count.counted_by.username }}</span>
+  {% if count.can_approve %}
+  <form method="post" action="{% url 'treasury:approve_variance' count.pk %}" class="ms-auto" onsubmit="return confirm('{% translate 'تعتمد الفرق ده؟ هيتسجل على حساب عجز وزيادة الخزينة.' %}')">{% csrf_token %}
+    <button class="btn-secondary min-h-8 px-3 py-1 text-xs">{% translate "اعتمد الفرق" %}</button>
+  </form>
+  {% else %}<span class="ms-auto text-xs">{% translate "مستني اعتماد حد غير اللي عدّ" %}</span>{% endif %}
+</div>
+{% endfor %}
+
+<div class="stat-strip mb-4">
+  <div class="stat"><div class="stat-label">{% translate "كاش في الخزن والأدراج" %}</div><div class="stat-value" dir="ltr">{{ total_cash|money0 }}</div></div>
+  <div class="stat"><div class="stat-label">{% translate "بنوك وتحصيل إلكتروني" %}</div><div class="stat-value" dir="ltr">{{ total_other|money0 }}</div></div>
+</div>
+
+<div class="card mb-8 overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>{% translate "الخزينة" %}</th>
+        <th>{% translate "النوع" %}</th>
+        <th class="text-end!">{% translate "الرصيد" %}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in treasuries %}
+      <tr class="{% if not t.is_active %}text-stone-500{% endif %}">
+        <td>
+          <a href="{% url 'treasury:movement' t.pk %}" class="font-semibold hover:text-brand">{{ t.name }}</a>
+          {% if not t.is_active %}<span class="badge bg-stone-200 text-stone-700">{% translate "متوقفة" %}</span>{% endif %}
+          {% if t.shift %}<span class="block text-xs text-stone-600">{% translate "وردية مفتوحة من" %} <span class="num" dir="ltr">{{ t.shift.opened_at|ampm }}</span></span>{% endif %}
+        </td>
+        <td class="text-stone-600">{{ t.get_kind_display }}</td>
+        <td class="num text-end font-semibold {% if t.balance < 0 %}text-red-700{% endif %}" dir="ltr">{{ t.balance|money0 }}</td>
+        <td>
+          <div class="flex items-center justify-end gap-1">
+            {% if can.treasury_count and t.holds_cash and t.is_active %}<a href="{% url 'treasury:surprise_count' t.pk %}" class="btn-ghost min-h-8 px-2.5 py-1 text-xs">{% translate "جرد مفاجئ" %}</a>{% endif %}
+            {% if can.accounts_manage %}<a href="{% url 'treasury:edit' t.pk %}" class="btn-icon size-7" aria-label="{% translate 'تعديل الخزينة' %}">{% icon "pencil-simple" "size-4" %}</a>{% endif %}
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if can.accounts_manage %}<p class="-mt-5 mb-8"><a href="{% url 'treasury:add' %}" class="link text-sm">{% translate "إضافة خزينة أو حساب بنكي" %}</a></p>{% endif %}
+
+{% if vouchers %}
+<h2 class="section-title">{% translate "آخر السندات" %}</h2>
+{% include "treasury/partials/voucher_table.html" %}
+{% endif %}
+{% endblock %}

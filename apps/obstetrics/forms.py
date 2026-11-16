@@ -2,7 +2,7 @@ from django import forms
 from django.utils.translation import gettext_lazy as _
 
 from . import calc
-from .models import BabySex, EddMethod, ObstetricProfile, Outcome, RiskLevel
+from .models import BabySex, EddMethod, Milestone, ObstetricProfile, Outcome, RiskLevel
 from .services import Dating
 
 DATE = forms.DateInput(attrs={"type": "date"}, format="%Y-%m-%d")
@@ -87,3 +87,29 @@ class ProfileForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.instance.pk and self.instance.cycle_regular is not None:
             self.initial["cycle_regular"] = "1" if self.instance.cycle_regular else "0"
+
+
+class MilestoneForm(forms.ModelForm):
+    class Meta:
+        model = Milestone
+        fields = ["name", "kind", "from_week", "to_week", "rh_negative_only", "is_active"]
+
+    def __init__(self, *args, org=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.org = org
+        for name in ("from_week", "to_week"):
+            self.fields[name].widget.attrs.update({"dir": "ltr", "inputmode": "numeric"})
+
+    def clean(self):
+        data = super().clean()
+        first, last = data.get("from_week"), data.get("to_week")
+        if first is not None and last is not None and last < first:
+            self.add_error("to_week", _("آخر أسبوع لازم يكون بعد أول أسبوع."))
+        name = " ".join((data.get("name") or "").split())
+        if name and Milestone.objects.filter(organization=self.org, name=name).exclude(pk=self.instance.pk).exists():
+            self.add_error("name", _("فيه محطة بنفس الاسم."))
+        data["name"] = name
+        return data
+
+    def validate_unique(self):
+        pass  # checked per clinic above (the form has no organization field)

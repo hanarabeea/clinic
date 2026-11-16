@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load i18n clock money %}
+{% block title %}{% translate "الإقامة" %}{% endblock %}
+{% block content %}
+{% comment %}Rooms with beds: who is in each, since when, and how many beds are free. Then the latest stays.{% endcomment %}
+<div class="page-head">
+  <h1>{% translate "العمليات والإقامة" %}</h1>
+  <span class="ms-auto"></span>
+  {% if can.admission_manage %}<a href="{% url 'theatre:admit' %}" class="btn-primary">{% icon "plus" "size-4" %}{% translate "دخول مريضة" %}</a>{% endif %}
+</div>
+{% include "theatre/partials/tabs.html" with tab="admissions" %}
+
+<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+  {% for room in rooms %}
+  <section class="card overflow-hidden">
+    <h2 class="flex items-baseline gap-2 border-b border-stone-200 px-4 py-2.5 text-[15px] font-bold">{{ room.name }}
+      <span class="ms-auto text-xs font-normal text-stone-600">{% if room.free %}{% blocktranslate count n=room.free %}سرير فاضي{% plural %}{{ n }} سراير فاضية{% endblocktranslate %}{% else %}{% translate "مليانة" %}{% endif %}</span>
+    </h2>
+    <ul class="divide-y divide-stone-100">
+      {% for a in room.patients %}
+      <li class="px-4 py-3 text-sm">
+        <p class="font-bold">{{ a.patient.full_name }}</p>
+        <p class="text-stone-600">{% translate "من" %} <span class="num" dir="ltr">{{ a.admitted_at|date:"d/m" }} {{ a.admitted_at|ampm }}</span>{% if a.operation %}، {{ a.operation.procedure_name }}{% endif %}</p>
+        {% if can.admission_manage %}<a href="{% url 'theatre:discharge' a.pk %}" class="link mt-1 inline-block text-xs">{% translate "خروج" %}</a>{% endif %}
+      </li>
+      {% empty %}
+      <li class="px-4 py-6 text-center text-sm text-stone-500">{% translate "فاضية" %}</li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% empty %}
+  <p class="card px-4 py-10 text-center text-sm text-stone-600 md:col-span-2 xl:col-span-3">{% translate "مفيش غرف إقامة متعرّفة." %}{% if can.settings_manage %} <a class="link" href="{% url 'theatre:setup' %}">{% translate "ضيفها من الإعدادات" %}</a>{% endif %}</p>
+  {% endfor %}
+</div>
+
+{% if past %}
+<h2 class="section-title mt-8">{% translate "آخر اللي خرجوا" %}</h2>
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th>{% translate "المريضة" %}</th><th>{% translate "الغرفة" %}</th><th>{% translate "دخلت" %}</th><th>{% translate "خرجت" %}</th><th class="text-end!">{% translate "ليالي" %}</th><th></th></tr></thead>
+    <tbody>
+      {% for a in past %}
+      <tr class="{% if a.status == 'cancelled' %}text-stone-500 line-through{% endif %}">
+        <td class="font-semibold">{{ a.patient.full_name }}</td>
+        <td>{{ a.room.name }}</td>
+        <td class="num text-stone-600" dir="ltr">{{ a.admitted_at|date:"d/m/Y" }}</td>
+        <td class="num text-stone-600" dir="ltr">{{ a.discharged_at|date:"d/m/Y" }}</td>
+        <td class="num text-end" dir="ltr">{% if a.status == "discharged" %}{{ a.nights }}{% endif %}</td>
+        <td class="text-end">{% if can.clinical_view and a.status == "discharged" %}<a href="{% url 'theatre:discharge_pdf' a.pk %}" target="_blank" rel="noopener" class="btn-ghost min-h-8 px-2.5 py-1 text-xs">{% icon "printer" "size-4" %}{% translate "ملخص الخروج" %}</a>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

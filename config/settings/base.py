@@ -39,6 +39,13 @@ INSTALLED_APPS = [
     "apps.reception",
     "apps.prescriptions",
     "apps.obstetrics",
+    "apps.center",
+    "apps.ledger",
+    "apps.treasury",
+    "apps.theatre",
+    "apps.invoicing",
+    "apps.purchasing",
+    "apps.inventory",
 ]
 
 X_FRAME_OPTIONS = "SAMEORIGIN"  # the prescription print iframe (05 §5.4); other sites still can't frame us
@@ -188,3 +195,6 @@ LOGGING = {
 }
 
 TESTING = False  # tests flip this (skips background Chromium warm-up)
+# A visit's invoice is made behind the scenes (apps/invoicing sync_quietly). Normally a refusal there is logged and
+# the visit goes on; with this on it is raised instead (tests turn it on so a bug never hides).
+INVOICING_STRICT = False

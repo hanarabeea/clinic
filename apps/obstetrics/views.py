@@ -18,7 +18,7 @@ from apps.audit import services as audit
 from apps.clinical.models import Visit
 from apps.clinical.services import log_clinical_view
 from apps.clinical.views import desk_unlocked
-from apps.doctors.services import get_doctor
+from apps.doctors.services import current_doctor
 from apps.patients.models import Patient
 
 from . import services
@@ -172,7 +172,7 @@ def pregnancy_start(request, pk):
         return _panel(request, patient, error=_form_error(form), forms={"dating": form})
     try:
         pregnancy = services.start_pregnancy(
-            patient, form.dating(), by=request.user, doctor=get_doctor(request.organization),
+            patient, form.dating(), by=request.user, doctor=current_doctor(request),
             fetuses=form.cleaned_data.get("fetuses") or 1,
         )  # fmt: skip
     except services.ObstetricError as e:
@@ -326,3 +326,41 @@ def antenatal_field(request, pk):
     except ValidationError as e:
         return render(request, "clinical/partials/autosave.html", {"error": " ".join(e.messages)})
     return render(request, "clinical/partials/autosave.html", {"saved_at": timezone.now()})
+
+
+# --- the clinic's follow-up schedule (Settings → متابعة الحمل) -----------------------------------------------------
+
+
+def _obgyn_or_404(request):
+    if not services.enabled(request.organization):
+        raise Http404
+
+
+@require_perm("settings.manage")
+def milestones(request):
+    """The list every pregnancy is checked against: what is due in which weeks. Rows are switched off, not deleted
+    (pregnancies already ticked them)."""
+    _obgyn_or_404(request)
+    org = request.organization
+    services.ensure_milestones(org)
+    ctx = {"milestones": Milestone.objects.for_org(org).order_by("from_week", "order", "id"), "tab": "pregnancy"}
+    return render(request, "obstetrics/milestones.html", ctx)
+
+
+@require_perm("settings.manage")
+def milestone_edit(request, pk=None):
+    from django.shortcuts import redirect
+
+    from .forms import MilestoneForm
+
+    _obgyn_or_404(request)
+    org = request.organization
+    milestone = get_object_or_404(Milestone.objects.for_org(org), pk=pk) if pk else None
+    form = MilestoneForm(request.POST or None, instance=milestone, org=org)
+    if request.method == "POST" and form.is_valid():
+        obj = form.save(commit=False)
+        obj.organization = org
+        obj.save()
+        audit.log("obstetrics.milestone", request=request, target=obj, summary=obj.name)
+        return redirect("obstetrics:milestones")
+    return render(request, "obstetrics/milestone_form.html", {"form": form, "milestone": milestone, "tab": "pregnancy"})

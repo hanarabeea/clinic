@@ -1,0 +1,8 @@
+{% load i18n %}
+<nav class="tabs print:hidden">
+  <a href="{% url 'dashboard:reports' %}" class="tab {% if tab == 'summary' %}is-active{% endif %}">{% translate "ملخص" %}</a>
+  <a href="{% url 'invoicing:report_revenue' %}" class="tab {% if tab == 'revenue' %}is-active{% endif %}">{% translate "الإيراد حسب الدكتور والخدمة" %}</a>
+  <a href="{% url 'invoicing:report_operations' %}" class="tab {% if tab == 'operations' %}is-active{% endif %}">{% translate "ربحية العمليات" %}</a>
+  <a href="{% url 'invoicing:report_receivables' %}" class="tab {% if tab == 'receivables' %}is-active{% endif %}">{% translate "مديونيات المرضى" %}</a>
+  <a href="{% url 'invoicing:report_cash' %}" class="tab {% if tab == 'cash' %}is-active{% endif %}">{% translate "حركة النقدية" %}</a>
+</nav>

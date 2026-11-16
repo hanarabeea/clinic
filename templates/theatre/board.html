@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load i18n clock %}
+{% block title %}{% translate "العمليات" %}{% endblock %}
+{% block content %}
+{% comment %}The day in the center: each theatre room with its operations in order, then who is admitted. The week
+view is the same list, a column per day.{% endcomment %}
+<div class="page-head">
+  <h1>{% translate "العمليات والإقامة" %}</h1>
+  <span class="ms-auto"></span>
+  {% if can.theatre_schedule %}<a href="{% url 'theatre:operation_new' %}?date={{ day|date:'Y-m-d' }}" class="btn-primary">{% icon "plus" "size-4" %}{% translate "عملية جديدة" %}</a>{% endif %}
+</div>
+{% include "theatre/partials/tabs.html" with tab="board" %}
+
+<div class="mb-5 flex flex-wrap items-center gap-2">
+  <div class="segmented">
+    <a href="{% url 'theatre:board' %}?date={{ day|date:'Y-m-d' }}" class="{% if view == 'day' %}is-active{% endif %}">{% translate "اليوم" %}</a>
+    <a href="{% url 'theatre:board' %}?view=week&date={{ day|date:'Y-m-d' }}" class="{% if view == 'week' %}is-active{% endif %}">{% translate "الأسبوع" %}</a>
+  </div>
+  <div class="flex items-center">
+    <a href="{% url 'theatre:board' %}?view={{ view }}&date={{ prev_day|date:'Y-m-d' }}" class="btn-icon" aria-label="{% translate 'اللي قبله' %}">{% icon "caret-right" %}</a>
+    <span class="min-w-36 text-center text-[15px] font-bold">{{ title }}</span>
+    <a href="{% url 'theatre:board' %}?view={{ view }}&date={{ next_day|date:'Y-m-d' }}" class="btn-icon" aria-label="{% translate 'اللي بعده' %}">{% icon "caret-left" %}</a>
+  </div>
+  {% if day != today %}<a href="{% url 'theatre:board' %}?view={{ view }}" class="btn-secondary min-h-8 px-3 py-1">{% translate "النهارده" %}</a>{% endif %}
+</div>
+
+{% if view == "week" %}
+<div class="grid gap-3 md:grid-cols-2 xl:grid-cols-7">
+  {% for col in columns %}
+  <section class="card min-w-0 {% if col.is_today %}border-brand/40{% endif %}">
+    <h2 class="border-b border-stone-200 px-3 py-2 text-sm font-bold"><a href="{% url 'theatre:board' %}?date={{ col.day|date:'Y-m-d' }}" class="hover:text-brand">{{ col.label }} <span class="num font-normal text-stone-600" dir="ltr">{{ col.day|date:"d/m" }}</span></a></h2>
+    <ul class="divide-y divide-stone-100 text-sm">
+      {% for op in col.operations %}
+      <li class="px-3 py-2 {% if op.status == 'done' %}text-stone-500{% endif %}">
+        <a href="{% url 'theatre:operation' op.pk %}" class="block hover:text-brand">
+          <span class="num font-semibold" dir="ltr">{{ op.planned_start|ampm }}</span> <span class="text-xs text-stone-600">{{ op.room.name }}</span>
+          <span class="block truncate font-semibold">{{ op.patient.full_name }}</span>
+          <span class="block truncate text-xs text-stone-600">{{ op.procedure_name }}</span>
+        </a>
+      </li>
+      {% empty %}
+      <li class="px-3 py-4 text-center text-xs text-stone-500">{% translate "مفيش" %}</li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="space-y-5">
+  {% for block in rooms %}
+  <section class="card overflow-hidden">
+    <h2 class="flex items-center gap-2 border-b border-stone-200 px-4 py-2.5 text-[15px] font-bold">{{ block.room.name }}
+      {% if can.theatre_schedule and day >= today %}<a href="{% url 'theatre:operation_new' %}?date={{ day|date:'Y-m-d' }}&room={{ block.room.pk }}" class="link ms-auto text-xs font-semibold">{% translate "احجز هنا" %}</a>{% endif %}
+    </h2>
+    <ul class="divide-y divide-stone-100">
+      {% for op in block.operations %}{% include "theatre/partials/op_row.html" %}
+      {% empty %}<li class="px-4 py-6 text-center text-sm text-stone-600">{% translate "مفيش عمليات في الغرفة دي اليوم ده." %}</li>{% endfor %}
+    </ul>
+  </section>
+  {% empty %}
+  <p class="card px-4 py-10 text-center text-sm text-stone-600">{% translate "مفيش غرف عمليات متعرّفة." %}{% if can.settings_manage %} <a class="link" href="{% url 'theatre:setup' %}">{% translate "ضيفها من الإعدادات" %}</a>{% endif %}</p>
+  {% endfor %}
+
+  {% if waiting %}
+  <section class="card overflow-hidden">
+    <h2 class="border-b border-stone-200 px-4 py-2.5 text-[15px] font-bold">{% translate "متأجلة ومستنية ميعاد" %}</h2>
+    <ul class="divide-y divide-stone-100">
+      {% for op in waiting %}
+      <li class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm">
+        <a href="{% url 'theatre:operation' op.pk %}" class="font-bold hover:text-brand">{{ op.patient.full_name }}</a>
+        <span class="text-stone-700">{{ op.procedure_name }}</span>
+        <span class="text-stone-600">{{ op.surgeon }}</span>
+        {% if can.theatre_schedule %}<a href="{% url 'theatre:operation_move' op.pk %}" class="btn-secondary ms-auto min-h-8 px-3 py-1 text-xs">{% translate "احجز ميعاد جديد" %}</a>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% if cancelled %}
+  <p class="text-sm text-stone-600">{% translate "اتلغى اليوم ده:" %} {% for op in cancelled %}<a class="hover:text-brand" href="{% url 'theatre:operation' op.pk %}">{{ op.patient.full_name }} ({{ op.procedure_name }})</a>{% if not forloop.last %}، {% endif %}{% endfor %}</p>
+  {% endif %}
+
+  {% if admitted %}
+  <section class="card overflow-hidden">
+    <h2 class="flex items-center gap-2 border-b border-stone-200 px-4 py-2.5 text-[15px] font-bold">{% translate "مقيمين دلوقتي" %}
+      <a href="{% url 'theatre:admissions' %}" class="link ms-auto text-xs font-semibold">{% translate "كل الغرف" %}</a></h2>
+    <ul class="divide-y divide-stone-100">
+      {% for a in admitted %}
+      <li class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm">
+        <span class="w-24 shrink-0 font-semibold">{{ a.room.name }}</span>
+        <span class="font-bold">{{ a.patient.full_name }}</span>
+        {% if a.operation %}<span class="text-stone-700">{{ a.operation.procedure_name }}</span>{% endif %}
+        <span class="ms-auto text-stone-600">{% translate "من" %} <span class="num" dir="ltr">{{ a.admitted_at|date:"d/m" }} {{ a.admitted_at|ampm }}</span></span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

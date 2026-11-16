@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "مديونيات المرضى" %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{% translate "التقارير" %}</h1>
+  <span class="ms-auto"></span>
+  <a href="{% url 'invoicing:report_receivables' %}?format=xlsx" class="btn-ghost print:hidden">{% icon "table" "size-4" %}Excel</a>
+</div>
+{% include "dashboard/partials/report_tabs.html" %}
+<p class="mb-3 text-sm text-stone-600">{% translate "اللي على كل مريضة، وبقاله قد إيه من تاريخ فاتورته، لحد" %} <span class="num" dir="ltr">{{ as_of|date:"d/m/Y" }}</span></p>
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th>{% translate "المريضة" %}</th>{% for label in labels %}<th class="text-end!">{{ label }}</th>{% endfor %}<th class="text-end!">{% translate "الإجمالي" %}</th></tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td>{% if can.invoice_view %}<a href="{% url 'invoicing:account' r.patient.pk %}" class="font-semibold hover:text-brand">{{ r.patient.full_name }}</a>{% else %}<span class="font-semibold">{{ r.patient.full_name }}</span>{% endif %}</td>
+        {% for b in r.buckets %}<td class="num text-end {% if forloop.counter > 1 and b %}text-red-700{% endif %}" dir="ltr">{{ b|money }}</td>{% endfor %}
+        <td class="num text-end font-semibold" dir="ltr">{{ r.total|money0 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="py-10! text-center text-stone-600">{% translate "مفيش مديونيات على المرضى." %}</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if rows %}<tfoot><tr class="border-t border-stone-300 bg-stone-50 font-bold"><td class="px-3 py-2">{% translate "الإجمالي" %}</td>{% for t in totals %}<td class="num px-3 py-2 text-end" dir="ltr">{{ t|money }}</td>{% endfor %}<td class="num px-3 py-2 text-end" dir="ltr">{{ grand|money0 }}</td></tr></tfoot>{% endif %}
+  </table>
+</div>
+{% if payers %}
+<h2 class="section-title mt-8">{% translate "على جهات التعاقد" %}</h2>
+<ul class="card max-w-xl divide-y divide-stone-100 text-sm">
+  {% for p in payers %}<li class="flex px-4 py-2.5"><span class="font-semibold">{{ p.name }}</span><span class="ms-auto"><span class="num" dir="ltr">{{ p.owed|money0 }}</span></span></li>{% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

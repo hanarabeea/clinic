@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "ربحية العمليات" %}{% endblock %}
+{% block content %}
+{% comment %}Each operation invoiced in the period: its price after discount, what its team was paid and what its
+supplies cost. What is left pays for the room, the staff and everything else.{% endcomment %}
+<div class="page-head"><h1>{% translate "التقارير" %}</h1></div>
+{% include "dashboard/partials/report_tabs.html" %}
+{% url 'invoicing:report_operations' as action %}
+{% include "ledger/partials/range.html" %}
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th class="w-28">{% translate "التاريخ" %}</th><th>{% translate "العملية" %}</th><th class="text-end!">{% translate "السعر" %}</th><th class="text-end!">{% translate "أتعاب الفريق" %}</th><th class="text-end!">{% translate "المستلزمات" %}</th><th class="text-end!">{% translate "الباقي" %}</th></tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td class="num text-stone-600" dir="ltr">{{ r.invoice.date|date:"d/m/Y" }}</td>
+        <td><a href="{% url 'invoicing:invoice' r.invoice.pk %}" class="font-semibold hover:text-brand">{{ r.operation.procedure_name }}</a> <span class="text-xs text-stone-600">{{ r.operation.patient.full_name }}</span></td>
+        <td class="num text-end" dir="ltr">{{ r.price|money0 }}{% if r.extra %} <span class="text-xs text-stone-600">+{{ r.extra|money0 }}</span>{% endif %}</td>
+        <td class="num text-end" dir="ltr">{{ r.team|money }}</td>
+        <td class="num text-end" dir="ltr">{{ r.supplies|money }}</td>
+        <td class="num text-end font-semibold {% if r.left < 0 %}text-red-700{% endif %}" dir="ltr">{{ r.left|money0 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="py-10! text-center text-stone-600">{% translate "مفيش عمليات اتفوترت في الفترة دي." %}</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if rows %}<tfoot><tr class="border-t border-stone-300 bg-stone-50 font-bold"><td class="px-3 py-2" colspan="2">{% translate "الإجمالي" %}</td><td class="num px-3 py-2 text-end" dir="ltr">{{ totals.price|money0 }}</td><td class="num px-3 py-2 text-end" dir="ltr">{{ totals.team|money0 }}</td><td class="num px-3 py-2 text-end" dir="ltr">{{ totals.supplies|money0 }}</td><td class="num px-3 py-2 text-end" dir="ltr">{{ totals.left|money0 }}</td></tr></tfoot>{% endif %}
+  </table>
+</div>
+{% endblock %}

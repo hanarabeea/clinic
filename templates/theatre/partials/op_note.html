@@ -1,0 +1,43 @@
+{% load i18n clock %}
+{% comment %}The surgeon's note. A draft is a form; a signed note is read-only text with a "revise" button that starts
+a new revision from it (the signed one is kept).{% endcomment %}
+<div id="op-note" class="max-w-3xl">
+  {% if error %}<p class="notice notice-danger mb-3 font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ error }}</p>{% endif %}
+  {% if note and note.is_signed %}
+  <div class="card space-y-4 p-4 text-sm sm:p-6">
+    <p class="flex flex-wrap items-center gap-2 text-stone-600">
+      <span class="badge bg-green-50 font-semibold text-green-800">{% icon "check" "size-3.5" %}{% translate "موقّع" %}</span>
+      {{ note.signed_by.full_name|default:note.signed_by.username }}، <span class="num" dir="ltr">{{ note.signed_at|date:"d/m/Y" }} {{ note.signed_at|ampm }}</span>
+      {% if note.revision %}<span>{% blocktranslate with n=note.revision %}(نسخة معدّلة رقم {{ n }}){% endblocktranslate %}</span>{% endif %}
+    </p>
+    {% if note.anaesthesia %}<div><p class="ws-label">{% translate "التخدير" %}</p><p>{{ note.anaesthesia }}</p></div>{% endif %}
+    {% if note.findings %}<div><p class="ws-label">{% translate "المشاهدات" %}</p><p class="whitespace-pre-line">{{ note.findings }}</p></div>{% endif %}
+    {% if note.procedure_details %}<div><p class="ws-label">{% translate "اللي اتعمل" %}</p><p class="whitespace-pre-line">{{ note.procedure_details }}</p></div>{% endif %}
+    {% if note.blood_loss_ml is not None %}<div><p class="ws-label">{% translate "الدم المفقود" %}</p><p><span class="num" dir="ltr">{{ note.blood_loss_ml }}</span> {% translate "مل" %}</p></div>{% endif %}
+    {% if note.complications %}<div><p class="ws-label">{% translate "المضاعفات" %}</p><p class="whitespace-pre-line">{{ note.complications }}</p></div>{% endif %}
+    {% if note.post_op_orders %}<div><p class="ws-label">{% translate "تعليمات بعد العملية" %}</p><p class="whitespace-pre-line">{{ note.post_op_orders }}</p></div>{% endif %}
+    {% if can.clinical_edit and editable %}
+    <button type="button" class="btn-ghost" hx-post="{% url 'theatre:note_revise' op.pk %}" hx-target="#op-note" hx-swap="outerHTML"
+            hx-confirm="{% translate 'تعمل نسخة معدّلة من التقرير؟ النسخة الموقّعة هتفضل محفوظة.' %}">{% icon "pencil-simple" "size-4" %}{% translate "تعديل (نسخة جديدة)" %}</button>
+    {% endif %}
+  </div>
+  {% elif can.clinical_edit and editable %}
+  <form class="card space-y-4 p-4 sm:p-6" hx-post="{% url 'theatre:note_save' op.pk %}" hx-target="#op-note" hx-swap="outerHTML">
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div class="form-field"><label for="n-ana">{% translate "التخدير" %}</label><input id="n-ana" type="text" name="anaesthesia" value="{{ note.anaesthesia|default:'' }}" maxlength="120"></div>
+      <div class="form-field"><label for="n-blood">{% translate "الدم المفقود (مل)" %}</label><input id="n-blood" type="text" name="blood_loss_ml" value="{{ note.blood_loss_ml|default_if_none:'' }}" inputmode="numeric" dir="ltr"></div>
+    </div>
+    <div class="form-field"><label for="n-find">{% translate "المشاهدات" %}</label><textarea id="n-find" name="findings" rows="3">{{ note.findings|default:'' }}</textarea></div>
+    <div class="form-field"><label for="n-proc">{% translate "اللي اتعمل" %}</label><textarea id="n-proc" name="procedure_details" rows="4">{{ note.procedure_details|default:'' }}</textarea></div>
+    <div class="form-field"><label for="n-comp">{% translate "المضاعفات" %}</label><textarea id="n-comp" name="complications" rows="2">{{ note.complications|default:'' }}</textarea></div>
+    <div class="form-field"><label for="n-post">{% translate "تعليمات بعد العملية" %}</label><textarea id="n-post" name="post_op_orders" rows="3">{{ note.post_op_orders|default:'' }}</textarea></div>
+    <div class="flex flex-wrap items-center gap-2">
+      <button class="btn-secondary">{% translate "حفظ مسودة" %}</button>
+      <button class="btn-primary" name="sign" value="1" onclick="return confirm('{% translate 'توقّع التقرير؟ بعد التوقيع مش هيتعدل، التعديل بيبقى نسخة جديدة.' %}')">{% icon "check" "size-4" %}{% translate "حفظ وتوقيع" %}</button>
+      {% if note %}<span class="text-xs text-stone-600">{% translate "مسودة محفوظة" %}</span>{% endif %}
+    </div>
+  </form>
+  {% else %}
+  <p class="card px-4 py-8 text-center text-sm text-stone-600">{% translate "لسه مفيش تقرير موقّع للعملية دي." %}</p>
+  {% endif %}
+</div>

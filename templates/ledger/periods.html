@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "الشهور" %}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{% translate "الحسابات" %}</h1></div>
+{% include "ledger/partials/tabs.html" %}
+
+<p class="mb-4 max-w-2xl text-sm text-stone-600">{% translate "لما شهر يتراجع ويتقفل، مفيش أي حاجة تتسجل فيه تاني ولا تتغير. الشهور بتتقفل بالترتيب، ولو احتجت تفتح شهر بيتفتح آخر شهر اتقفل الأول." %}</p>
+
+<ul class="card mb-5 max-w-2xl divide-y divide-stone-100 text-sm">
+  {% for y in years %}
+  <li class="flex items-center gap-3 px-4 py-2.5">
+    <span class="font-semibold">{% translate "السنة المالية" %} {{ y.name }}</span>
+    {% if y.status == "closed" %}<span class="badge bg-stone-200 text-stone-800">{% icon "lock-simple" "size-3.5" %}{% translate "مقفولة" %}</span>{% endif %}
+    {% if can.ledger_close_period %}<a href="{% url 'ledger:year_close' y.pk %}" class="link ms-auto">{% if y.status == "closed" %}{% translate "التفاصيل" %}{% else %}{% translate "إقفال السنة" %}{% endif %}</a>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+
+<div class="card max-w-2xl overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>{% translate "الشهر" %}</th>
+        <th>{% translate "الحالة" %}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in periods %}
+      <tr class="{% if p.start_date > today %}text-stone-500{% endif %}">
+        <td class="num font-semibold" dir="ltr">{{ p.start_date|date:"m/Y" }}</td>
+        <td>
+          {% if p.is_open %}{% translate "مفتوح" %}
+          {% else %}<span class="badge bg-stone-200 text-stone-800">{% icon "lock-simple" "size-3.5" %}{% translate "مقفول" %}</span>
+          <span class="text-xs text-stone-600">{% if p.closed_by %}{{ p.closed_by.full_name|default:p.closed_by.username }}، {% endif %}<span class="num" dir="ltr">{{ p.closed_at|date:"d/m/Y" }}</span></span>{% endif %}
+        </td>
+        <td class="text-end">
+          {% if can.ledger_close_period %}
+            {% if next_to_close and p.pk == next_to_close.pk and p.end_date < today %}
+            <form method="post" action="{% url 'ledger:period_toggle' p.pk %}" onsubmit="return confirm('{% translate 'تقفل الشهر ده؟ مفيش حاجة هتتسجل فيه بعد كده.' %}')">{% csrf_token %}
+              <button class="btn-secondary min-h-8 px-3 py-1 text-xs">{% icon "lock-simple" "size-4" %}{% translate "اقفل الشهر" %}</button>
+            </form>
+            {% elif last_closed and p.pk == last_closed.pk %}
+            <form method="post" action="{% url 'ledger:period_toggle' p.pk %}" onsubmit="return confirm('{% translate 'تفتح الشهر ده تاني؟ الفتح بيتسجل في سجل النشاط.' %}')">{% csrf_token %}
+              <button class="btn-ghost min-h-8 px-3 py-1 text-xs">{% icon "lock-simple-open" "size-4" %}{% translate "افتحه تاني" %}</button>
+            </form>
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

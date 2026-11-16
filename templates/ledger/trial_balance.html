@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "ميزان المراجعة" %}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{% translate "الحسابات" %}</h1></div>
+{% include "ledger/partials/tabs.html" %}
+
+{% url 'ledger:trial_balance' as action %}
+{% include "ledger/partials/range.html" with keep=keep %}
+
+<div class="mb-3 flex flex-wrap items-center gap-4 text-sm print:hidden">
+  <div class="segmented">
+    <a href="{{ action }}?from={{ start|date:'Y-m-d' }}&to={{ end|date:'Y-m-d' }}{% if show_zero %}&zero=1{% endif %}" class="{% if not depth %}is-active{% endif %}">{% translate "كل الحسابات" %}</a>
+    <a href="{{ action }}?from={{ start|date:'Y-m-d' }}&to={{ end|date:'Y-m-d' }}&depth=3{% if show_zero %}&zero=1{% endif %}" class="{% if depth == 3 %}is-active{% endif %}">{% translate "المجموعات" %}</a>
+    <a href="{{ action }}?from={{ start|date:'Y-m-d' }}&to={{ end|date:'Y-m-d' }}&depth=1{% if show_zero %}&zero=1{% endif %}" class="{% if depth == 1 %}is-active{% endif %}">{% translate "الإجمالي بس" %}</a>
+  </div>
+</div>
+
+{% if not tb.balanced %}
+<p class="notice notice-danger mb-4 font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{% translate "الميزان مش متزن. ده مينفعش يحصل: بلّغ الدعم فورًا." %}</p>
+{% endif %}
+
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th rowspan="2">{% translate "الحساب" %}</th>
+        <th colspan="2" class="text-center!">{% translate "أول المدة" %}</th>
+        <th colspan="2" class="text-center!">{% translate "الحركة" %}</th>
+        <th colspan="2" class="text-center!">{% translate "آخر المدة" %}</th>
+      </tr>
+      <tr>
+        <th class="text-end!">{% translate "مدين" %}</th><th class="text-end!">{% translate "دائن" %}</th>
+        <th class="text-end!">{% translate "مدين" %}</th><th class="text-end!">{% translate "دائن" %}</th>
+        <th class="text-end!">{% translate "مدين" %}</th><th class="text-end!">{% translate "دائن" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in tb.rows %}
+      <tr class="{% if r.account.is_group %}font-semibold{% endif %}">
+        <td style="padding-inline-start: calc(0.75rem + {{ r.depth|add:'-1' }} * 1.1rem)">
+          <span class="num text-xs text-stone-500" dir="ltr">{{ r.account.code }}</span>
+          {% if r.account.is_group %}{{ r.account.name_ar }}{% else %}<a href="{% url 'ledger:statement' r.account.pk %}?from={{ start|date:'Y-m-d' }}&to={{ end|date:'Y-m-d' }}" class="hover:text-brand">{{ r.account.name_ar }}</a>{% endif %}
+        </td>
+        <td class="num text-end" dir="ltr">{{ r.opening_debit|money }}</td><td class="num text-end" dir="ltr">{{ r.opening_credit|money }}</td>
+        <td class="num text-end" dir="ltr">{{ r.debit|money }}</td><td class="num text-end" dir="ltr">{{ r.credit|money }}</td>
+        <td class="num text-end" dir="ltr">{{ r.closing_debit|money }}</td><td class="num text-end" dir="ltr">{{ r.closing_credit|money }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="py-12! text-center text-stone-600">{% translate "مفيش حركة في الفترة دي." %}</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if tb.rows %}
+    <tfoot>
+      <tr class="border-t border-stone-300 bg-stone-50 font-bold">
+        <td class="px-3 py-2">{% translate "الإجمالي" %}</td>
+        <td class="num px-3 py-2 text-end" dir="ltr">{{ tb.totals.opening_debit|money0 }}</td><td class="num px-3 py-2 text-end" dir="ltr">{{ tb.totals.opening_credit|money0 }}</td>
+        <td class="num px-3 py-2 text-end" dir="ltr">{{ tb.totals.debit|money0 }}</td><td class="num px-3 py-2 text-end" dir="ltr">{{ tb.totals.credit|money0 }}</td>
+        <td class="num px-3 py-2 text-end" dir="ltr">{{ tb.totals.closing_debit|money0 }}</td><td class="num px-3 py-2 text-end" dir="ltr">{{ tb.totals.closing_credit|money0 }}</td>
+      </tr>
+    </tfoot>
+    {% endif %}
+  </table>
+</div>
+<label class="mt-3 flex w-fit cursor-pointer items-center gap-2 text-sm text-stone-600 print:hidden">
+  <input type="checkbox" {% if show_zero %}checked{% endif %}
+         onchange="location.href = '{{ action }}?from={{ start|date:'Y-m-d' }}&to={{ end|date:'Y-m-d' }}{% if depth %}&depth={{ depth }}{% endif %}' + (this.checked ? '&zero=1' : '')">
+  {% translate "اعرض الحسابات اللي مفيهاش حركة" %}
+</label>
+{% endblock %}

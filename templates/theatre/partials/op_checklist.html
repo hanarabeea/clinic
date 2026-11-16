@@ -1,0 +1,25 @@
+{% load i18n clock %}
+{% comment %}Pre-op checklist: tick each line as it is done. The required ones must all be ticked before the patient
+goes into the theatre (an emergency may go in without them: what was skipped is written in the log).{% endcomment %}
+<div id="op-checklist" class="max-w-2xl">
+  {% if error %}<p class="notice notice-danger mb-3 font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ error }}</p>{% endif %}
+  <ul class="card divide-y divide-stone-100">
+    {% for item in checklist %}
+    <li>
+      <button type="button" class="flex w-full items-center gap-3 px-4 py-3 text-start text-sm transition-colors hover:bg-stone-50 disabled:cursor-default disabled:hover:bg-white"
+              {% if can.theatre_operate and editable %}hx-post="{% url 'theatre:checklist_toggle' item.pk %}" hx-target="#op-checklist" hx-swap="outerHTML"{% else %}disabled{% endif %}
+              role="checkbox" aria-checked="{{ item.done|yesno:'true,false' }}">
+        <span class="grid size-5 shrink-0 place-items-center rounded-sm border {% if item.done %}border-brand bg-brand text-white{% else %}border-stone-400 bg-white{% endif %}">{% if item.done %}{% icon "check" "size-3.5" %}{% endif %}</span>
+        <span class="{% if item.done %}text-stone-600{% else %}font-semibold{% endif %}">{{ item.label }}</span>
+        {% if not item.required %}<span class="text-xs text-stone-500">{% translate "اختياري" %}</span>{% endif %}
+        {% if item.done and item.done_at %}<span class="num ms-auto text-xs text-stone-600" dir="ltr">{{ item.done_at|ampm }}</span>{% endif %}
+      </button>
+    </li>
+    {% empty %}
+    <li class="px-4 py-6 text-center text-sm text-stone-600">{% translate "مفيش قايمة للعملية دي." %}</li>
+    {% endfor %}
+  </ul>
+  {% if open_required and op.status == "scheduled" or open_required and op.status == "admitted" %}
+  <p class="mt-3 text-sm text-stone-600">{% blocktranslate count n=open_required|length %}فاضل بند واحد إجباري قبل دخول العمليات.{% plural %}فاضل {{ n }} بنود إجبارية قبل دخول العمليات.{% endblocktranslate %}</p>
+  {% endif %}
+</div>

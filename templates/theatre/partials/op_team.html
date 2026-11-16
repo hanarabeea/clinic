@@ -1,0 +1,33 @@
+{% load i18n money %}
+{% comment %}Who is in the room and what each is paid for this operation.{% endcomment %}
+<div id="op-team" class="max-w-3xl">
+  {% if error %}<p class="notice notice-danger mb-3 font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ error }}</p>{% endif %}
+  <div class="card overflow-x-auto">
+    <table class="data-table">
+      <thead><tr><th>{% translate "الدور" %}</th><th>{% translate "الاسم" %}</th><th class="text-end!">{% translate "الأتعاب" %}</th><th class="w-10"></th></tr></thead>
+      <tbody>
+        {% for m in team %}
+        <tr>
+          <td class="font-semibold">{{ m.get_role_display }}</td>
+          <td>{{ m.display_name|default:"-" }}</td>
+          <td class="num text-end" dir="ltr">{{ m.fee|money }}</td>
+          <td class="text-end">{% if can.theatre_operate and editable %}<button type="button" class="btn-icon size-7 hover:bg-red-50 hover:text-red-700" aria-label="{% translate 'شيل من الفريق' %}"
+                hx-post="{% url 'theatre:team_remove' m.pk %}" hx-target="#op-team" hx-swap="outerHTML" hx-confirm="{% translate 'تشيله من فريق العملية؟' %}">{% icon "x" "size-4" %}</button>{% endif %}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="py-8! text-center text-stone-600">{% translate "لسه مفيش فريق." %}</td></tr>
+        {% endfor %}
+      </tbody>
+      {% if team %}<tfoot><tr class="border-t border-stone-300 bg-stone-50 font-bold"><td class="px-3 py-2" colspan="2">{% translate "إجمالي الأتعاب" %}</td><td class="num px-3 py-2 text-end" dir="ltr">{{ team_total|money0 }}</td><td></td></tr></tfoot>{% endif %}
+    </table>
+  </div>
+  {% if can.theatre_operate and editable %}
+  <form class="mt-4 grid items-end gap-3 sm:grid-cols-5" hx-post="{% url 'theatre:team_save' op.pk %}" hx-target="#op-team" hx-swap="outerHTML">
+    <div class="form-field"><label for="tm-role">{{ team_form.role.label }}</label>{{ team_form.role }}</div>
+    <div class="form-field"><label for="{{ team_form.doctor.id_for_label }}">{{ team_form.doctor.label }}</label>{{ team_form.doctor }}</div>
+    <div class="form-field"><label for="{{ team_form.name.id_for_label }}">{% translate "أو الاسم" %}</label>{{ team_form.name }}</div>
+    <div class="form-field"><label for="{{ team_form.fee.id_for_label }}">{{ team_form.fee.label }}</label>{{ team_form.fee }}</div>
+    <button class="btn-secondary">{% icon "plus" "size-4" %}{% translate "إضافة" %}</button>
+  </form>
+  {% endif %}
+</div>

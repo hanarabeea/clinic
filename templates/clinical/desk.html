@@ -2,6 +2,15 @@
 {% load i18n %}
 {% block title %}{% translate "شاشة الدكتور" %}{% endblock %}
 {% block desk %}
+{% if doctors|length > 1 %}
+{# several doctors: whose queue this desk shows (a doctor signed in with their own login starts on theirs) #}
+<div class="flex flex-wrap items-center justify-center gap-2">
+  <span class="text-[13px] font-semibold text-stone-600">{% translate "مرضى" %}</span>
+  <div class="segmented flex-wrap">
+    {% for d in doctors %}<a href="{% url 'clinical:desk' %}?doctor={{ d.pk }}" class="{% if d.pk == doctor.pk %}is-active{% endif %}">{{ d }}</a>{% endfor %}
+  </div>
+</div>
+{% endif %}
 <div class="flex flex-col items-center gap-4 py-20 text-center">
   <span class="grid size-12 place-items-center rounded-full bg-stone-100 text-stone-500">{% icon "stethoscope" "size-6" %}</span>
   <p class="text-lg font-semibold">{% translate "مفيش مريض عندك دلوقتي." %}</p>

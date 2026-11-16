@@ -1,8 +1,13 @@
 {% load i18n %}
 <nav class="tabs">
   {% if can.settings_manage %}<a href="{% url 'organizations:settings' %}" class="tab {% if tab == 'company' %}is-active{% endif %}">{% translate "العيادة" %}</a>{% endif %}
-  {% if can.schedule_manage %}<a href="{% url 'doctors:schedule' %}" class="tab {% if tab == 'schedule' %}is-active{% endif %}">{% translate "الدكتور والمواعيد" %}</a>{% endif %}
+  {% if can.schedule_manage %}<a href="{% url 'doctors:list' %}" class="tab {% if tab == 'doctors' %}is-active{% endif %}">{% translate "الدكاترة" %}</a>{% endif %}
+  {% if can.schedule_manage %}<a href="{% url 'doctors:schedule' %}" class="tab {% if tab == 'schedule' %}is-active{% endif %}">{% translate "بيانات الدكتور ومواعيده" %}</a>{% endif %}
   {% if can.schedule_manage %}<a href="{% url 'doctors:visit_types' %}" class="tab {% if tab == 'visit_types' %}is-active{% endif %}">{% translate "أنواع الزيارات" %}</a>{% endif %}
+  {% if can.settings_manage %}<a href="{% url 'center:services' %}" class="tab {% if tab == 'services' %}is-active{% endif %}">{% translate "الخدمات والطوارئ" %}</a>{% endif %}
+  {% if can.settings_manage %}<a href="{% url 'theatre:setup' %}" class="tab {% if tab == 'theatre' %}is-active{% endif %}">{% translate "العمليات والغرف" %}</a>{% endif %}
+  {% if can.settings_manage and obgyn %}<a href="{% url 'obstetrics:milestones' %}" class="tab {% if tab == 'pregnancy' %}is-active{% endif %}">{% translate "متابعة الحمل" %}</a>{% endif %}
+  {% if can.settings_manage %}<a href="{% url 'invoicing:settings' %}" class="tab {% if tab == 'invoicing' %}is-active{% endif %}">{% translate "الفواتير" %}</a>{% endif %}
   {% if can.settings_manage %}<a href="{% url 'patients:fields_settings' %}" class="tab {% if tab == 'patient_fields' %}is-active{% endif %}">{% translate "ملف المريض" %}</a>{% endif %}
   {% if can.drug_manage %}<a href="{% url 'prescriptions:categories' %}" class="tab {% if tab == 'drug_categories' %}is-active{% endif %}">{% translate "تصنيفات الأدوية" %}</a>{% endif %}
   {% if can.settings_manage %}<a href="{% url 'prescriptions:settings' %}" class="tab {% if tab == 'rx' %}is-active{% endif %}">{% translate "الروشتة" %}</a>{% endif %}

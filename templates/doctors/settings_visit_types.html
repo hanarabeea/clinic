@@ -5,9 +5,10 @@
 <div class="page-head"><h1>{% translate "الإعدادات" %}</h1></div>
 
 {% include "partials/settings_tabs.html" %}
+{% include "doctors/partials/doctor_switcher.html" with url_name="doctors:visit_types" %}
 
 <section class="card p-4 sm:p-6">
-  <h2 class="mb-4 text-[15px] font-bold">{% translate "أنواع الزيارات" %}</h2>
+  <h2 class="mb-4 text-[15px] font-bold">{% translate "أنواع الزيارات" %}{% if doctors|length > 1 %} <span class="text-sm font-normal text-stone-600">{{ doctor }}</span>{% endif %}</h2>
   <div id="visit-types">{% include "doctors/partials/visit_types.html" %}</div>
 </section>
 {% endblock %}

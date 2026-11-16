@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% if treasury %}{{ treasury.name }}{% else %}{% translate "خزينة جديدة" %}{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'treasury:home' %}" class="btn-icon" aria-label="{% translate 'رجوع للخزن' %}">{% icon "arrow-right" %}</a>
+  <h1>{% if treasury %}{{ treasury.name }}{% else %}{% translate "خزينة أو حساب بنكي جديد" %}{% endif %}</h1>
+</div>
+
+<form method="post" class="card max-w-xl space-y-4 p-4 sm:p-6" novalidate>
+  {% csrf_token %}
+  {% for e in form.non_field_errors %}<p class="notice notice-danger font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ e }}</p>{% endfor %}
+  {% include "partials/field.html" with field=form.name %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {% include "partials/field.html" with field=form.kind %}
+    {% include "partials/field.html" with field=form.receives_method %}
+  </div>
+  {% if treasury %}<label class="flex items-center gap-2 text-sm">{{ form.is_active }} {% translate "مفعّلة" %}</label>
+  {% else %}<input type="hidden" name="is_active" value="on">
+  <p class="text-xs text-stone-600">{% translate "هيتفتحلها حساب في شجرة الحسابات تلقائي." %}</p>{% endif %}
+  <div class="flex justify-end gap-2">
+    <a href="{% url 'treasury:home' %}" class="btn-ghost">{% translate "إلغاء" %}</a>
+    <button type="submit" class="btn-primary">{% translate "حفظ" %}</button>
+  </div>
+</form>
+{% endblock %}

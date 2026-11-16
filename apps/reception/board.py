@@ -20,7 +20,7 @@ from apps.notifications.templating import fmt_date
 from apps.obstetrics import calc
 from apps.obstetrics import services as obstetrics
 from apps.scheduling.availability import periods_for
-from apps.scheduling.models import ACTIVE_STATUSES, Appointment, AppointmentStatus
+from apps.scheduling.models import ACTIVE_STATUSES, URGENT_FIRST, Appointment, AppointmentStatus, BookingSource
 
 SHOWN_STATUSES = [
     AppointmentStatus.BOOKED,
@@ -41,6 +41,8 @@ class Entry:
     balance: object
     waiting: int | None = None  # minutes since arrival
     late_minutes: int | None = None  # booked / confirmed and past its time
+    services: list = field(default_factory=list)  # services added to the visit (center mode)
+    emergency: object = None  # the EmergencyCase of an emergency arrival
 
 
 @dataclass
@@ -59,16 +61,20 @@ def appointments(org, doctor, start: date, end: date) -> list[Appointment]:
     qs = (
         Appointment.objects.for_org(org)
         .filter(doctor=doctor, date__gte=start, date__lte=end, status__in=SHOWN_STATUSES)
-        .select_related("patient", "visit_type")
-        .prefetch_related(Prefetch("payments", queryset=Payment.objects.order_by("id")))
+        .select_related("patient", "visit_type", "emergency")
+        .prefetch_related(Prefetch("payments", queryset=Payment.objects.order_by("id")), "service_orders")
     )
-    order = ("date", "queue_number", "start_at") if doctor.booking_mode == BookingMode.QUEUE else ("start_at", "id")
+    # queue mode lists by number; an emergency arrival (no number) goes ahead of everyone
+    queue = doctor.booking_mode == BookingMode.QUEUE
+    order = (URGENT_FIRST, "date", "queue_number", "start_at") if queue else ("start_at", "id")
     rows = list(qs.order_by(*order))
     # OB/GYN clinics: the pregnancy week next to the name, as of each booking's own day (one query for the board)
     pregnant = obstetrics.badges_for(org, [a.patient_id for a in rows])
+    covered = billing.coverage_map({a.patient_id for a in rows})  # who has a company / insurer paying part
     for a in rows:
         ga = pregnant.get(a.patient_id)
         a.ga = calc.gestational_age(ga.edd, a.date) if ga else None
+        a.coverage_percent = covered.get(a.patient_id, 0)
     return rows
 
 
@@ -79,11 +85,16 @@ def _entry(a, now) -> Entry:
         and a.queue_number is None
         and (now - a.start_at).total_seconds() > LATE_AFTER_MINUTES * 60
     )
+    orders = [o for o in a.service_orders.all() if o.is_active]
     return Entry(
         a=a,
-        balance=billing.balance(a, list(a.payments.all())),
+        balance=billing.balance(
+            a, list(a.payments.all()), orders, getattr(a, "coverage_percent", billing.COVERAGE_UNKNOWN)
+        ),
         waiting=waiting,
         late_minutes=int((now - a.start_at).total_seconds() // 60) if late else None,
+        services=orders,
+        emergency=getattr(a, "emergency", None) if a.source == BookingSource.EMERGENCY else None,
     )
 
 
@@ -110,7 +121,15 @@ def day_board(org, doctor, day: date, now: datetime) -> dict:
     appts = appointments(org, doctor, day, day)
     entries = [_entry(a, now) for a in appts]
     periods = periods_for(doctor, day)
-    board = {"appointments": appts, "entries": entries, "counts": counts(appts), "periods": periods, "day": day}
+    board = {
+        "appointments": appts,
+        "entries": entries,
+        "counts": counts(appts),
+        "periods": periods,
+        "day": day,
+        "doctor": doctor,
+        "slots_mode": doctor.booking_mode == BookingMode.SLOTS,
+    }
     if doctor.booking_mode == BookingMode.QUEUE:
         board["queue"] = [
             {"period": p, "entries": [e for e in entries if e.a.period_key == p.period_id]} for p in periods
@@ -197,7 +216,16 @@ def week_board(org, doctor, start: date, now: datetime) -> dict:
         }
         for d in days
     ]
-    return {"columns": columns, "rows": rows, "appointments": appts, "days": days, "start": days[0], "end": days[-1]}
+    return {
+        "columns": columns,
+        "rows": rows,
+        "appointments": appts,
+        "days": days,
+        "start": days[0],
+        "end": days[-1],
+        "doctor": doctor,
+        "slots_mode": doctor.booking_mode == BookingMode.SLOTS,
+    }
 
 
 def day_label(day: date) -> str:

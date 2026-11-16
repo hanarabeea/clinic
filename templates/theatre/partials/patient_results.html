@@ -1,0 +1,17 @@
+{% load i18n %}
+{% if patients %}
+<ul class="divide-y divide-stone-100 rounded-lg border border-stone-200">
+  {% for p in patients %}
+  <li>
+    <a href="{{ target }}?patient={{ p.pk }}" class="flex flex-wrap items-center gap-2 px-3 py-2.5 text-sm transition-colors hover:bg-stone-50">
+      <span class="num text-xs text-stone-600" dir="ltr">#{{ p.file_number }}</span>
+      <span class="font-semibold">{{ p.full_name }}</span>
+      <span class="num text-stone-600" dir="ltr">{{ p.phone }}</span>
+      <span class="ms-auto flex items-center gap-0.5 text-xs font-semibold text-brand">{% translate "اختار" %}{% icon "caret-left" "size-3.5" %}</span>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% elif q %}
+<p class="text-sm text-stone-600">{% translate "مفيش مريضة بالبيانات دي. سجّلها الأول من شاشة المرضى." %}</p>
+{% endif %}

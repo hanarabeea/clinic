@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% if surprise %}{% translate "جرد مفاجئ" %}{% else %}{% translate "تقفيل الوردية" %}{% endif %}{% endblock %}
+{% block content %}
+{% comment %}Counting a cash drawer: how many of each note and coin. The amount the books expect is not shown before
+the count is saved (a blind count: the person counting cannot make the two numbers agree by eye). Used for a
+surprise count (records only) and for closing a cashier's shift (counts, hands the cash over, closes the shift).{% endcomment %}
+<div class="page-head">
+  <a href="{{ back }}" class="btn-icon" aria-label="{% translate 'رجوع' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{% if surprise %}{% translate "جرد مفاجئ" %}{% else %}{% translate "تقفيل الوردية" %}{% endif %}</h1>
+    <p class="page-sub">{{ treasury.name }}</p>
+  </div>
+</div>
+
+<form method="post" class="card max-w-md space-y-5 p-4 sm:p-6" novalidate id="count-form">
+  {% csrf_token %}
+  {% for e in form.non_field_errors %}<p class="notice notice-danger font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ e }}</p>{% endfor %}
+  <p class="text-sm text-stone-600">{% translate "عدّ اللي في الدرج واكتب عدد كل فئة." %}</p>
+
+  <div class="space-y-2">
+    {% for field in form.face_fields %}
+    <div class="flex items-center gap-3">
+      <label for="{{ field.id_for_label }}" class="num w-16 text-end text-sm font-semibold" dir="ltr">{{ field.label }}</label>
+      <span class="text-stone-400">{% icon "x" "size-3.5" %}</span>
+      <div class="w-28">{{ field }}</div>
+      <span class="num ms-auto text-sm text-stone-600" dir="ltr" data-line="{{ field.label }}"></span>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="flex items-baseline justify-between border-t border-stone-200 pt-3 text-sm font-semibold">{% translate "إجمالي اللي اتعد" %}<span class="num text-xl font-bold" dir="ltr" id="count-total">0.00</span></p>
+
+  {% if surprise %}
+  {% include "partials/field.html" with field=form.witness_name %}
+  {% else %}
+  <div>
+    {% include "partials/field.html" with field=form.keep %}
+    <p class="mt-1 text-xs text-stone-600">{% translate "الباقي بيتورّد للخزينة الرئيسية تلقائي." %}</p>
+  </div>
+  {% endif %}
+  {% include "partials/field.html" with field=form.notes %}
+
+  <button type="submit" class="btn-primary min-h-10 w-full">{% if surprise %}{% translate "سجّل الجرد" %}{% else %}{% translate "اقفل الوردية وورّد" %}{% endif %}</button>
+</form>
+
+<script>
+  (() => {
+    const form = document.getElementById("count-form");
+    const show = () => {
+      let total = 0;
+      form.querySelectorAll("[data-face]").forEach((el) => {
+        const cents = Math.round(parseFloat(el.dataset.face) * 100) * (parseInt(el.value, 10) || 0);
+        total += cents;
+        form.querySelector(`[data-line="${el.dataset.face}"]`).textContent = cents ? (cents / 100).toFixed(2) : "";
+      });
+      document.getElementById("count-total").textContent = (total / 100).toFixed(2);
+    };
+    form.addEventListener("input", show);
+    show();
+  })();
+</script>
+{% endblock %}

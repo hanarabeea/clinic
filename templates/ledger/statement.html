@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{{ account.name_ar }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'ledger:accounts' %}" class="btn-icon print:hidden" aria-label="{% translate 'رجوع لشجرة الحسابات' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{{ account.name_ar }}</h1>
+    <p class="page-sub">{% translate "كشف حساب" %} <span class="num" dir="ltr">{{ account.code }}</span></p>
+  </div>
+</div>
+
+{% url 'ledger:statement' account.pk as action %}
+{% include "ledger/partials/range.html" %}
+
+{% include "ledger/partials/statement_table.html" %}
+{% endblock %}

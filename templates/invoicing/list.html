@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "الفواتير" %}{% endblock %}
+{% block content %}
+{% comment %}Every invoice and credit note of the period. A visit's invoice is made by the program when the visit is
+paid for or finished; an operation's or a stay's is issued from the patient's account.{% endcomment %}
+<div class="page-head">
+  <h1>{% translate "الفواتير" %}</h1>
+</div>
+{% include "invoicing/partials/tabs.html" %}
+{% url 'invoicing:list' as action %}
+{% include "ledger/partials/range.html" %}
+<form method="get" class="mb-4 flex max-w-sm gap-2 print:hidden">
+  <input type="hidden" name="from" value="{{ start|date:'Y-m-d' }}"><input type="hidden" name="to" value="{{ end|date:'Y-m-d' }}">
+  <input type="search" name="q" value="{{ q }}" class="input h-9 py-0" placeholder="{% translate 'اسم المريضة أو الموبايل' %}" aria-label="{% translate 'بحث باسم المريضة' %}">
+  <button class="btn-secondary min-h-9 px-3 py-0">{% translate "بحث" %}</button>
+</form>
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th class="w-36">{% translate "الرقم" %}</th>
+        <th class="w-28">{% translate "التاريخ" %}</th>
+        <th>{% translate "المريضة" %}</th>
+        <th class="text-end!">{% translate "الإجمالي" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td><a href="{% url 'invoicing:invoice' r.pk %}" class="num font-semibold hover:text-brand" dir="ltr">{{ r.label }}</a></td>
+        <td class="num text-stone-600" dir="ltr">{{ r.date|date:"d/m/Y" }}</td>
+        <td>{{ r.patient.full_name }}{% if r.is_credit %} <span class="text-xs text-stone-600">{% translate "إشعار دائن" %}</span>{% endif %}{% if r.payer %} <span class="text-xs text-stone-600">{{ r.payer.name }}</span>{% endif %}</td>
+        <td class="num text-end font-semibold {% if r.is_credit %}text-red-700{% endif %}" dir="ltr">{% if r.is_credit %}-{% endif %}{{ r.total|money0 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="py-10! text-center text-stone-600">{% translate "مفيش فواتير في الفترة دي." %}</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if rows %}
+    <tfoot>
+      <tr class="border-t border-stone-300 bg-stone-50 font-bold">
+        <td class="px-3 py-2" colspan="3">{% translate "الإجمالي" %}</td>
+        <td class="num px-3 py-2 text-end" dir="ltr">{{ total|money0 }}</td>
+      </tr>
+    </tfoot>
+    {% endif %}
+  </table>
+</div>
+{% endblock %}

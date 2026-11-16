@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "جرد" %} {{ count.warehouse.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'inventory:counts' %}" class="btn-icon" aria-label="{% translate 'رجوع للجرد' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{% translate "جرد" %} {{ count.warehouse.name }}</h1>
+    <p class="page-sub">{{ count.get_kind_display }}، {{ count.get_status_display }}، {% translate "عدّه" %} {{ count.counted_by.full_name|default:count.counted_by.username }}</p>
+  </div>
+</div>
+
+{% if is_open %}
+{% if can.stock_count %}<form method="post" action="{% url 'inventory:count_save' count.pk %}">{% csrf_token %}{% else %}<div>{% endif %}
+  <div class="card mb-4 max-w-2xl overflow-x-auto">
+    <table class="data-table">
+      <thead><tr><th>{% translate "الصنف" %}</th><th class="w-40 text-end!">{% translate "الموجود فعلا" %}</th></tr></thead>
+      <tbody>
+        {% for line in lines %}
+        <tr>
+          <td><span class="font-semibold">{{ line.item.name }}</span> <span class="text-xs text-stone-600">{{ line.item.unit }}</span></td>
+          <td><input name="qty_{{ line.item_id }}" value="{{ line.counted|default_if_none:''|floatformat:'-3u' }}" class="input py-1.5 text-end" dir="ltr" inputmode="decimal" aria-label="{% translate 'الموجود فعلا' %}" {% if not can.stock_count %}disabled{% endif %}></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if can.stock_count %}
+  <div class="flex max-w-2xl flex-wrap items-center gap-2">
+    <button class="btn-secondary">{% translate "حفظ وأكمل بعدين" %}</button>
+    <span class="ms-auto"></span>
+    <button name="submit" value="1" class="btn-primary" onclick="return confirm('{% translate 'خلصت العد؟ مش هتقدر تغيّر بعد كده.' %}')">{% translate "خلصت، ابعت للاعتماد" %}</button>
+  </div>
+  {% endif %}
+{% if can.stock_count %}</form>{% else %}</div>{% endif %}
+{% if can.stock_count %}<form method="post" action="{% url 'inventory:count_cancel' count.pk %}" class="mt-6" onsubmit="return confirm('{% translate 'تلغي الجرد ده؟' %}')">{% csrf_token %}<button class="btn-ghost text-red-700">{% translate "إلغاء الجرد" %}</button></form>{% endif %}
+
+{% else %}
+<div class="card mb-4 max-w-3xl overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th>{% translate "الصنف" %}</th><th class="text-end!">{% translate "في الدفاتر" %}</th><th class="text-end!">{% translate "الموجود" %}</th><th class="text-end!">{% translate "الفرق" %}</th><th class="text-end!">{% translate "قيمته" %}</th></tr></thead>
+    <tbody>
+      {% for line in lines %}
+      <tr>
+        <td class="font-semibold">{{ line.item.name }}</td>
+        <td class="num text-end" dir="ltr">{{ line.expected|floatformat:"-3" }}</td>
+        <td class="num text-end" dir="ltr">{{ line.counted|floatformat:"-3" }}</td>
+        <td class="num text-end font-semibold {% if line.difference < 0 %}text-red-700{% endif %}" dir="ltr">{% if line.difference %}{{ line.difference|floatformat:"-3" }}{% endif %}</td>
+        <td class="num text-end" dir="ltr">{% if line.diff_value %}{{ line.diff_value|floatformat:"2g" }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% if waiting %}
+<div class="flex max-w-3xl flex-wrap items-center gap-2">
+  <span class="text-sm text-stone-600">{% if differences %}{% blocktranslate count n=differences %}صنف واحد فيه فرق.{% plural %}{{ n }} أصناف فيها فرق.{% endblocktranslate %}{% else %}{% translate "مفيش فروق." %}{% endif %}</span>
+  <span class="ms-auto"></span>
+  {% if can.stock_count %}<form method="post" action="{% url 'inventory:count_cancel' count.pk %}" onsubmit="return confirm('{% translate 'تلغي الجرد ده؟' %}')">{% csrf_token %}<button class="btn-ghost text-red-700">{% translate "إلغاء الجرد" %}</button></form>{% endif %}
+  {% if can_approve %}<form method="post" action="{% url 'inventory:count_approve' count.pk %}" onsubmit="return confirm('{% translate 'تعتمد الجرد؟ الفروق هتتسوى في المخزن والدفاتر.' %}')">{% csrf_token %}<button class="btn-primary">{% translate "اعتمد الجرد" %}</button></form>
+  {% else %}<span class="text-xs text-stone-600">{% translate "مستني اعتماد حد غير اللي عدّ" %}</span>{% endif %}
+</div>
+{% elif count.doc %}<p class="text-sm text-stone-600">{% translate "اتعتمد، والفروق اتسوّت بـ" %} <span class="num" dir="ltr">{{ count.doc.label }}</span>{% if count.approved_by %}، {{ count.approved_by.full_name|default:count.approved_by.username }}{% endif %}</p>
+{% endif %}
+{% endif %}
+{% endblock %}

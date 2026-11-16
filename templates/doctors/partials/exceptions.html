@@ -17,7 +17,7 @@
   </ul>
 
   <form class="flex flex-wrap items-end gap-2 border-t border-stone-100 pt-3"
-        hx-post="{% url 'doctors:exception_add' %}" hx-target="#exceptions" hx-swap="innerHTML">
+        hx-post="{% url 'doctors:exception_add' %}?doctor={{ doctor.pk }}" hx-target="#exceptions" hx-swap="innerHTML">
     {% csrf_token %}
     <div>
       <label class="mb-1 block text-xs font-semibold text-stone-600">{% translate "التاريخ" %}</label>

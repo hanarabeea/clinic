@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<style>
+{{ font_css|safe }}
+@page { size: A4; margin: 16mm 14mm; }
+body { font-family: "Cairo", "Poppins", sans-serif; font-size: 10.5pt; color: #111; line-height: 1.6; margin: 0; }
+header { display: flex; align-items: center; gap: 4mm; border-bottom: 1px solid #999; padding-bottom: 3mm; margin-bottom: 5mm; }
+header img { height: 14mm; }
+h1 { font-size: 15pt; margin: 0; }
+h2 { font-size: 11.5pt; margin: 5mm 0 1.5mm; border-bottom: 1px solid #ddd; padding-bottom: 1mm; }
+.clinic { margin-inline-start: auto; text-align: left; color: #444; font-size: 9.5pt; }
+.ltr { direction: ltr; unicode-bidi: isolate; font-family: "Poppins", "Cairo", sans-serif; }
+.iso { unicode-bidi: isolate; white-space: pre-line; }
+table { width: 100%; border-collapse: collapse; }
+td { padding: 1mm 0; vertical-align: top; }
+td.k { color: #555; width: 32mm; }
+.sign { margin-top: 16mm; display: flex; justify-content: space-between; color: #333; }
+</style>
+</head>
+<body>
+<header>
+  {% if logo_uri %}<img src="{{ logo_uri }}" alt="">{% endif %}
+  <h1>ملخص خروج</h1>
+  <div class="clinic">{{ settings.clinic_name_ar|default:org.name_ar }}</div>
+</header>
+<table>
+  <tr><td class="k">المريضة</td><td><b>{{ admission.patient.full_name }}</b> <span class="ltr">#{{ admission.patient.file_number }}</span></td></tr>
+  <tr><td class="k">الغرفة</td><td>{{ admission.room.name }}</td></tr>
+  <tr><td class="k">الدخول</td><td><span class="ltr">{{ admission.admitted_at|date:"d/m/Y H:i" }}</span></td></tr>
+  <tr><td class="k">الخروج</td><td><span class="ltr">{{ admission.discharged_at|date:"d/m/Y H:i" }}</span> (<span class="ltr">{{ nights }}</span> ليلة)</td></tr>
+  {% if admission.doctor %}<tr><td class="k">الطبيب المعالج</td><td>{{ admission.doctor }}</td></tr>{% endif %}
+  {% if admission.operation %}<tr><td class="k">العملية</td><td>{{ admission.operation.procedure_name }}، <span class="ltr">{{ admission.operation.planned_start|date:"d/m/Y" }}</span></td></tr>{% endif %}
+  {% if admission.reason %}<tr><td class="k">سبب الدخول</td><td><span class="iso" dir="auto">{{ admission.reason }}</span></td></tr>{% endif %}
+</table>
+{% if newborns %}
+<h2>المولود</h2>
+{% for b in newborns %}<p>{{ b.get_sex_display }}{% if b.weight_g %}، <span class="ltr">{{ b.weight_g }}</span> جرام{% endif %}، {{ b.get_status_display }}</p>{% endfor %}
+{% endif %}
+{% if admission.discharge_summary %}<h2>الملخص</h2><p class="iso" dir="auto">{{ admission.discharge_summary }}</p>{% endif %}
+{% if admission.discharge_instructions %}<h2>تعليمات للمريضة</h2><p class="iso" dir="auto">{{ admission.discharge_instructions }}</p>{% endif %}
+<div class="sign"><span>توقيع الطبيب: ............................</span><span class="ltr">{% now "d/m/Y" %}</span></div>
+</body>
+</html>

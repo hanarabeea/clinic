@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "عملية جديدة" %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'theatre:board' %}" class="btn-icon" aria-label="{% translate 'رجوع للعمليات' %}">{% icon "arrow-right" %}</a>
+  <h1>{% translate "عملية جديدة" %}</h1>
+</div>
+
+<div class="max-w-2xl space-y-4">
+  {% if patient %}
+  <div class="flex flex-wrap items-center gap-2 rounded-lg border border-stone-200 bg-white px-4 py-3">
+    <span class="text-base font-bold">{{ patient.full_name }}</span>
+    <span class="num text-xs text-stone-600" dir="ltr">#{{ patient.file_number }}</span><span class="num text-xs text-stone-600" dir="ltr">{{ patient.phone }}</span>
+    {% if ga %}{% include "obstetrics/partials/ga_badge.html" %}{% endif %}
+    {% if case %}<span class="badge bg-red-50 font-semibold text-red-800">{% translate "طوارئ" %}</span>{% else %}<a href="{% url 'theatre:operation_new' %}" class="link ms-auto text-xs">{% translate "مريضة تانية" %}</a>{% endif %}
+  </div>
+  {% else %}
+  <div class="card p-4 sm:p-6">
+    <label class="mb-1 block text-[13px] font-semibold text-stone-700" for="op-q">{% translate "المريضة" %}</label>
+    <input id="op-q" type="search" name="q" autofocus autocomplete="off" class="input" placeholder="{% translate 'رقم الموبايل أو الاسم أو رقم الملف' %}"
+           hx-get="{% url 'theatre:patient_search' %}" hx-trigger="input changed delay:250ms" hx-target="#op-results" hx-swap="innerHTML">
+    <div id="op-results" class="mt-3 empty:hidden"></div>
+  </div>
+  {% endif %}
+
+  {% if patient %}
+  <form method="post" class="card space-y-4 p-4 sm:p-6" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="patient" value="{{ patient.pk }}">
+    {% if case %}<input type="hidden" name="emergency_case" value="{{ case.pk }}">{% endif %}
+    {% for e in form.non_field_errors %}<p class="notice notice-danger font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ e }}</p>{% endfor %}
+    <div class="grid gap-4 sm:grid-cols-2">
+      {% include "partials/field.html" with field=form.procedure %}
+      {% include "partials/field.html" with field=form.surgeon %}
+    </div>
+    <div class="grid gap-4 sm:grid-cols-4">
+      <div class="sm:col-span-2">{% include "partials/field.html" with field=form.room %}</div>
+      {% include "partials/field.html" with field=form.date %}
+      {% include "partials/field.html" with field=form.time %}
+    </div>
+    <div class="grid gap-4 sm:grid-cols-4">
+      <div>{% include "partials/field.html" with field=form.duration_minutes %}<p class="mt-1 text-xs text-stone-600">{% translate "سيبها فاضية للمدة المعتادة." %}</p></div>
+      <div class="sm:col-span-3">{% include "partials/field.html" with field=form.notes %}</div>
+    </div>
+    <label class="flex items-center gap-2 text-sm">{{ form.is_emergency }} {% translate "عملية طارئة (تدخل حتى لو قايمة ما قبل العملية مش كاملة)" %}</label>
+    <div class="flex justify-end gap-2">
+      <a href="{% url 'theatre:board' %}" class="btn-ghost">{% translate "إلغاء" %}</a>
+      <button type="submit" class="btn-primary min-h-10 px-6">{% translate "احجز العملية" %}</button>
+    </div>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

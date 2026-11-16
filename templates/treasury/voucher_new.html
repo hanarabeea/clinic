@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "سند جديد" %}{% endblock %}
+{% block content %}
+{% comment %}One short form for the three kinds of voucher. Picking the kind reloads the form with the fields that kind
+needs. Saved = numbered and posted.{% endcomment %}
+<div class="page-head">
+  <a href="{% url 'treasury:vouchers' %}" class="btn-icon" aria-label="{% translate 'رجوع للسندات' %}">{% icon "arrow-right" %}</a>
+  <h1>{% translate "سند جديد" %}</h1>
+</div>
+
+<div class="segmented mb-5">
+  {% for value, label in kinds %}<a href="{% url 'treasury:voucher_new' %}?kind={{ value }}" class="{% if kind == value %}is-active{% endif %}">{{ label }}</a>{% endfor %}
+</div>
+
+<form method="post" class="card max-w-2xl space-y-4 p-4 sm:p-6" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="kind" value="{{ kind }}">
+  {% for e in form.non_field_errors %}<p class="notice notice-danger font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ e }}</p>{% endfor %}
+
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="form-field{% if form.treasury.errors %} has-error{% endif %}">
+      <label for="{{ form.treasury.id_for_label }}">{% if kind == "receipt" %}{% translate "داخل لخزينة" %}{% else %}{% translate "خارج من خزينة" %}{% endif %}</label>
+      {{ form.treasury }}{{ form.treasury.errors }}
+    </div>
+    {% if kind == "transfer" %}
+    <div class="form-field{% if form.to_treasury.errors %} has-error{% endif %}">
+      <label for="{{ form.to_treasury.id_for_label }}">{{ form.to_treasury.label }}</label>
+      {{ form.to_treasury }}{{ form.to_treasury.errors }}
+    </div>
+    {% else %}
+    <div class="form-field{% if form.counter_account.errors %} has-error{% endif %}">
+      <label for="{{ form.counter_account.id_for_label }}">{% if kind == "receipt" %}{% translate "الفلوس دي عن إيه (الحساب)" %}{% else %}{% translate "اتصرفت في إيه (الحساب)" %}{% endif %}</label>
+      {{ form.counter_account }}{{ form.counter_account.errors }}
+    </div>
+    {% endif %}
+  </div>
+  <div class="grid gap-4 sm:grid-cols-2">
+    {% include "partials/field.html" with field=form.amount %}
+    {% include "partials/field.html" with field=form.date %}
+  </div>
+  {% include "partials/field.html" with field=form.description %}
+  {% if kind != "transfer" %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {% include "partials/field.html" with field=form.party_name %}
+    {% include "partials/field.html" with field=form.cost_center %}
+  </div>
+  {% endif %}
+  <div class="flex justify-end gap-2">
+    <a href="{% url 'treasury:vouchers' %}" class="btn-ghost">{% translate "إلغاء" %}</a>
+    <button type="submit" class="btn-primary min-h-10 px-6">{% translate "حفظ وترحيل" %}</button>
+  </div>
+</form>
+{% endblock %}

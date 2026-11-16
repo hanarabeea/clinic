@@ -16,6 +16,7 @@ urlpatterns = [
     path("desk/visits/<int:pk>/compare/<int:other_pk>/", views.visit_compare, name="visit_compare"),
     path("desk/visits/<int:pk>/reuse/", views.visit_reuse, name="visit_reuse"),
     path("desk/poll/", views.desk_poll, name="poll"),
+    path("desk/emergency-alert/", views.emergency_alert, name="emergency_alert"),
     path("desk/patients/<int:pk>/", views.patient_record, name="record"),
     path("desk/patients/<int:pk>/history/", views.patient_history, name="history"),
     path("desk/patients/<int:pk>/attachments/", views.patient_attachments, name="attachments"),

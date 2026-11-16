@@ -382,7 +382,8 @@ def test_template_validation_rejects_unknown_variables():
 def test_seed_notifications_is_idempotent(org_a):
     call_command("seed_notifications")
     call_command("seed_notifications")
-    assert NotificationTemplate.objects.filter(organization=org_a).count() == 9
+    # 9 templates for visits + 3 for operations (phase 15)
+    assert NotificationTemplate.objects.filter(organization=org_a).count() == 12
     reminders = NotificationTemplate.objects.filter(organization=org_a, event=Event.REMINDER).order_by("order")
     assert [(t.offset_minutes, t.min_lead_minutes, t.applies_to_mode) for t in reminders] == [
         (1440, 120, "all"),

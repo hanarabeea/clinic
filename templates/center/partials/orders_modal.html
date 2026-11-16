@@ -1,0 +1,9 @@
+{% extends "reception/partials/modal.html" %}
+{% load i18n %}
+{% block title %}{% blocktranslate with p=a.patient.full_name %}خدمات الزيارة: {{ p }}{% endblocktranslate %}{% endblock %}
+{% block body %}
+{% include "center/partials/orders.html" %}
+<div class="mt-4 flex justify-end">
+  <button type="button" class="btn-primary" onclick="document.getElementById('modal').innerHTML = ''; document.body.dispatchEvent(new Event('board-refresh'))">{% translate "تمام" %}</button>
+</div>
+{% endblock %}

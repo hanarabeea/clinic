@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "الإيراد حسب الدكتور والخدمة" %}{% endblock %}
+{% block content %}
+{% comment %}Invoiced revenue of the period (after discounts, less credit notes): who did it and what it was.{% endcomment %}
+<div class="page-head"><h1>{% translate "التقارير" %}</h1></div>
+{% include "dashboard/partials/report_tabs.html" %}
+{% url 'invoicing:report_revenue' as action %}
+{% include "ledger/partials/range.html" %}
+
+<h2 class="section-title">{% translate "حسب الدكتور" %}</h2>
+<div class="card mb-8 max-w-3xl overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th>{% translate "الدكتور" %}</th><th class="text-end!">{% translate "إيراد شغله" %}</th><th class="text-end!">{% translate "نصيبه" %}</th></tr></thead>
+    <tbody>
+      {% for r in doctors %}
+      <tr><td class="font-semibold">{{ r.doctor }}</td><td class="num text-end" dir="ltr">{{ r.revenue|money0 }}</td><td class="num text-end" dir="ltr">{{ r.share|money }}</td></tr>
+      {% empty %}
+      <tr><td colspan="3" class="py-8! text-center text-stone-600">{% translate "مفيش فواتير في الفترة دي." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2 class="section-title">{% translate "حسب الخدمة" %}</h2>
+<div class="card max-w-3xl overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th>{% translate "البند" %}</th><th>{% translate "النوع" %}</th><th class="text-end!">{% translate "العدد" %}</th><th class="text-end!">{% translate "الإيراد" %}</th></tr></thead>
+    <tbody>
+      {% for r in items %}
+      <tr><td class="font-semibold">{{ r.name }}</td><td class="text-stone-600">{{ r.kind_label }}</td><td class="num text-end" dir="ltr">{{ r.count }}</td><td class="num text-end" dir="ltr">{{ r.revenue|money0 }}</td></tr>
+      {% empty %}
+      <tr><td colspan="4" class="py-8! text-center text-stone-600">{% translate "مفيش فواتير في الفترة دي." %}</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if items %}<tfoot><tr class="border-t border-stone-300 bg-stone-50 font-bold"><td class="px-3 py-2" colspan="3">{% translate "الإجمالي" %}</td><td class="num px-3 py-2 text-end" dir="ltr">{{ total|money0 }}</td></tr></tfoot>{% endif %}
+  </table>
+</div>
+{% endblock %}

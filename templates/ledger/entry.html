@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% blocktranslate with n=entry.number %}قيد رقم {{ n }}{% endblocktranslate %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'ledger:journal' %}" class="btn-icon print:hidden" aria-label="{% translate 'رجوع لدفتر اليومية' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{% blocktranslate with n=entry.number %}قيد رقم {{ n }}{% endblocktranslate %}</h1>
+    <p class="page-sub"><span class="num" dir="ltr">{{ entry.date|date:"d/m/Y" }}</span>{% if entry.created_by %} · {{ entry.created_by.full_name|default:entry.created_by.username }}{% endif %}</p>
+  </div>
+  <span class="ms-auto"></span>
+  <button type="button" class="btn-ghost print:hidden" onclick="window.print()">{% icon "printer" "size-4" %}{% translate "طباعة" %}</button>
+</div>
+
+<p class="mb-4 text-[15px]">{{ entry.memo }}</p>
+{% if entry.reverses_id %}<p class="notice notice-info mb-4">{% icon "info" "size-5 shrink-0" %}<span>{% translate "ده قيد عكسي بيلغي" %} <a class="link" href="{% url 'ledger:entry' entry.reverses_id %}">{% blocktranslate with n=entry.reverses.number %}القيد رقم {{ n }}{% endblocktranslate %}</a>.</span></p>{% endif %}
+{% if reversal %}<p class="notice notice-warn mb-4">{% icon "warning" "size-5 shrink-0" %}<span>{% translate "القيد ده اتعكس بـ" %}<a class="link" href="{% url 'ledger:entry' reversal.pk %}">{% blocktranslate with n=reversal.number %}القيد رقم {{ n }}{% endblocktranslate %}</a>.</span></p>{% endif %}
+
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>{% translate "الحساب" %}</th>
+        <th>{% translate "البيان" %}</th>
+        <th class="text-end!">{% translate "مدين" %}</th>
+        <th class="text-end!">{% translate "دائن" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for line in lines %}
+      <tr>
+        <td>
+          <a href="{% url 'ledger:statement' line.account.pk %}" class="hover:text-brand"><span class="num text-xs text-stone-500" dir="ltr">{{ line.account.code }}</span> {{ line.account.name_ar }}</a>
+          {% if line.cost_center %}<span class="block text-xs text-stone-600">{{ line.cost_center }}</span>{% endif %}
+        </td>
+        <td class="text-stone-600">{{ line.memo }}</td>
+        <td class="num text-end" dir="ltr">{{ line.debit|money }}</td>
+        <td class="num text-end" dir="ltr">{{ line.credit|money }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="border-t border-stone-300 bg-stone-50 font-bold">
+        <td class="px-3 py-2" colspan="2">{% translate "الإجمالي" %}</td>
+        <td class="num px-3 py-2 text-end" dir="ltr">{{ entry.total|money0 }}</td>
+        <td class="num px-3 py-2 text-end" dir="ltr">{{ entry.total|money0 }}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+
+{% if can_reverse and can.ledger_post %}
+<form method="post" action="{% url 'ledger:entry_reverse' entry.pk %}" class="mt-6 flex flex-wrap items-end gap-2 print:hidden"
+      onsubmit="return confirm('{% translate 'تعكس القيد ده؟ هيتسجل قيد جديد بيلغيه، والاتنين هيفضلوا في الدفتر.' %}')">
+  {% csrf_token %}
+  <div class="form-field w-full max-w-sm">
+    <label for="rev-memo">{% translate "غلط في القيد؟ اعكسه واكتب السبب" %}</label>
+    <input id="rev-memo" type="text" name="memo" maxlength="200">
+  </div>
+  <button class="btn-danger">{% icon "arrow-u-up-left" "size-4" %}{% translate "عكس القيد" %}</button>
+</form>
+{% elif entry.source_type and not entry.reverses_id %}
+<p class="mt-4 text-sm text-stone-600 print:hidden">{% translate "القيد ده اتسجل تلقائي من مستند (تحصيل، سند...). لو فيه غلط، الغي المستند نفسه والقيد هيتعكس معاه." %}</p>
+{% endif %}
+{% endblock %}

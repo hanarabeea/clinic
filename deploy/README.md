@@ -56,6 +56,8 @@ docker compose -f compose.yml --env-file .env up -d db
 docker compose -f compose.yml --env-file .env run --rm web python manage.py migrate
 docker compose -f compose.yml --env-file .env run --rm web python manage.py seed_org            # from docs/plan/seed/clinic.json — edit it first with the real clinic, or fix in Settings later
 docker compose -f compose.yml --env-file .env run --rm web python manage.py seed_notifications
+docker compose -f compose.yml --env-file .env run --rm web python manage.py seed_services
+docker compose -f compose.yml --env-file .env run --rm web python manage.py ledger_bootstrap    # chart of accounts, treasuries, and an entry for every payment that has none (safe to repeat)
 docker compose -f compose.yml --env-file .env run --rm web python manage.py import_drugs
 docker compose -f compose.yml --env-file .env run --rm web python manage.py create_user --email OWNER@EMAIL --name "اسم الدكتور" --role owner
 docker compose -f compose.yml --env-file .env up -d
@@ -117,6 +119,7 @@ cd /opt/digiclinic && git pull
 cd deploy && docker compose -f compose.yml --env-file .env exec web python manage.py backup   # always first
 docker compose -f compose.yml --env-file .env build
 docker compose -f compose.yml --env-file .env run --rm web python manage.py migrate
+docker compose -f compose.yml --env-file .env run --rm web python manage.py ledger_bootstrap   # after every upgrade: completes the chart, posts any payment without an entry
 docker compose -f compose.yml --env-file .env up -d
 ```
 Rollback code: `git checkout <previous-commit>` + build + up (restore the pre-update backup if a migration ran).

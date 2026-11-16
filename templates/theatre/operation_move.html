@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "ميعاد العملية" %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'theatre:operation' op.pk %}" class="btn-icon" aria-label="{% translate 'رجوع للعملية' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{% if op.status == "postponed" %}{% translate "ميعاد جديد للعملية" %}{% else %}{% translate "تغيير الميعاد أو الغرفة" %}{% endif %}</h1>
+    <p class="page-sub">{{ op.procedure_name }}، {{ op.patient.full_name }}</p>
+  </div>
+</div>
+<form method="post" class="card max-w-2xl space-y-4 p-4 sm:p-6" novalidate>
+  {% csrf_token %}
+  {% for e in form.non_field_errors %}<p class="notice notice-danger font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ e }}</p>{% endfor %}
+  <div class="grid gap-4 sm:grid-cols-4">
+    <div class="sm:col-span-2">{% include "partials/field.html" with field=form.room %}</div>
+    {% include "partials/field.html" with field=form.date %}
+    {% include "partials/field.html" with field=form.time %}
+  </div>
+  <div class="grid gap-4 sm:grid-cols-4">
+    {% include "partials/field.html" with field=form.duration_minutes %}
+    {% if op.status != "postponed" %}
+    <div class="form-field sm:col-span-3"><label for="mv-reason">{% translate "السبب (اختياري)" %}</label><input id="mv-reason" type="text" name="reason" maxlength="200"></div>
+    {% endif %}
+  </div>
+  <p class="text-xs text-stone-600">{% translate "المريضة هتوصلها رسالة بالميعاد الجديد لو موافقة على الرسايل." %}</p>
+  <div class="flex justify-end gap-2">
+    <a href="{% url 'theatre:operation' op.pk %}" class="btn-ghost">{% translate "إلغاء" %}</a>
+    <button type="submit" class="btn-primary">{% translate "حفظ الميعاد" %}</button>
+  </div>
+</form>
+{% endblock %}

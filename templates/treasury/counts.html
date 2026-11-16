@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "جرد الخزينة" %}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{% translate "الخزن والسندات" %}</h1></div>
+{% include "treasury/partials/tabs.html" %}
+
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>{% translate "التاريخ" %}</th>
+        <th>{% translate "الخزينة" %}</th>
+        <th class="text-end!">{% translate "المفروض" %}</th>
+        <th class="text-end!">{% translate "اتعدّ" %}</th>
+        <th class="text-end!">{% translate "الفرق" %}</th>
+        <th>{% translate "اللي عدّ" %}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for c in counts %}
+      <tr>
+        <td class="num text-stone-600" dir="ltr">{{ c.counted_at|date:"d/m/Y H:i" }}</td>
+        <td><span class="font-semibold">{{ c.treasury.name }}</span><span class="block text-xs text-stone-600">{{ c.get_kind_display }}</span></td>
+        <td class="num text-end" dir="ltr">{{ c.expected_total|money0 }}</td>
+        <td class="num text-end" dir="ltr">{{ c.counted_total|money0 }}</td>
+        <td class="num text-end font-semibold {% if c.difference %}text-red-700{% endif %}" dir="ltr">{{ c.difference|money:"0" }}</td>
+        <td class="text-stone-600">{{ c.counted_by.full_name|default:c.counted_by.username }}{% if c.witness_name %}<span class="block text-xs">{% translate "الشاهد" %}: {{ c.witness_name }}</span>{% endif %}</td>
+        <td class="text-end">
+          {% if c.can_approve %}
+          <form method="post" action="{% url 'treasury:approve_variance' c.pk %}" onsubmit="return confirm('{% translate 'تعتمد الفرق ده؟ هيتسجل على حساب عجز وزيادة الخزينة.' %}')">{% csrf_token %}
+            <button class="btn-secondary min-h-8 px-3 py-1 text-xs">{% translate "اعتمد الفرق" %}</button>
+          </form>
+          {% elif c.variance_status == "pending" %}<span class="text-xs text-amber-700">{% translate "مستني اعتماد" %}</span>
+          {% elif c.variance_status == "approved" %}<span class="text-xs text-stone-600">{% translate "اعتمده" %} {{ c.approved_by.full_name|default:c.approved_by.username }}</span>{% endif %}
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="py-12! text-center text-stone-600">{% translate "لسه مفيش جرد اتسجل." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

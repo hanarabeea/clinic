@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "قيد جديد" %}{% endblock %}
+{% block content %}
+{% comment %}A manual journal entry. The page adds up both sides as they are typed and says by how much they differ;
+the server checks again and posts. Accounts that only their own documents move are not offered.{% endcomment %}
+<div class="page-head">
+  <a href="{% url 'ledger:journal' %}" class="btn-icon" aria-label="{% translate 'رجوع لدفتر اليومية' %}">{% icon "arrow-right" %}</a>
+  <h1>{% translate "قيد جديد" %}</h1>
+</div>
+
+{% if error %}<p class="notice notice-danger mb-4 font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ error }}</p>{% endif %}
+
+<form method="post" class="space-y-4" id="entry-form" novalidate>
+  {% csrf_token %}
+  <div class="card grid gap-4 p-4 sm:grid-cols-4 sm:p-5">
+    <div class="form-field">
+      <label for="e-date">{% translate "التاريخ" %}</label>
+      <input id="e-date" type="date" name="date" value="{{ date|date:'Y-m-d' }}" required>
+    </div>
+    <div class="form-field sm:col-span-3">
+      <label for="e-memo">{% translate "البيان" %}</label>
+      <input id="e-memo" type="text" name="memo" value="{{ memo }}" maxlength="300" required placeholder="{% translate 'القيد ده عن إيه؟' %}">
+    </div>
+  </div>
+
+  <div class="card overflow-x-auto">
+    <table class="data-table" id="lines">
+      <thead>
+        <tr>
+          <th>{% translate "الحساب" %}</th>
+          <th class="w-36 text-end!">{% translate "مدين" %}</th>
+          <th class="w-36 text-end!">{% translate "دائن" %}</th>
+          <th class="w-44">{% translate "مركز التكلفة" %}</th>
+          <th>{% translate "ملاحظة" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td>
+            <select name="account" class="input py-1.5" aria-label="{% translate 'الحساب' %}">
+              <option value="">{% translate "اختار الحساب" %}</option>
+              {% for a in accounts %}<option value="{{ a.pk }}" {% if a.pk|stringformat:"s" == row.account %}selected{% endif %}>{{ a.code }} {{ a.name_ar }}</option>{% endfor %}
+            </select>
+          </td>
+          <td><input type="text" name="debit" value="{{ row.debit }}" inputmode="decimal" dir="ltr" class="input py-1.5 text-end" aria-label="{% translate 'مدين' %}"></td>
+          <td><input type="text" name="credit" value="{{ row.credit }}" inputmode="decimal" dir="ltr" class="input py-1.5 text-end" aria-label="{% translate 'دائن' %}"></td>
+          <td>
+            <select name="cost_center" class="input py-1.5" aria-label="{% translate 'مركز التكلفة' %}">
+              <option value="">-</option>
+              {% for c in centers %}<option value="{{ c.pk }}" {% if c.pk|stringformat:"s" == row.cost_center %}selected{% endif %}>{{ c.name_ar }}</option>{% endfor %}
+            </select>
+          </td>
+          <td><input type="text" name="line_memo" value="{{ row.memo }}" maxlength="200" class="input py-1.5" aria-label="{% translate 'ملاحظة' %}"></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="border-t border-stone-300 bg-stone-50 font-bold">
+          <td class="px-3 py-2">{% translate "الإجمالي" %}</td>
+          <td class="num px-3 py-2 text-end" dir="ltr" id="sum-debit">0.00</td>
+          <td class="num px-3 py-2 text-end" dir="ltr" id="sum-credit">0.00</td>
+          <td class="px-3 py-2 text-sm font-semibold" colspan="2" id="sum-state"></td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  <p class="text-xs text-stone-600">{% translate "حسابات المصروفات والإيرادات محتاجة مركز تكلفة." %}</p>
+
+  <div class="flex flex-wrap items-center gap-2">
+    <button type="button" class="btn-secondary" id="add-line">{% icon "plus" "size-4" %}{% translate "سطر كمان" %}</button>
+    <span class="ms-auto"></span>
+    <a href="{% url 'ledger:journal' %}" class="btn-ghost">{% translate "إلغاء" %}</a>
+    <button type="submit" class="btn-primary min-h-10 px-6">{% translate "ترحيل القيد" %}</button>
+  </div>
+</form>
+
+<script>
+  (() => {
+    const body = document.querySelector("#lines tbody");
+    const T = { balanced: "{% translate 'متزن' %}", diff: "{% translate 'الفرق' %}" };
+    const num = (v) => { const n = parseFloat(String(v).replace(/,/g, "")); return Number.isFinite(n) ? n : 0; };
+    const sum = (name) => [...body.querySelectorAll(`[name=${name}]`)].reduce((t, el) => t + Math.round(num(el.value) * 100), 0);
+    const show = () => {
+      const d = sum("debit"), c = sum("credit");
+      document.getElementById("sum-debit").textContent = (d / 100).toFixed(2);
+      document.getElementById("sum-credit").textContent = (c / 100).toFixed(2);
+      const state = document.getElementById("sum-state");
+      state.textContent = d === c ? (d ? T.balanced : "") : `${T.diff} ${(Math.abs(d - c) / 100).toFixed(2)}`;
+      state.className = "px-3 py-2 text-sm font-semibold " + (d === c ? "text-green-800" : "text-red-700");
+    };
+    body.addEventListener("input", show);
+    document.getElementById("add-line").addEventListener("click", () => {
+      const row = body.rows[body.rows.length - 1].cloneNode(true);
+      row.querySelectorAll("input").forEach((el) => (el.value = ""));
+      row.querySelectorAll("select").forEach((el) => (el.selectedIndex = 0));
+      body.appendChild(row);
+      row.querySelector("select").focus();
+    });
+    show();
+  })();
+</script>
+{% endblock %}

@@ -15,7 +15,7 @@ from apps.accounts.permissions import has_perm, require_membership, require_perm
 from apps.audit import services as audit
 from apps.clinical.models import Visit
 from apps.clinical.views import desk_unlocked
-from apps.doctors.services import get_doctor
+from apps.doctors.services import active_doctors, current_doctor
 from apps.documents import pdf as engine
 from apps.notifications.models import NotificationSettings
 
@@ -559,7 +559,7 @@ def settings_prescription(request):
 @require_perm("drug.manage")
 def drug_catalog(request):
     org = request.organization
-    doctor = get_doctor(org)
+    doctor = current_doctor(request)
     form = DrugForm(request.POST or None, org=org, doctor=doctor)
     if request.method == "POST" and form.is_valid():
         drug = form.save(commit=False)
@@ -610,7 +610,7 @@ def template_delete(request, pk):
 def drug_edit(request, pk):
     drug = get_object_or_404(Drug.objects.filter(organization=request.organization), pk=pk)
     form = DrugForm(request.POST or None, instance=drug, org=request.organization,
-                    doctor=get_doctor(request.organization))  # fmt: skip
+                    doctor=current_doctor(request))  # fmt: skip
     if request.method == "POST" and form.is_valid():
         form.save()
         messages.success(request, _("%(d)s اتحفظ.") % {"d": drug.name})
@@ -625,7 +625,7 @@ def drug_edit(request, pk):
 def categories_settings(request):
     from .specialties import SPECIALTIES, SPECIALTY_CHOICES
 
-    doctor = get_doctor(request.organization)
+    doctor = current_doctor(request)
     if request.method == "POST":
         action = request.POST.get("action")
         if action == "specialty":
@@ -658,6 +658,7 @@ def categories_settings(request):
         e.drug_count = counts.get(e.category_id, 0)
     ctx = {
         "doctor": doctor,
+        "doctors": active_doctors(request.organization),
         "entries": entries,
         "specialties": SPECIALTY_CHOICES,
         "levels": CategoryLevel.choices,

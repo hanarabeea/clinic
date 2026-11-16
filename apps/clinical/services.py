@@ -16,7 +16,7 @@ from apps.core.timeutils import CAIRO
 from apps.patients import custom_fields
 from apps.patients.models import FieldScope
 from apps.scheduling import services as booking
-from apps.scheduling.models import Appointment, AppointmentStatus
+from apps.scheduling.models import URGENT_FIRST, Appointment, AppointmentStatus
 
 from .models import Attachment, Visit, VisitStatus
 
@@ -45,8 +45,8 @@ def today_queue(doctor, day=None):
                 AppointmentStatus.CONFIRMED,
             ]
         )
-        .select_related("patient", "visit_type")
-        .order_by("queue_number", "start_at", "arrived_at")
+        .select_related("patient", "visit_type", "emergency")
+        .order_by(URGENT_FIRST, "queue_number", "start_at", "arrived_at")  # emergency arrivals jump the queue
     )
     current = [a for a in appts if a.status == AppointmentStatus.IN_CONSULTATION]
     waiting = [a for a in appts if a.status == AppointmentStatus.ARRIVED]
@@ -62,6 +62,9 @@ def start_visit(appt, *, by):
         appt = booking.transition(appt, AppointmentStatus.IN_CONSULTATION, by=by)
     elif appt.status not in (AppointmentStatus.IN_CONSULTATION, AppointmentStatus.COMPLETED):
         raise VisitError(_("المريض ده لسه موصلش."))
+    from apps.center import services as center
+
+    center.mark_seen(appt)  # an emergency arrival: the time the doctor took her in (written once)
     visit = Visit.for_appointment(appt)
     if visit.started_at is None:
         visit.started_at = timezone.now()

@@ -7,12 +7,14 @@ new bookings (a panel opened by "+ حجز جديد" or a free cell). apps/recept
 <div class="page-head mb-3">
   <div>
     <h1>{% translate "الاستقبال والمواعيد" %}</h1>
-    <p class="page-sub">{{ doctor }}</p>
+    <p class="page-sub">{% if selected_doctor %}{{ selected_doctor }}{% else %}{% translate "كل الدكاترة" %}{% endif %}</p>
   </div>
   <span class="ms-auto"></span>
-  {% if can.payment_record %}<a href="{% url 'billing:cashbox' %}" class="btn-secondary">{% icon "cash-register" "size-4" %}{% translate "الخزنة" %}</a>{% endif %}
+  {% if can.emergency_register %}
+  <button type="button" class="btn-danger px-4" hx-get="{% url 'center:emergency_register' %}" hx-target="#modal">{% icon "siren" "size-4" %}{% translate "طوارئ" %}</button>
+  {% endif %}
   {% if can.appointment_book %}
-  <button type="button" class="btn-primary px-5" hx-get="{% url 'scheduling:booking_panel' %}?day={{ day|date:'Y-m-d' }}" hx-target="#modal">{% icon "plus" "size-4" %}{% translate "حجز جديد" %}</button>
+  <button type="button" class="btn-primary px-5" hx-get="{% url 'scheduling:booking_panel' %}?day={{ day|date:'Y-m-d' }}{% if selected_doctor %}&doctor={{ selected_doctor.pk }}{% endif %}" hx-target="#modal">{% icon "plus" "size-4" %}{% translate "حجز جديد" %}</button>
   {% endif %}
 </div>
 
@@ -31,10 +33,17 @@ new bookings (a panel opened by "+ حجز جديد" or a free cell). apps/recept
   <input type="date" value="{{ day|date:'Y-m-d' }}" aria-label="{% translate 'روح لتاريخ' %}"
          onchange="if (this.value) location.href = '{% url 'reception:today' %}?view={{ view }}&date=' + this.value"
          class="input h-8 w-auto py-0">
+  {% if doctors|length > 1 %}
+  {# several doctors: everyone's day one under the other, or one doctor's full schedule #}
+  <div class="segmented flex-wrap" role="group" aria-label="{% translate 'الدكتور' %}">
+    <a href="{% url 'reception:today' %}?view={{ view }}&date={{ day|date:'Y-m-d' }}&doctor=all" class="{% if not selected_doctor %}is-active{% endif %}">{% translate "الكل" %}</a>
+    {% for d in doctors %}<a href="{% url 'reception:today' %}?view={{ view }}&date={{ day|date:'Y-m-d' }}&doctor={{ d.pk }}" class="{% if selected_doctor.pk == d.pk %}is-active{% endif %}">{{ d }}</a>{% endfor %}
+  </div>
+  {% endif %}
   <span class="ms-auto"></span>
-  {% if view == "day" and can.schedule_manage and board.periods and day >= today %}
+  {% if view == "day" and can.schedule_manage and selected_doctor and board.periods and day >= today %}
   <form method="post" action="{% url 'scheduling:close_day' %}" onsubmit="return confirm('{% translate 'تقفل اليوم ده؟ الحجوزات اللي فيه هتظهرلك عشان تأجلها.' %}')">
-    {% csrf_token %}<input type="hidden" name="date" value="{{ day|date:'Y-m-d' }}">
+    {% csrf_token %}<input type="hidden" name="date" value="{{ day|date:'Y-m-d' }}"><input type="hidden" name="doctor" value="{{ selected_doctor.pk }}">
     <button class="btn-ghost min-h-8 px-2.5 py-1 text-stone-600 hover:bg-red-50 hover:text-red-700">{% icon "lock-simple" "size-4" %}{% translate "قفل اليوم" %}</button>
   </form>
   {% endif %}
@@ -59,31 +68,19 @@ new bookings (a panel opened by "+ حجز جديد" or a free cell). apps/recept
 <div id="reception"
      hx-get="{% url 'reception:rows' %}" hx-trigger="every 5s [!document.querySelector('#modal > *')], board-refresh from:body"
      hx-swap="innerHTML"
-     hx-vals='js:{sig: (document.getElementById("rows-sig") || {}).value || "", view: "{{ view }}", date: "{{ day|date:"Y-m-d" }}"}'>
+     hx-vals='js:{sig: (document.getElementById("rows-sig") || {}).value || "", view: "{{ view }}", date: "{{ day|date:"Y-m-d" }}", doctor: "{{ doctor_param }}"}'>
   {% include "reception/partials/board.html" %}
 </div>
 
 <div id="modal"></div>
-{% if book %}<div hidden hx-get="{% url 'scheduling:booking_panel' %}?day={{ day|date:'Y-m-d' }}{% if book != '1' %}&patient={{ book }}{% endif %}" hx-trigger="load" hx-target="#modal"></div>{% endif %}
+{% if book %}<div hidden hx-get="{% url 'scheduling:booking_panel' %}?day={{ day|date:'Y-m-d' }}{% if book != '1' %}&patient={{ book }}{% endif %}{% if selected_doctor %}&doctor={{ selected_doctor.pk }}{% endif %}" hx-trigger="load" hx-target="#modal"></div>{% endif %}
 
+{# Actions return the fresh board (or close the panel): the server's toast, Escape closes the dialog. #}
+{% include "partials/htmx_toast.html" %}
 <script>
-  // Actions return the fresh board (or close the panel): show the server's toast, close the modal after a board swap.
-  document.body.addEventListener("toast", (e) => {
-    const box = document.createElement("div");
-    box.className = "pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex justify-center px-4";
-    box.setAttribute("role", "status");
-    const toast = document.createElement("div");
-    toast.className = "toast pointer-events-auto" + (e.detail.error ? " is-error" : "");
-    toast.textContent = e.detail.text;
-    box.appendChild(toast);
-    document.body.appendChild(box);
-    setTimeout(() => box.remove(), 5000);
-  });
+  // close the dialog after a board swap
   document.body.addEventListener("htmx:afterSwap", (e) => {
     if (e.detail.target.id === "reception") document.getElementById("modal").innerHTML = "";
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") document.getElementById("modal").innerHTML = "";
   });
   // week table: drag a booking onto another cell = reschedule (the dialog shows that day's free times to confirm)
   (() => {

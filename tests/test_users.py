@@ -216,7 +216,7 @@ def test_create_user_command(org_a):
         "create_user", email="Sara@Example.com", name="Sara", role="viewer", org="demo-clinic", password=PASSWORD
     )
     assert User.objects.get(username="sara@example.com").email == "sara@example.com"
-    assert ClinicRole.objects.filter(organization=org_a).count() == 4
+    assert ClinicRole.objects.filter(organization=org_a).count() == 8  # the clinic's four roles + the center's four
 
 
 def test_seed_org_is_idempotent(db):

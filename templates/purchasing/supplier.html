@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{{ supplier.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'purchasing:suppliers' %}" class="btn-icon print:hidden" aria-label="{% translate 'رجوع للموردين' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{{ supplier.name }}</h1>
+    <p class="page-sub">{% if owed < 0 %}{% translate "لينا عنده" %} <b class="num text-ink" dir="ltr">{{ owed|cut:"-"|money0 }}</b>{% else %}{% translate "علينا له" %} <b class="num text-ink" dir="ltr">{{ owed|money0 }}</b>{% endif %}{% if supplier.tax_registration_number %}، {% translate "رقم ضريبي" %} <span class="num" dir="ltr">{{ supplier.tax_registration_number }}</span>{% endif %}</p>
+  </div>
+  <span class="ms-auto"></span>
+  {% if can.supplier_manage %}<a href="{% url 'purchasing:supplier_edit' supplier.pk %}" class="btn-ghost print:hidden">{% icon "pencil-simple" "size-4" %}{% translate "تعديل" %}</a>{% endif %}
+  {% if can.purchase_manage %}<a href="{% url 'purchasing:invoice_new' %}?supplier={{ supplier.pk }}" class="btn-ghost print:hidden">{% icon "plus" "size-4" %}{% translate "فاتورة" %}</a>{% endif %}
+  {% if can.supplier_pay %}<a href="{% url 'purchasing:payment_new' %}?supplier={{ supplier.pk }}" class="btn-primary print:hidden">{% translate "سداد" %}</a>{% endif %}
+</div>
+
+{% if open_invoices %}
+<h2 class="section-title print:hidden">{% translate "فواتير لسه عليها" %}</h2>
+<div class="card mb-6 overflow-x-auto print:hidden">
+  <table class="data-table">
+    <thead><tr><th class="w-40">{% translate "الفاتورة" %}</th><th class="w-28">{% translate "تستحق" %}</th><th></th><th class="text-end!">{% translate "الباقي" %}</th></tr></thead>
+    <tbody>
+      {% for row in open_invoices %}
+      <tr>
+        <td><a href="{% url 'purchasing:invoice' row.invoice.pk %}" class="num font-semibold hover:text-brand" dir="ltr">{{ row.invoice.label }}</a></td>
+        <td class="num text-stone-600" dir="ltr">{{ row.invoice.due_date|date:"d/m/Y" }}</td>
+        <td class="text-sm {% if row.days_late > 0 %}text-red-700{% else %}text-stone-600{% endif %}">{% if row.days_late > 0 %}{% blocktranslate count n=row.days_late %}متأخرة يوم{% plural %}متأخرة {{ n }} يوم{% endblocktranslate %}{% endif %}</td>
+        <td class="num text-end font-semibold" dir="ltr">{{ row.open|money0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<h2 class="section-title">{% translate "كشف الحساب" %}</h2>
+{% url 'purchasing:supplier' supplier.pk as action %}
+{% include "ledger/partials/range.html" %}
+{% include "ledger/partials/statement_table.html" %}
+{% endblock %}

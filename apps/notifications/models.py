@@ -91,6 +91,11 @@ class Event(models.TextChoices):
     NEAR_TURN = "near_turn", _("دورك قرّب")
     PRESCRIPTION = "prescription", _("الروشتة")
     FOLLOWUP_DUE = "followup_due", _("ميعاد الإعادة")
+    OPERATION_BOOKED = "operation_booked", _("حجز عملية")
+    OPERATION_REMINDER = "operation_reminder", _("تذكير بعملية")
+    OPERATION_CHANGED = "operation_changed", _("تغيير ميعاد عملية")
+    MILESTONE_DUE = "milestone_due", _("محطة متابعة حمل")
+    POSTPARTUM = "postpartum", _("متابعة بعد الولادة")
     TEST = "test", _("تجربة")
 
 

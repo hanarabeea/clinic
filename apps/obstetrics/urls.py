@@ -18,6 +18,9 @@ urlpatterns = [
     path("desk/pregnancies/<int:pk>/reopen/", views.pregnancy_reopen, name="reopen"),
     path("desk/pregnancies/<int:pk>/milestones/<int:milestone_pk>/", views.milestone_toggle, name="milestone"),
     path("desk/pregnancy-history/<int:pk>/remove/", views.history_remove, name="history_remove"),
+    path("org/settings/pregnancy/", views.milestones, name="milestones"),
+    path("org/settings/pregnancy/new/", views.milestone_edit, name="milestone_new"),
+    path("org/settings/pregnancy/<int:pk>/", views.milestone_edit, name="milestone_edit"),
     path("desk/visits/<int:pk>/antenatal/", views.antenatal, name="antenatal"),
     path("desk/visits/<int:pk>/antenatal/field/", views.antenatal_field, name="antenatal_field"),
 ]

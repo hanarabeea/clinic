@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{{ invoice.label }}{% endblock %}
+{% block content %}
+{% comment %}One invoice (or credit note): its lines, who pays what, and what is still open on it. It cannot be edited:
+a mistake is taken back by a credit note.{% endcomment %}
+<div class="page-head">
+  <a href="{% url 'invoicing:account' invoice.patient.pk %}" class="btn-icon" aria-label="{% translate 'رجوع لحساب المريضة' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1><span class="num" dir="ltr">{{ invoice.label }}</span></h1>
+    <p class="page-sub">{{ invoice.get_kind_display }}، <a href="{% url 'invoicing:account' invoice.patient.pk %}" class="font-semibold text-ink hover:text-brand">{{ invoice.patient.full_name }}</a>، <span class="num" dir="ltr">{{ invoice.date|date:"d/m/Y" }}</span></p>
+  </div>
+  <span class="ms-auto"></span>
+  <a href="{% url 'invoicing:invoice_pdf' invoice.pk %}" target="_blank" rel="noopener" class="btn-secondary">{% icon "printer" "size-4" %}{% translate "طباعة" %}</a>
+</div>
+
+{% if invoice.is_credit %}
+<p class="notice notice-info mb-4">{% icon "info" "size-5 shrink-0" %}<span>{% translate "إشعار دائن على الفاتورة" %} <a class="link num" dir="ltr" href="{% url 'invoicing:invoice' invoice.credit_of.pk %}">{{ invoice.credit_of.label }}</a>{% if invoice.reason %}: {{ invoice.reason }}{% endif %}</span></p>
+{% endif %}
+{% for n in credit_notes %}
+<p class="notice notice-warn mb-4">{% icon "warning" "size-5 shrink-0" %}<span>{% translate "اترجع منها بإشعار دائن" %} <a class="link num" dir="ltr" href="{% url 'invoicing:invoice' n.pk %}">{{ n.label }}</a>: <span class="num" dir="ltr">{{ n.total|money0 }}</span></span></p>
+{% endfor %}
+
+{% if can_credit %}<form method="post" action="{% url 'invoicing:invoice_credit' invoice.pk %}" x-data="{ credit: false }">
+  {% csrf_token %}{% else %}<div>{% endif %}
+  <div class="card mb-4 overflow-x-auto">
+    <table class="data-table">
+      <thead>
+        <tr>
+          {% if can_credit %}<th class="w-8" x-show="credit" x-cloak></th>{% endif %}
+          <th>{% translate "البند" %}</th>
+          <th class="text-end!">{% translate "العدد" %}</th>
+          <th class="text-end!">{% translate "السعر" %}</th>
+          <th class="text-end!">{% translate "الخصم" %}</th>
+          <th class="text-end!">{% translate "الصافي" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for line in lines %}
+        <tr class="{% if not invoice.is_credit and not line.is_live %}text-stone-500 line-through{% endif %}">
+          {% if can_credit %}<td x-show="credit" x-cloak>{% if line.is_live %}<input type="checkbox" name="line" value="{{ line.pk }}" checked aria-label="{% translate 'رجّع البند ده' %}">{% endif %}</td>{% endif %}
+          <td>{{ line.description }}{% if line.doctor %} <span class="text-xs text-stone-600">{{ line.doctor }}</span>{% endif %}
+            {% if show_shares %}{% for share in line.shares.all %}<span class="block text-xs text-stone-600">{% if share.role %}{{ share.role }}: {% endif %}{{ share.doctor|default:share.payee_name }} <span class="num" dir="ltr">{{ share.amount|money0 }}</span></span>{% endfor %}{% endif %}</td>
+          <td class="num text-end" dir="ltr">{{ line.quantity }}</td>
+          <td class="num text-end" dir="ltr">{{ line.unit_price|money0 }}</td>
+          <td class="num text-end" dir="ltr">{{ line.discount|money }}</td>
+          <td class="num text-end font-semibold" dir="ltr">{{ line.net|money0 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <dl class="card mb-5 ms-auto max-w-sm divide-y divide-stone-100 text-sm">
+    {% if invoice.discount %}
+    <div class="flex px-4 py-2"><dt class="text-stone-600">{% translate "قبل الخصم" %}</dt><dd class="ms-auto"><span class="num" dir="ltr">{{ invoice.gross|money0 }}</span></dd></div>
+    <div class="flex px-4 py-2"><dt class="text-stone-600">{% translate "الخصم" %}{% if invoice.reason and not invoice.is_credit %} <span class="text-xs">({{ invoice.reason }})</span>{% endif %}</dt><dd class="ms-auto"><span class="num" dir="ltr">{{ invoice.discount|money0 }}</span></dd></div>
+    {% endif %}
+    <div class="flex px-4 py-2 font-bold"><dt>{% translate "الإجمالي" %}</dt><dd class="ms-auto"><span class="num" dir="ltr">{{ invoice.total|money0 }}</span></dd></div>
+    {% if invoice.payer %}
+    <div class="flex px-4 py-2"><dt class="text-stone-600">{{ invoice.payer.name }} <span class="num" dir="ltr">{{ invoice.coverage_percent|floatformat:"-2" }}%</span></dt><dd class="ms-auto"><span class="num" dir="ltr">{{ invoice.payer_share|money0 }}</span></dd></div>
+    <div class="flex px-4 py-2"><dt class="text-stone-600">{% translate "على المريضة" %}</dt><dd class="ms-auto"><span class="num" dir="ltr">{{ invoice.patient_share|money0 }}</span></dd></div>
+    {% endif %}
+    {% if state %}
+    {% if invoice.deposit_applied %}<div class="flex px-4 py-2"><dt class="text-stone-600">{% translate "اتخصم من المقدم" %}</dt><dd class="ms-auto"><span class="num" dir="ltr">{{ invoice.deposit_applied|money0 }}</span></dd></div>{% endif %}
+    <div class="flex px-4 py-2"><dt class="text-stone-600">{% translate "اتدفع" %}</dt><dd class="ms-auto"><span class="num" dir="ltr">{{ state.paid|money0 }}</span></dd></div>
+    <div class="flex px-4 py-2 font-bold"><dt>{% translate "الباقي عليها" %}</dt><dd class="ms-auto {% if state.remaining > 0 %}text-brand{% endif %}"><span class="num" dir="ltr">{{ state.remaining|money0 }}</span></dd></div>
+    {% endif %}
+  </dl>
+
+  {% if can_credit %}
+  <div class="flex flex-wrap items-end justify-end gap-2">
+    <button type="button" class="btn-ghost text-red-700" x-show="!credit" @click="credit = true">{% translate "إشعار دائن" %}</button>
+    <div class="form-field w-72" x-show="credit" x-cloak><label for="credit-reason">{% translate "سبب الإشعار" %}</label><input id="credit-reason" name="reason" class="input" maxlength="200"></div>
+    <button type="button" class="btn-ghost" x-show="credit" x-cloak @click="credit = false">{% translate "إلغاء" %}</button>
+    <button class="btn-danger" x-show="credit" x-cloak onclick="return confirm('{% translate 'ترجّع البنود المتعلّم عليها بإشعار دائن؟' %}')">{% translate "رجّع البنود المتعلّم عليها" %}</button>
+  </div>
+  {% endif %}
+{% if can_credit %}</form>{% else %}</div>{% endif %}
+
+{% if invoice.appointment_id and not invoice.is_credit %}<p class="mt-4 text-xs text-stone-600">{% translate "دي فاتورة زيارة: بتتعمل وتتصحح لوحدها مع الدفع، الخصم، وإضافة أو إلغاء خدمة." %}</p>{% endif %}
+{% if entry %}<p class="mt-2 text-xs text-stone-600">{% translate "القيد" %} <a class="link num" dir="ltr" href="{% url 'ledger:entry' entry.pk %}">{{ entry.number }}</a></p>{% endif %}
+{% endblock %}

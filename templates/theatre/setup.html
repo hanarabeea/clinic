@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "العمليات والغرف" %}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{% translate "الإعدادات" %}</h1></div>
+{% include "partials/settings_tabs.html" %}
+
+<section class="card mb-6 overflow-x-auto">
+  <div class="flex items-center gap-3 border-b border-stone-200 px-4 py-3">
+    <h2 class="text-[15px] font-bold">{% translate "الغرف" %}</h2>
+    <a href="{% url 'theatre:room_add' %}" class="btn-secondary ms-auto min-h-8 px-3 py-1 text-xs">{% icon "plus" "size-4" %}{% translate "غرفة جديدة" %}</a>
+  </div>
+  <table class="data-table">
+    <thead><tr><th>{% translate "الغرفة" %}</th><th>{% translate "النوع" %}</th><th class="text-end!">{% translate "سراير" %}</th><th class="text-end!">{% translate "سعر الليلة" %}</th><th class="w-10"></th></tr></thead>
+    <tbody>
+      {% for r in rooms %}
+      <tr class="{% if not r.is_active %}text-stone-500{% endif %}">
+        <td class="font-semibold">{{ r.name }}{% if not r.is_active %} <span class="badge bg-stone-200 text-stone-700">{% translate "متوقفة" %}</span>{% endif %}</td>
+        <td class="text-stone-600">{{ r.get_kind_display }}</td>
+        <td class="num text-end" dir="ltr">{{ r.beds }}</td>
+        <td class="num text-end" dir="ltr">{{ r.nightly_rate|money }}</td>
+        <td class="text-end"><a href="{% url 'theatre:room_edit' r.pk %}" class="btn-icon size-7" aria-label="{% translate 'تعديل الغرفة' %}">{% icon "pencil-simple" "size-4" %}</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card overflow-x-auto">
+  <div class="flex items-center gap-3 border-b border-stone-200 px-4 py-3">
+    <h2 class="text-[15px] font-bold">{% translate "أنواع العمليات" %}</h2>
+    <a href="{% url 'theatre:procedure_add' %}" class="btn-secondary ms-auto min-h-8 px-3 py-1 text-xs">{% icon "plus" "size-4" %}{% translate "نوع عملية جديد" %}</a>
+  </div>
+  <table class="data-table">
+    <thead><tr><th>{% translate "العملية" %}</th><th class="text-end!">{% translate "المدة (دقيقة)" %}</th><th class="text-end!">{% translate "سعر الباكدج" %}</th><th class="w-10"></th></tr></thead>
+    <tbody>
+      {% for p in procedures %}
+      <tr class="{% if not p.is_active %}text-stone-500{% endif %}">
+        <td><span class="font-semibold">{{ p.name_ar }}</span>{% if p.delivery %} <span class="badge bg-brand-soft text-brand">{% translate "ولادة" %}</span>{% endif %}{% if not p.is_active %} <span class="badge bg-stone-200 text-stone-700">{% translate "متوقف" %}</span>{% endif %}</td>
+        <td class="num text-end" dir="ltr">{{ p.duration_minutes }}</td>
+        <td class="num text-end" dir="ltr">{{ p.package_price|money }}</td>
+        <td class="text-end"><a href="{% url 'theatre:procedure_edit' p.pk %}" class="btn-icon size-7" aria-label="{% translate 'تعديل نوع العملية' %}">{% icon "pencil-simple" "size-4" %}</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

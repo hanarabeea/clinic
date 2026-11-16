@@ -151,7 +151,8 @@ def test_closing_a_day_with_bookings_shows_affected_with_suggestions(client, wor
             reverse("doctors:exception_add"), {"date": SATURDAY.isoformat(), "kind": ScheduleExceptionKind.CLOSED}
         )
         assert r.status_code == 200 and r.headers.get("HX-Redirect")
-        assert r.headers["HX-Redirect"].endswith(f"?date={SATURDAY}")
+        # the affected bookings of the doctor whose day was closed
+        assert r.headers["HX-Redirect"].endswith(f"?date={SATURDAY}&doctor={world['doctor'].pk}")
 
         page = client.get(r.headers["HX-Redirect"]).content.decode()
     assert page.count("أجّل للمقترح") == 5

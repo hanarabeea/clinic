@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "الموردين" %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{% translate "المشتريات والموردين" %}</h1>
+  <span class="ms-auto"></span>
+  <a href="{% url 'purchasing:aging' %}" class="btn-ghost">{% icon "clock-counter-clockwise" "size-4" %}{% translate "أعمار الديون" %}</a>
+  {% if can.supplier_manage %}<a href="{% url 'purchasing:supplier_new' %}" class="btn-primary">{% icon "plus" "size-4" %}{% translate "مورد جديد" %}</a>{% endif %}
+</div>
+{% include "purchasing/partials/tabs.html" %}
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th>{% translate "المورد" %}</th><th>{% translate "التليفون" %}</th><th class="text-end!">{% translate "علينا له" %}</th></tr></thead>
+    <tbody>
+      {% for s in suppliers %}
+      <tr class="{% if not s.is_active %}text-stone-500{% endif %}">
+        <td><a href="{% url 'purchasing:supplier' s.pk %}" class="font-semibold hover:text-brand">{{ s.name }}</a>{% if not s.is_active %} <span class="badge bg-stone-200 text-stone-700">{% translate "متوقف" %}</span>{% endif %}</td>
+        <td class="num text-stone-600" dir="ltr">{{ s.phone }}</td>
+        <td class="num text-end font-semibold" dir="ltr">{{ s.owed|money0 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3" class="py-10! text-center text-stone-600">{% translate "مفيش موردين لسه." %}</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if suppliers %}
+    <tfoot><tr class="border-t border-stone-300 bg-stone-50 font-bold"><td class="px-3 py-2" colspan="2">{% translate "الإجمالي" %}</td><td class="num px-3 py-2 text-end" dir="ltr">{{ total|money0 }}</td></tr></tfoot>
+    {% endif %}
+  </table>
+</div>
+{% endblock %}

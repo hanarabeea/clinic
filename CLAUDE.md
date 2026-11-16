@@ -5,7 +5,7 @@ You are implementing **DigiClinic**, a clinic management system by Digitiva, for
 the files relevant to the current phase.
 
 ## Working rules
-- Work **one phase at a time** from `docs/plan/08-roadmap.md`. At the end of each phase: run the quality gates,
+- Work **one phase at a time** from `docs/plan/08-roadmap.md` (phases 11-20: `docs/plan/14-obgyn-center.md`). At the end of each phase: run the quality gates,
   report against its Definition of Done, list how the user can verify it manually, commit `phase-N: <summary>`,
   then STOP and wait for approval.
 - If a decision is not covered by the plan, **ask**. Do not silently change locked decisions in `docs/plan/README.md`.
@@ -644,6 +644,406 @@ gotchas and conventions introduced in that phase.
   clinic roles that started as reception / doctor / admin.
 - Demo: `clinic.json` is now an OB/GYN clinic; `manage.py seed_pregnancies [--org]` gives the `seed_demo` women 8
   pregnancies from 7 to 40 weeks with history and blood groups (run once; the crawl tests use it).
-- Not done in this phase (still in plan 14 §14.2): pregnancy message templates (antenatal reminder with the week,
-  milestone due, post-partum), a settings screen to edit the milestone list (Django admin for now), structured
-  ultrasound biometry (BPD/FL/AC), and the pregnancy summary in the patient export PDF.
+- The four items left out of this phase (pregnancy messages, the milestone settings screen, ultrasound biometry,
+  the pregnancy file on the export PDF) were built in phase 20: see "Hardening notes".
+
+## Center mode notes (Phase 13, 2026-11-16)
+- Plan 14 §14.3: several doctors in the interface, the services catalog, emergency arrivals. New app `apps/center`
+  (`CenterSettings`, `Service`, `ServiceOrder`, `EmergencyCase`; all with history, nothing hard-deleted).
+- **Which doctor** (`apps/doctors/services.py`): `current_doctor(request)` = `doctor` in the request (GET or POST,
+  remembered in the session) → the one picked last → the doctor record linked to the signed-in user
+  (`Doctor.user`, unique per clinic, set in Settings) → the first active doctor. `board_doctor(request)` is the
+  reception board's choice and may be None = every doctor. `get_doctor(org)` is now only "the first active doctor"
+  for commands and seeds: **views never call it**. `active_doctors(org)` never returns an empty list.
+  Wherever a visit type is posted (booking, walk-in, free slots) **the visit type decides the doctor**
+  (`scheduling.views._visit_type`): a stale session can never book for the wrong doctor.
+- Settings: "الدكاترة" tab (`doctors:list`, add with a copy of the first doctor's visit types, `doctors:toggle`).
+  A doctor is switched off, never deleted; refused while they have bookings ahead or are the last active one
+  (`services.set_active`). The schedule / visit-type / drug-category pages show `doctors/partials/doctor_switcher.html`
+  and every form posts to `?doctor=<pk>`; delete views take the doctor from the row itself. A visit type that was
+  booked is switched off instead of deleted.
+- Reception board: `_board_ctx` builds **one board per doctor shown** (`boards`; `board` = the first, kept for old
+  callers). With several doctors the toolbar has الكل / each doctor (`?doctor=all|<pk>`, session `board_doctor`); in
+  "all" the free slots start hidden. Booking links carry `&doctor=`. `close_day` takes `doctor` (`all` = the whole
+  center); the affected-bookings screen takes `?doctor=`.
+- Services: catalog in Settings → "الخدمات والطوارئ" (`center:services`, settings.manage). `center.services.
+  order_service / cancel_order`; an order copies name, price and doctor share when made. **`billing.balance(appt)` =
+  visit price less discount plus active orders** (`Balance.services` is that part); pass prefetched `orders` to avoid
+  a query per row. Cancelling an order that was already paid for is refused until the money is refunded. The same box
+  (`center/partials/orders.html`, swaps `#orders-box`) is a dialog on the board ("خدمات على الزيارة") and inline in the
+  doctor's visit form. `Service.revenue_account_key` is reserved for the ledger (phase 14).
+- Emergency: `scheduling.services.emergency_arrival` creates an appointment for right now, already `arrived`,
+  `source=emergency`, no queue number, no period, no messages, under the day's ledger lock. `center.services.
+  register_emergency` adds the `EmergencyCase` (triage, reason, arrived / seen / disposition times) and prices the
+  visit with `CenterSettings.emergency_fee`. Its visit type is a hidden per-doctor one (`VisitType.is_system`).
+  `URGENT_FIRST` (scheduling.models) orders emergencies ahead in the doctor's queue and the queue-mode board.
+  `mark_seen` is called by `clinical.start_visit` and by reception's "دخّل" (written once). "رجوع خطوة" is refused for
+  an arrived emergency (it would become a booking the no-show job chases): use `cancel_emergency` (only before she is
+  seen). One open case per patient.
+- Where an emergency shows: the red button on the board (`center:emergency_register`: name + phone are enough, typing
+  looks existing patients up), the strip on top of every board (`center/partials/emergency_strip.html`, all doctors,
+  part of the poll), a red tag on her row, a fixed red banner on every desk page (`clinical:emergency_alert`, polled
+  every 10 s, for the desk's doctor), the band under the visit header with the disposition dialog, and the log
+  `center:emergencies` (side menu "الطوارئ").
+- Permissions: `emergency.register`, `service.order` (reception / doctor / owner; both bring `appointment.view`).
+  Migration `center/0002` adds them to existing clinic roles that started as reception or doctor. The reason of an
+  emergency is shown only with emergency.register or clinical.view.
+- HTMX gotcha met again: a button inside an element that re-reads itself with `hx-swap="outerHTML"` inherits it; the
+  disposition button replaced the `#modal` container until it got its own `hx-swap="innerHTML"` (pinned by a test).
+  Also: `ms-auto` on an element with `dir="ltr"` pushes the wrong way in an RTL row; put `dir` on an inner span.
+- Seeds: `clinic.json` has `extra_doctors`, `center.emergency_fee` and `services`; `seed_services [--org] [--force]`
+  (run by run.bat, idempotent). `simulate_day` adds a service and one emergency, refuses to simulate a day twice, and
+  `--remove` keeps (and un-marks) simulated visits that became medical records instead of failing.
+- Local preview: a stale `runserver --noreload` on 8010 from another session serves old code. `.claude/launch.json`
+  has a second configuration `digiclinic-check` on port 8012 for that case.
+- Not in this phase: revenue by doctor / service reports (phase 19), the doctor-share payout (phase 16), linking the
+  dispositions "دخول عمليات" / "حجز غرفة" to an operation or an admission (phase 15).
+
+## Accounting core notes (Phase 14, 2026-11-16)
+- Plan 14 §14.5. Two apps: `apps/ledger` (chart of accounts, fiscal periods, the journal, reports) and
+  `apps/treasury` (treasuries, vouchers, cashier shifts, cash counts). **The rule above all others: only
+  `ledger.services.post()` creates journal entries.** Every money-moving document has a small `posting.py` next to
+  it (`billing/posting.py`, `treasury/posting.py`) that builds the lines and calls `post(org, date=, memo=, lines=,
+  source=<the document>, event="")`; with a source it is idempotent (one entry per document per event).
+- `post()` checks: two lines or more, each line exactly one of debit / credit above zero, debits = credits, active
+  leaf accounts of this clinic, **a cost center on every revenue / expense line**, an open period. It then takes the
+  next number of the fiscal year (`EntrySequence`, `select_for_update`, taken last so a refused entry burns none)
+  and runs the database's deferred check at once (`SET CONSTRAINTS ... IMMEDIATE`). Errors are `LedgerError` /
+  `PeriodClosed` with an Arabic message for the screen. `Line.account` and `cost_center` take a model or a system key
+  (`"cash_main"`, `"admin"`); helpers `debit(...)`, `credit(...)`. `party=` (patient / supplier / doctor / user)
+  writes `party_type` + `party_id`: that is the subledger of a control account.
+- **The database enforces it too** (`ledger/migrations/0002_integrity.py`, PostgreSQL triggers, SQLSTATE 23514 →
+  `IntegrityError`): a posted entry balances and has two lines or more (deferred constraint triggers, checked at
+  COMMIT); posted entries and their lines cannot be updated, deleted or added to; an entry becomes posted only with a
+  number, in an open period of its clinic that contains its date; a line's entry, account and cost center are one
+  clinic's, the account an active leaf; an account with lines cannot become a group or change type. Consequence:
+  **nothing that carries posted entries can be deleted** (a clinic, a user who posted). Corrections are
+  `services.reverse(entry)` (one reversal per entry; a reversal is not reversed).
+- Money: `ledger/money.py`. `money(x)` = Decimal, two places, ROUND_HALF_UP, **floats refused**; `allocate(total,
+  weights)` = largest-remainder split whose parts always sum to the total (use it for every discount / tax / share
+  split in later phases); `percent_of`.
+- Chart: `ledger/chart.py` (`CHART`, a standard Egyptian five-class tree; `ensure(org)` completes it and never
+  overwrites; `account(org, key)` / `cost_center(org, key)` find the program's accounts and create the tree on first
+  use). Codes are hierarchical (a child's code starts with its parent's), so ordering by code is the tree. Editing
+  rules in `ledger/accounts.py` (add under a group, rename, move a leaf, switch off with a zero balance, delete only
+  if never posted to; system and treasury accounts stay).
+- Periods: `fiscal_year_for(org, day)` creates the year and its 12 months on demand
+  (`LedgerSettings.fiscal_year_start_month`, default January). `close_period` (in order) / `reopen_period` (last
+  closed first), audited. Year close is phase 19.
+- Reports (`ledger/reports.py`, posted lines only): `trial_balance` (opening / movement / closing, groups roll up,
+  `.balanced`), `account_statement` (running balance, signed the account's normal way), `journal`. Every report takes
+  `?format=xlsx|pdf` through `ledger/export.py` (`Table` → openpyxl with numeric cells, or `pdf/report.html`).
+  Template filter `{% load money %}{{ x|money }}` (blank for zero) / `|money0`.
+- Treasury: a `Treasury` is tied to one leaf account; **its balance is never stored, it is that account's posted
+  balance** (`treasury.services.balance`). Defaults per clinic (`ensure`): reception drawer (receives cash), main
+  safe, bank, card / InstaPay / wallet collection accounts (`receives_method` says which payment method lands
+  where). Vouchers: receipt / payment / transfer, numbered per kind per fiscal year, posted on save, cancelled by a
+  reversal (`event="cancel"`). **Cash treasuries can never go below zero** (banks may).
+- Payments: `billing.record_payment` now sets `Payment.treasury`, opens the drawer's shift if none
+  (`ensure_shift`), and posts **Dr treasury / Cr patients receivable (party = the patient)** in the same transaction
+  (refund = the reverse; a cash refund needs the cash to be in the drawer). Revenue is not touched here: invoices
+  (phase 16) debit the same patient account. A payment into a closed month is refused.
+- Shifts: closing (`billing:shift_close`, payment.record, from the cashbox screen) is a **blind count** by
+  denomination; the counted cash less the float left in the drawer goes to the main safe by a transfer voucher; a
+  difference stays on the drawer's account as `CashCount.variance_status=pending` until `approve_variance` posts it
+  to "عجز وزيادة الخزينة". Separation of duties: the counter cannot approve their own difference unless they are the
+  owner (`can_approve`). A surprise count (`treasury:surprise_count`, treasury.count) only records.
+  **`treasury.cash_on_hand(t)` = the books' balance plus the differences still waiting for approval: use it (never
+  `balance`) wherever the question is "how much cash is really there"** (the expected amount of a count, whether a
+  refund or a payment voucher can be covered, the cashbox). Otherwise a pending shortage is counted again next shift.
+- Existing data: `manage.py ledger_bootstrap` (run by run.bat and the deploy steps after `migrate`; idempotent)
+  builds the chart and treasuries and posts every payment that has no entry, oldest first. This replaces the "data
+  migration" of the plan: service code inside a migration would break on any later schema change.
+- Screens: "الدفاتر" (`ledger:*` under `/books/`: ميزان المراجعة, دفتر اليومية, قيد جديد, شجرة الحسابات, كشف حساب,
+  الشهور) and "الخزن والسندات" (`treasury:*`). Manual entries cannot touch the control accounts in
+  `ledger.views.CONTROL_KEYS` (they move only through their documents), and an entry that came from a document is
+  reversed by cancelling the document, not from the journal.
+- Permissions (`FINANCE` set, owner only by default; accountant / cashier roles come in phase 20): `ledger.view`,
+  `ledger.post`, `ledger.close_period`, `accounts.manage`, `treasury.view`, `treasury.operate`, `treasury.count`.
+- Tests: `tests/test_ledger.py` (exact entries, every rule, raw-SQL attempts against the triggers, a commit that
+  must fail, threaded numbering, a hypothesis test over random entries) and `tests/test_treasury.py` (payments,
+  vouchers, shifts, bootstrap, screens, exports, a hypothesis test over random documents that checks the invariants
+  after every step). `hypothesis` is a dev dependency. **Never run two pytest processes at once: they share the test
+  database.**
+- Gotchas (phase 14): `select_for_update()` with `select_related` on a nullable FK fails in PostgreSQL ("nullable side of an
+  outer join"): use `select_for_update(of=("self",))`. `simulate_day --remove` now refunds and cancels paid demo
+  bookings instead of deleting them (payments are never deleted).
+
+## Theatre notes (Phase 15, 2026-11-16)
+- Plan 14 §14.4. New app `apps/theatre`: `Room` (operating / delivery / recovery / inpatient; `beds`, `nightly_rate`),
+  `ProcedureType` (duration, package price, `delivery` = vaginal / cesarean / blank, fasting hours, `checklist` and
+  `default_team` as JSON lists), `RoomDay` (the lock row), `Operation` (+ `OperationEvent`), `OperationTeamMember`,
+  `ChecklistItem`, `OperationNote`, `Newborn`, `OperationConsumable`, `Admission`. All with history, nothing deleted.
+- `services.py` is the only way in. **A room is never double-booked**: `book_operation` / `move_operation` lock the
+  `RoomDay` rows the operation touches (`select_for_update`, created on demand, an operation over midnight locks both
+  days) and then look for an overlapping operation still holding the room (`HOLDS_ROOM` = scheduled / admitted /
+  in theatre; recovery and done have left it). The same patient cannot have two overlapping operations either.
+  A booking copies the procedure's name, price, fasting hours, checklist and usual team onto the operation, so
+  changing the catalog later never rewrites an old operation.
+- State machine `ALLOWED_TRANSITIONS` (models.py): scheduled → admitted → in_theatre → recovery → done, each one step
+  back, `cancelled` / `postponed` from the first two. `transition()` stamps the time of each step and clears it on
+  the way back. **Into the theatre the required checklist items must be done, unless `is_emergency`**: then she goes
+  in and what was skipped is written on the `OperationEvent`. A postponed operation stays as it was;
+  `rebook_postponed` books a new one and links it (`postponed_to`). `waiting_for_a_date(org)` = postponed, not rebooked.
+- Deliveries: `Newborn` rows (sex, weight, Apgar 1 / 5, time, status; a wrong one gets `is_removed`). Finishing a
+  delivery operation calls `close_delivery`: it needs one newborn at least, and closes the followed pregnancy through
+  `obstetrics.close_pregnancy` (cesarean / vaginal from the procedure, stillbirth when no baby is alive, living
+  children counted), so **G/P/A/L move by themselves**. `Operation.delivery_closed` says it was written; after that
+  newborns are fixed. A delivery with no followed pregnancy just keeps its newborns.
+- Operation note: one draft at a time (`draft_note` / `save_note`), `sign_note` makes it immutable, a change after
+  that is a new revision (`revision` + 1, the signed one stays). Only `clinical.view` sees it, `theatre.operate` writes.
+- `_editable(op)` (checklist, team, consumables) **re-reads the status from the database**: an operation object held
+  in memory by a view can be stale. Same for `remove_newborn`. Keep that habit in any new theatre service.
+- Admissions: `admit` (a bed must be free: `beds_free(room)`, one open stay per patient by a partial unique
+  constraint, the room's rate is copied), `discharge` (summary + instructions, PDF `theatre:discharge_pdf`,
+  `templates/pdf/discharge.html`), `cancel_admission`. `Admission.nights()` = midnights between in and out in Cairo,
+  one at least; `room_charge()` = nights × the copied rate. Nothing is posted to the books here: the invoice of
+  phase 16 reads `Operation.price`, the team fees and `room_charge()`.
+- Messages (`theatre/notifications.py`, all through the outbox, keys `op:<pk>:<event>:<start stamp>`): booked (at
+  once), reminder with the fasting hours 24 h before (`REMIND_BEFORE`), changed (on a move: the old reminder is
+  withdrawn and a new one queued); cancel / postpone withdraws what is pending. These rows have no appointment:
+  `notifications.services.enqueue_for_patient(org, patient, event, send_at, context, key, by)`, rendered by the
+  dispatcher from `templating.patient_ctx`. New events `operation_booked / operation_reminder / operation_changed`
+  (`seed_notifications` adds missing default templates to an existing clinic without touching edited ones).
+- Screens: `theatre:board` (`/theatre/`, `?view=day|week&date=`: one column per theatre room for the day or one per day of
+  the week, the one next step as the button,
+  "مقيمين دلوقتي", postponed operations waiting for a date), `theatre:operation` (header + tabs: قبل العملية / الفريق /
+  تقرير العملية / المولود / المستلزمات / السجل; tabs are Alpine, HTMX partials swap inside), `theatre:operation_new`,
+  `operation_move`, `theatre:admissions` (a card per room with its beds), `admit`, `discharge`, and Settings →
+  "العمليات والغرف" (`theatre:setup`, settings.manage: rooms and procedure types, switched off, never deleted).
+  Side menu item "العمليات والإقامة" (also a work screen for a role). Links in: the emergency band and log
+  (dispositions "دخول عمليات" / "حجز غرفة" open the booking / admission with the patient and the case filled in), the
+  visit action bar ("حجز عملية"), the patient page (her operations).
+- Permissions: `theatre.view` (board, operation page without the note), `theatre.schedule` (book / move / cancel /
+  postpone), `theatre.operate` (steps, checklist, team, consumables, note, newborns), `admission.manage`. Reception:
+  view + schedule + admission. Doctor: all four. Migration `theatre/0002` adds them to existing clinic roles.
+- `ensure_defaults(org)` seeds 5 rooms and 7 procedure types the first time the screens open (never again once the
+  clinic has any). `simulate_day` books one operation and one admission.
+- Not in this phase: the money side (phase 16), consumables taken from stock with their cost (phase 18: today a
+  consumable is a name + quantity).
+
+## Invoicing notes (Phase 16, 2026-11-16)
+- Plan 14 §14.6. New app `apps/invoicing`: `Invoice` (+ `InvoiceLine`, `InvoiceShare`, `InvoiceSequence`), `Charge`,
+  `Payer`, `PatientCoverage`, `InvoiceSettings`. An invoice is numbered per fiscal year (`INV-2026-00001`, credit
+  notes `CN-...`, no gaps), never edited, and posted in the transaction that makes it (`invoicing/posting.py`).
+  CHECK constraints keep `gross - discount = total = payer_share + patient_share` on invoices and lines.
+- **Two kinds of invoice.** (1) A visit's invoice is made by the program: **`services.sync_appointment(appt)`**
+  compares what the visit should bill now (`appointment_specs`: the fee and the active service orders, once the
+  patient is in the center and either paid something or the visit is finished) with the live lines already invoiced,
+  takes changed lines back by a credit note and bills what is missing. It is idempotent; call it after anything that
+  changes what a visit is worth. It is already called (through `sync_quietly`) by `billing.record_payment`,
+  `scheduling.transition` / `cancel`, `center.order_service` / `cancel_order` and `set_visit_discount`.
+  (2) An **account invoice** is issued by a person (`issue_account_invoice(patient, keys=...)`) for what
+  `open_items(patient)` lists: operations in recovery / done, discharged stays, extra `Charge` rows.
+- `sync_quietly` never lets an accounting refusal stop a visit: it logs and leaves the visit for the next sync (the
+  scheduler job `invoice_sync` hourly → `sync_recent`). **Under tests `INVOICING_STRICT=True` raises instead**, so a
+  bug in the sync fails the test that caused it.
+- A line names what it bills (`appointment` = the visit fee, `service_order`, `operation`, `admission`, `charge`).
+  **Nothing is billed twice**: partial unique constraints allow one live line per source. A credit note takes whole
+  lines back (`reverses`, the original gets `is_live=False`), then the source can be billed again, corrected.
+  Visit invoices are corrected only through the visit (`credit_invoice` refuses them).
+- Entries: the invoice (Dr patients receivable [patient] + Dr payers receivable [payer] + Dr discounts allowed per
+  cost center / Cr revenue per account and cost center, at the full price), `event="shares"` (Dr doctor fees expense /
+  Cr doctor fees payable [doctor], Cr `external_fees_payable` for outside team members), `event="deposit"` (Dr patient
+  deposits / Cr patients receivable). A credit note is the mirror. Cost centers: outpatient / emergency / theatre /
+  inpatient by what the line is.
+- Shares (accrued when invoiced, `InvoiceShare`): `Doctor.visit_share_percent` of the visit fee after discount
+  (Settings → the doctor's page; 0 = none), the service order's copied percent, and for an operation each team
+  member's fee (the team is paid out of the package price, it is not an extra line for the patient).
+- Payments: `billing.Payment` now has `patient` (always), `appointment` (nullable) and `kind` (payment / deposit).
+  `billing.record_account_payment(patient, amount=, kind=, is_refund=)` is money on the account: a payment cannot be
+  more than she owes (more = a deposit), a refund not more than her credit, a deposit refund not more than the deposit
+  held. A deposit sits in "دفعات مقدمة من المرضى" until `issue_account_invoice` applies it. A reschedule moves the
+  visit's payments to the new appointment.
+- Balances are the books' own: `patient_balance`, `deposit_balance`, `doctor_balance`, `payer_balance`
+  (`ledger.balance_of(account, party=...)`), lists use `party_balances(org, key, kind)` (one query).
+  `account_state(patient)` says which invoice her money paid (a visit's payments pay that visit first, an applied
+  deposit its own invoice, the rest oldest first): display only, nothing stored.
+- Payers: `PatientCoverage` (payer + percent) applies to **every** invoice issued while it is on; the payer's part is
+  split over the lines with `allocate`. **`billing.balance(appt, ..., coverage=)` now returns the patient's own part**
+  (`Balance.covered` is the payer's); lists pass `billing.coverage_map(patient_ids)` to avoid a query per row.
+- Discounts: on a visit (`set_visit_discount`, reception → ⋯ → "خصم على الكشف", stores `Appointment.discount_reason`)
+  or on an account invoice (spread over the lines by price). `invoice.discount` up to
+  `InvoiceSettings.discount_limit_percent` (10), `invoice.discount_any` above it; a reason is required.
+- Vouchers carry a party now (`Voucher.party_type/party_id`, on the journal line too). **Control accounts
+  (`ledger.chart.CONTROL_KEYS`) move only through their documents**: a free voucher on one is refused and the voucher
+  form does not offer them. `pay_doctor` / `receive_from_payer` are vouchers with the party, never above the balance.
+- Screens (`/invoices/`, side menu "الفواتير"): الفواتير (list, Excel / print), حسابات المرضى, the patient's account
+  (`invoicing:account`: what waits, issue, take money, extra charge, coverage), the invoice page (print, credit note),
+  مستحقات الدكاترة (statement + pay), جهات التعاقد (statement + receive), Settings → الفواتير. PDFs:
+  `pdf/invoice.html`, `pdf/receipt.html`. Links in from the patient page, the operation page and the board's ⋯ menu.
+- Permissions: `invoice.view`, `invoice.issue` (reception), `invoice.discount` (doctor), and owner-only by default
+  `invoice.discount_any`, `invoice.refund` (credit notes), `doctor.payout`, `payer.manage`. Migration
+  `invoicing/0002` gives the first ones to existing reception / doctor roles.
+- Existing data: `ledger_bootstrap` now also runs `invoice_visits(org)`: visits from before this phase get their
+  invoice dated the day of the visit (today when that month is closed).
+- Tests: `tests/test_invoicing.py` (exact entries of every document, the DB constraints, and a hypothesis test over
+  random visit events that checks after every step that a fresh sync has nothing to do and that each control account
+  equals its documents). Copy it for phase 17's documents.
+- Assumptions written down (standard practice, all changeable): revenue is recognised when the patient is in the
+  center and paid, or when the visit is finished; shares are accrued at invoice, not at collection; the operation's
+  package price includes the team's fees; medical services carry no VAT (no tax lines on patient invoices).
+- Not in this phase: priced consumables from stock on the invoice (phase 18), aging and revenue reports (phase 19).
+
+## Purchasing notes (Phase 17, 2026-11-16)
+- Plan 14 §14.7. New app `apps/purchasing` (`Supplier`, `TaxCode`, `PurchaseInvoice` + `PurchaseLine`,
+  `PurchaseReturn` + lines, `SupplierPayment` + `PaymentAllocation`, `PurchaseSettings`); cheques and recurring
+  expenses live in `apps/treasury` (`Cheque`, `ChequeEvent`, `ExpenseTemplate`, `treasury/cheques.py`). Every
+  document is numbered per fiscal year (`PINV-`, `PRET-`, `SPAY-`), posted in the transaction that makes it
+  (`purchasing/posting.py`), never edited; a mistake is cancelled (entry reversed, event `"cancel"`) or returned.
+- Taxes are data (`TaxCode`, seeded by `services.ensure_defaults`): ض.ق.م 14%, معفاة/صفر, خصم 1% / 3% / 5%.
+  **VAT starts "not recoverable"**: it is added to the line's cost (`PurchaseLine.cost` = net + VAT). A VAT-registered
+  center ticks "تتخصم" on the code and the VAT goes to `vat_input` instead. Tax is worked out per line and rounded per
+  line (`price_line`); with prices that include VAT the tax is what is left after the net, so net + VAT is exactly what
+  was typed. Totals are sums of lines (CHECK constraints on every document).
+- Purchase invoice: Dr each line's account (cost center required for expenses; control and treasury accounts refused)
+  + Dr `vat_input` / Cr `suppliers_payable` [supplier]. The same paper invoice of a supplier cannot be entered twice
+  (partial unique on `supplier_ref`). The scan is a private file checked by content (`purchasing:invoice_scan`).
+  `open_amount(invoice)` = total less returns less allocations of posted payments. `cancel_invoice` only while nothing
+  was paid or returned.
+- Return (`create_return(invoice, quantities={line pk: qty})`): each line's amounts go back in proportion and **the
+  last piece of a line takes whatever is left of it**, so a line returned in steps comes to exactly its own amounts.
+  More returned than was still unpaid leaves a debit on the supplier's account (they owe the clinic).
+- Paying (`pay_supplier`): cash from a drawer / safe (never below zero), bank transfer, or cheque. `allocations` say
+  which invoices it settles; the rest stays on the supplier's account. **Withholding** (`wht_code`): `wht_base`
+  defaults to the taxable value being settled (each allocation less its share of the invoice's VAT,
+  `withholding_base`); the supplier gets `amount - wht_amount`, their account drops by `amount`, and the withheld part
+  is owed in `wht_payable` (paid to the tax authority by an ordinary payment voucher). `suggest_withholding` applies
+  the supplier's usual code only above `PurchaseSettings.wht_threshold` (300). The form 41 lines are the payments
+  with `wht_amount > 0` (`reports.withheld`).
+- Cheques (`treasury/cheques.py`): issued ones sit in `cheques_payable` until `cleared` (then the bank is credited);
+  received ones in `cheques_receivable` until `collected`, `bounced` or `endorsed` to a supplier; depositing moves no
+  money. **A supplier payment by cheque and its cheque never disagree**: the payment is cancelled only through the
+  cheque (`move(..., CANCELLED | RETURNED)` → `cancel_payment(from_cheque=True)`), and not once the bank paid it.
+  `undo(cheque)` reverses the last step's entry (each step posts as `event="step:<n>"`, so a redone step posts again).
+  `cheques.open_total(org, direction)` must equal the control account: the tests check it after every step.
+  `due_soon(org, days)` feeds the notice on the treasury screens (a bank that cannot pay the cheques drawn on it is
+  shown in red). `receive_cheque(payer=...)` settles a contracted company's balance.
+- Recurring expenses (`ExpenseTemplate`, treasury tab "مصروفات متكررة"): the program fills the payment voucher and
+  shows which ones this month still has not paid; **a person presses the button** (`record_expense`, once a month,
+  `Voucher.template`). Nothing leaves a treasury by itself.
+- Reports (`purchasing/reports.py`): `open_invoices`, `aging` (buckets by due date), `vat_paid` (recoverable vs in
+  cost, net of returns), `withheld`, `quarter_of`. Supplier statement = `ledger.reports.account_statement(...,
+  party=supplier)`. All export to Excel.
+- Screens: side menu "المشتريات والموردين" (`/purchases/`: فواتير المشتريات, الموردين + أعمار الديون, السداد, الضرائب) and
+  two new treasury tabs (الشيكات, مصروفات متكررة). Permissions, owner only by default: `purchase.view`,
+  `supplier.manage`, `purchase.manage`, `supplier.pay`, `cheque.manage`, `tax.manage`.
+- Tests: `tests/test_purchasing.py` (the Definition of Done scenario to the piaster, every refusal, cheques both ways,
+  screens, and a hypothesis test: suppliers' account, cheques on their way, tax withheld and recoverable VAT each
+  equal their documents after every random step).
+- Assumptions written down: the clinic is not VAT-registered (VAT paid is cost); withholding is computed on the value
+  without VAT and not at or under 300 EGP; stamp duty and other taxes are not modelled (enter them as a line).
+- Not in this phase: stock items on purchase lines (phase 18 adds `item` / `warehouse` to `PurchaseLine`), fixed
+  assets register and depreciation, automatic e-mail alerts for cheques (the notice is on screen).
+
+## Inventory notes (Phase 18, 2026-11-16)
+- Plan 14 §14.8. New app `apps/inventory`: `Warehouse` (defaults "main" المخزن الرئيسي and "theatre" دولاب العمليات),
+  `StockItem` (unit, reorder level, `track_expiry`, `sale_price`), `StockBalance` (item + store: quantity **and
+  value**), `StockBatch` (expiry lots), `StockMove`, `StockDoc` (issue / transfer / adjustment / opening, numbered
+  `ISS-` `TRF-` `ADJ-` `OPN-`), `StockCount` + lines, `InventorySettings`.
+- **Quantities and values change only in `services._move`**, under `select_for_update` on that item's balance row.
+  Costing is weighted average per item per store: a balance keeps its total value, what goes out takes
+  `cost_out` = its share of it, and **the last unit out takes all that is left**, so no rounding remainder is ever
+  stranded (CHECK constraints: nothing negative, and an empty shelf has no value). A move stores the balance after it
+  (`quantity_after`, `value_after`): the item card, and the check that a balance equals the replay of its moves.
+  **`stock_value(org)` must equal the inventory account**: the tests and `verify_books` check it.
+- Entries: an issue posts Dr supplies used [cost center] / Cr inventory; an issue returned to the store the reverse
+  (at the value it left with, `event="return:<move pk>"`); a count's shortage / overage goes to
+  `stock_over_short` [admin]; an opening balance credits `opening_balances`; **a transfer posts nothing** (the value
+  only changes shelf). A purchase receipt posts nothing either: the purchase invoice itself debits inventory.
+- Purchases: `PurchaseLine.item` / `warehouse` / `expiry_date` / `lot` (`LineIn(item=..., warehouse=...)`). A stock
+  line's account is the inventory account and its cost (net + VAT that is not recoverable) is what goes on the shelf.
+  An invoice with stock lines cannot be cancelled, only returned. **A purchase return takes the goods out at today's
+  average** (`PurchaseReturnLine.stock_value`); the difference from what the supplier credits goes to
+  `stock_over_short`, so inventory never drifts from the shelves. A return of goods no longer there is refused.
+- Expiry: lots are created by receipts of `track_expiry` items (a date is required) and consumed **first to expire,
+  first out** (`_batches_out`); a transfer carries the earliest lot's date. `expiring(org)` and `low_stock(org)` feed
+  the two notices on top of the items screen (`InventorySettings.expiry_alert_days`, default 60).
+- Counts (جرد): `start_count` (full, or spot = chosen items or a random sample; one running count per store) →
+  `save_count` (the sheet shows **no** expected quantities) → `submit_count` (the books' figures are written next to
+  the counted ones) → `approve_count` (needs `stock.approve_count`; **not the person who counted, unless the owner**;
+  refused if the stock moved after the count was submitted) → adjustment moves + entry. Something found on an empty
+  shelf comes in at the last price paid for it.
+- Operations: `theatre.add_consumable(op, item=...)` issues the item from the theatre cabinet (the main store if the
+  cabinet lacks it) to cost center theatre, and puts an `invoicing.Charge` on the patient's account when the item has
+  a `sale_price`; `remove_consumable` returns it to the shelf and cancels the charge (refused once invoiced; the line
+  stays with `is_removed`). `ProcedureType.kit` (typed on the procedure form as "name = quantity" lines) is issued
+  in one step by `issue_kit(op)` and then corrected to what was really used. Free-text consumables still work.
+- Screens: side menu "المخزن" (`/stock/`: الأصناف + item card, الصرف والتحويل, الجرد, and المخازن set-up). The purchase
+  form shows a stock-item column only when the clinic has stock items. Permissions (owner only by default):
+  `stock.view`, `stock.move`, `stock.count`, `stock.approve_count`.
+- Tests: `tests/test_inventory.py` (exact costs and entries, FEFO, counts, operations, screens, and a hypothesis test:
+  after every random move the shelves' value equals the inventory account, lots add up, and each balance equals the
+  replay of its moves).
+- Assumptions written down: weighted average cost per store; price differences on returns and count differences go to
+  one account (عجز وزيادة المخزون); supplies with no sale price are inside the operation's package price.
+- Not in this phase: several units per item (box / piece), purchase orders, and stock for the outpatient clinics as a
+  separate store (add a store from المخازن).
+
+## Statements and verification notes (Phase 19, 2026-11-16)
+- Plan 14 §14.9. `ledger/statements.py` (read-only, posted lines only): `income_statement(org, start, end,
+  cost_center=, compare="previous"|"year")`, `by_cost_center`, `balance_sheet(org, as_of, compare_as_of=)`,
+  `cash_movement`. Amounts carry the natural sign of their section. A group row is shown only when it adds up two
+  lines or more (a chain of groups repeating one number is noise). Every leaf amount on screen links to that account's
+  statement for the same dates (the drill-down). `BalanceSheet.result` = revenue less expenses not yet closed into
+  retained earnings; `.balanced` must hold (a hypothesis test checks it for any entries).
+- **Books verification** (`ledger/verify.py`): `verify(org)` → list of `Problem(code, message)`; empty = sound.
+  Checks: entries balance; every document has its entry and every entry's document exists; control accounts have no
+  line without a party, and suppliers / cheques both ways / inventory / patient deposits equal their documents;
+  numbering has no gaps (entries, invoices, vouchers, purchase and stock documents); nothing posted into a month
+  after its close; no negative cash treasury or shelf; lots add up; each stock balance equals the replay of its moves;
+  the visits of the last 30 days carry exactly the invoice lines they should. A check that cannot run is itself a
+  problem (`check.error`), never a silent pass. **When a later phase adds a money document, add it to
+  `verify._documents` and, if it has a number, to `check_numbering`.**
+- `verify.run(org, by=)` stores a `BooksCheck`; screen "فحص الدفاتر" (`ledger:verify`, `books.verify`);
+  `manage.py verify_books [--org] [--alert]` (exit 1 on problems); scheduler job `verify_books` daily → owners are
+  e-mailed once a day at most (`ops.alert` audit event, like `check_health`). **`close_period` refuses while the
+  books do not verify** (`verified=True` skips the re-check when the caller has just verified).
+- Year close (`ledger/closing.py`): `checklist(year)` (earlier years closed, months 1-11 closed, books verify, no
+  cash difference or stock count waiting) → `close_year` posts one entry on the year's last day that empties every
+  revenue and expense account **per cost center** into `retained_earnings` (source = the fiscal year, event
+  `close:<n>`), closes the last month and the year. `reopen_year` reverses it (event `reopen:<n>`), so a year can be
+  corrected and closed again. **Statements leave out every entry whose source is a fiscal year** (`statements.CLOSING`),
+  so a closed year still shows what it earned; the balance sheet keeps them.
+- Management reports (`invoicing/reports.py`, screens under `/reports/`, tabs on the existing "التقارير" page,
+  `report.finance`): revenue by doctor and by item (invoice lines less credit-note lines dated in the period),
+  operation profitability (price after discount + extra charges - team shares - supplies at cost), patients'
+  receivables by age (from `account_state`), cash movement per treasury.
+- Permissions: `report.statements` (income statement, balance sheet) and `books.verify`, owner only by default. The
+  "الدفاتر" menu item opens on the first of trial balance / income statement / verification the person may see, and
+  each tab is hidden without its permission.
+- Tests: `tests/test_statements.py` (statements against real documents, the balance sheet for any entries, the
+  reports, every verification problem named by its code, the year closed / reopened / closed again, screens).
+- Not in this phase: a statement of cash flows by activity (the cash movement per treasury is there), budgets,
+  depreciation.
+
+## Hardening notes (Phase 20, 2026-11-16)
+- Plan 14 §14.10. **Default roles**: a new clinic gets eight (`accounts/roles.DEFAULT_ROLES`): the clinic's four plus
+  محاسب (`accountant`, opens on الدفاتر), كاشير (`cashier`, الخزنة), أمين مخزن (`storekeeper`, المخزن), تمريض عمليات
+  (`theatre_nurse`, العمليات). Their permission sets are `permissions.EXTRA_ROLE_PERMISSIONS`
+  (`roles.default_permissions(key)`); the accountant keeps the books but gives no discounts. Existing clinics got them
+  by `organizations/0007_center_roles` (frozen lists; a test checks they equal today's defaults: change both
+  together, or write a new migration).
+- **`manage.py seed_center [--org] [--days 30] [--seed 7]`** (`apps/core/management/commands`): a month of a center's
+  life through the real services (visits, services, discounts, shift closes, purchases, cheques with withholding,
+  operations with a kit and a stay, deposits, invoices, recurring expenses, a payer, doctor payouts, a stock count),
+  then `verify`. Demo / test databases only: nothing it makes can be removed, it needs freezegun, it cancels every
+  message it queued and it refuses to run twice. `tests/test_seed_center.py` runs 12 days of it and opens every
+  money screen: **the integration test of phases 13-19**.
+- **Merging two patient files** (`patients.services.merge_patients`) now moves everything (`MERGE_MOVES`: bookings,
+  visits, attachments, prescriptions, the pregnancy file, emergencies, operations, stays, charges, invoices,
+  payments). It is refused while the duplicate still owes money or has a deposit (her account in the books carries
+  her own party id: settle it first), when both have a followed pregnancy, or both are in a room. **A new model with
+  a `patient` FK must be added to `MERGE_MOVES`.**
+- Pregnancy leftovers of phase 12, done: ultrasound biometry on the antenatal sheet (`bpd_mm`, `hc_mm`, `ac_mm`,
+  `fl_mm`); Settings → "متابعة الحمل" (`obstetrics:milestones`, OB/GYN clinics only; a row is switched off, not
+  deleted); messages through the outbox: `milestone_due` (scheduler job `pregnancy_milestones` →
+  `obstetrics.notify_milestones`, once per pregnancy and milestone) and `postpartum` (queued by `close_pregnancy`
+  after a live birth, `POSTPARTUM_AFTER_DAYS`); `{pregnancy_week}` / `{pregnancy_month}` are available to every
+  appointment template; the pregnancy file is on the patient export PDF (`obstetrics.context.export_ctx`). The two
+  pregnancy templates are seeded for OB/GYN clinics only (`notifications.defaults.templates_for(org)`).
+- Guards added: `test_performance.test_money_screens_are_constant_in_queries` (23 money screens, small vs large
+  data), `test_crawl.test_the_books_verify_after_a_seeded_and_simulated_day`. The permission matrix and the crawl
+  already cover every URL of phases 13-19.
+- `docs/user-guide.md`: the staff guide in Arabic, one section per screen.
+- The whole suite takes about 20 minutes now. Phases 13 to 20 were committed together as one commit (see HANDOFF.md).

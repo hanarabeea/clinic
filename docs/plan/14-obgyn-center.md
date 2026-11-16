@@ -109,6 +109,15 @@ Permissions: read/write follow `clinical.view` / `clinical.edit`; reception sees
   (arrival, seen, disposition: خرجت / دخول عمليات / حجز غرفة / تحويل). Emergency fee from settings. Implemented as an
   `Appointment(source=emergency)` + `EmergencyCase` so the visit, prescription, billing and audit paths are reused.
 
+Built in Phase 13 (2026-11-16), with these differences from the sketch above: the doctor of a booking is decided by
+the visit type that is posted (each doctor has their own), not by a session choice; an emergency arrival has no queue
+number and no period (it is listed ahead of the numbers) and does not take a slot from the booked patients; services
+are ordered against the appointment (the visit may not exist yet when reception adds one); the service's revenue
+account is a reserved key that the accounting core fills in Phase 14; a doctor is switched off, never deleted.
+Assumptions written down here because the owner was not asked: the emergency fee is one flat amount per case
+(Settings, default 0); the doctor's share of a service is a percentage of its price, credited to the doctor of the
+visit; reception may add and remove services, and removing one that was paid for needs a refund first.
+
 ---
 
 ## 14.4 Operating room and admissions (Phase 15)
@@ -133,6 +142,14 @@ New app `apps/theatre`.
 - Screens: theatre calendar (day/week per room), operation page (tabs: plan, checklist, team, note, newborn,
   consumables, account), "today in the center" board (who is admitted, in theatre, in recovery).
 - Messages: operation booked / reminder with fasting instructions / changed, via the outbox.
+
+Built in Phase 15 (2026-11-16), with these differences from the sketch above: the room lock row is `RoomDay` (one per
+room and Cairo day, an operation over midnight locks both); a procedure type carries its checklist and usual team as
+lists that are copied onto each operation; the operation page has no "plan" or "account" tab (the plan is the header,
+the account comes with invoicing in phase 16); the theatre calendar is a board per room for a day or a week; consumables are a name and a quantity until phase 18 ties them to stock; a postponed operation
+is rebooked as a new operation linked from the old one. Assumptions written down: a night of stay is a midnight
+passed in Cairo time, one night at least; the room's nightly rate and the procedure's package price are copied when
+the stay / operation starts; the reminder goes 24 hours before with the fasting hours of the procedure (8 by default).
 
 ---
 
@@ -189,6 +206,17 @@ ledger and account statement with running balance, journal (دفتر اليوم�
 ### Existing data
 A data migration builds the tree and posts every historical `Payment` so the ledger starts in agreement with the cashbox.
 
+Built in Phase 14 (2026-11-16), with these differences from the sketch above: treasury is its own app
+(`apps/treasury`); an entry is never marked "reversed" (a posted entry cannot change at all), the reversal entry
+points at it instead; the historical payments are posted by an idempotent command (`ledger_bootstrap`, run after
+`migrate`) rather than inside a migration; there is a `treasury.view` permission besides the ones listed in 14.10;
+year close is left to Phase 19 with the statements. Assumptions written down here because the owner was not asked:
+a payment credits the patient's account and revenue is recognised by the invoice (Phase 16), so until then what
+patients paid shows as a credit balance on "المرضى: ذمم مدينة"; cash received at reception lands in one reception
+drawer whose shift opens with the first cash of the day; a cashier's count is blind and the cash is handed to the
+main safe at close; a cash difference needs a second person (or the owner) before it is posted; cash treasuries may
+never go negative, bank accounts may; the fiscal year is the calendar year unless changed in the ledger settings.
+
 ---
 
 ## 14.6 Patient invoicing (Phase 16)
@@ -201,6 +229,19 @@ A data migration builds the tree and posts every historical `Payment` so the led
 - Outpatient visits keep the fast flow (pay at the desk); behind it each paid visit is an auto-issued invoice.
 - Corporate / insurance payers (جهات التعاقد): optional payer on the invoice with its own receivable account and statement.
 - Receipt and invoice PDFs (Arabic, numbered, with tax registration data when applicable).
+
+Built in Phase 16 (2026-11-16), with these differences from the sketch above: there is no separate "patient account"
+record: the account is the patient herself (what waits for an invoice is found from her operations, stays and extra
+charges that no live invoice line bills yet); a visit's invoice is made and corrected by `sync_appointment`
+(credit note + new invoice on any change), never by hand; team fees are shares paid out of the operation's package
+price, not extra lines; a payer is set on the patient (`PatientCoverage`) and applies to every invoice issued while
+it is on, visits included, so the desk asks her only for her part; deposits and account payments are
+`billing.Payment` rows (`kind`, no appointment), so they pass through the same drawer, shift and cashbox; outside
+team members are one account ("أتعاب فريق خارجي مستحقة") without a per-person subledger; receipts are numbered by
+the payment's own id. Permissions added beyond the plan's list: `invoice.view`, `invoice.discount_any`,
+`doctor.payout`, `payer.manage`.
+
+---
 
 ## 14.7 Suppliers, purchasing, taxes, cheques (Phase 17)
 
@@ -220,6 +261,17 @@ A data migration builds the tree and posts every historical `Payment` so the led
 - Expense vouchers for non-supplier spending (rent, salaries, utilities) with recurring templates.
 - Tax reports: VAT paid by period, withholding by supplier and quarter, taxable sales if any.
 
+Built in Phase 17 (2026-11-16), with these differences from the sketch above: cheques and recurring expenses are in
+`apps/treasury`, everything else in `apps/purchasing`; a supplier's opening balance is an entry made once when the
+supplier is added; a purchase invoice is posted when saved and is cancelled or returned, never edited; a cheque's
+`deposited` step moves no money (there is one "شيكات تحت التحصيل" account); recurring expenses are filled in by the
+program and recorded by a person, not posted automatically; cheque alerts are a notice on the treasury screens, not
+an e-mail; tax kinds are VAT and withholding only (stamp duty and others are entered as lines); fixed assets are
+bought to their account like any line (no depreciation yet). Permission added beyond the plan's list:
+`purchase.view`.
+
+---
+
 ## 14.8 Inventory and counts (Phase 18)
 
 - `StockItem` (unit, category, reorder level, expiry-tracked?), `Warehouse` (main store, theatre cabinet),
@@ -231,6 +283,16 @@ A data migration builds the tree and posts every historical `Payment` so the led
   adjustment moves + entry. Spot counts are logged with who counted and who approved.
 - Alerts: below reorder level, expiring within N days (dashboard + daily digest).
 - Operation kits: a procedure's default consumables are issued in one step and adjusted to actual use.
+
+Built in Phase 18 (2026-11-16), with these differences from the sketch above: a store's balance keeps its total value
+(not an average), so the average is derived and the last unit out takes what is left: no rounding account is needed
+for issues; store documents (`StockDoc`) group the moves of an issue, a transfer, an opening balance and a count
+adjustment; a purchase return leaves the store at the current average and the difference from the supplier's credit
+goes to عجز وزيادة المخزون; counts are blind and one at a time per store, and a count whose stock moved after it was
+submitted has to be redone; the low-stock and expiry alerts are notices on the items screen (no daily e-mail); a
+procedure's kit is typed on the procedure form as "item = quantity" lines.
+
+---
 
 ## 14.9 Financial statements, management reports, verification (Phase 19)
 
@@ -247,6 +309,15 @@ A data migration builds the tree and posts every historical `Payment` so the led
   5. stock quantities never negative; batch quantities sum to item quantities.
   Any failure raises an owner alert (same channel as `check_health`) and blocks period close.
 - Year-end close with a checklist.
+
+Built in Phase 19 (2026-11-16), with these differences from the sketch above: statements are in `apps/ledger`
+(tabs of "الدفاتر") and management reports are tabs of the existing "التقارير" page; "cash movement" is per treasury
+(opening, in, out, closing), not a cash-flow statement by activity; the daily cashier report is the existing cashbox
+screen; verification also checks that recent visits carry the right invoice lines; a year is closed by one entry
+per cost center into الأرباح المرحّلة and can be reopened and closed again; the verification result is kept
+(`BooksCheck`) and closing a month re-verifies on the spot.
+
+---
 
 ## 14.10 Permissions, roles, quality (all phases, finished in Phase 20)
 
@@ -268,6 +339,14 @@ activity (visits, deliveries, purchases, cheques, counts) through the real servi
 
 ---
 
+Built in Phase 20 (2026-11-16): the four center roles (محاسب، كاشير، أمين مخزن، تمريض عمليات) with a work screen
+each; `seed_center`; the user guide (`docs/user-guide.md`); a performance guard over the money screens; the books
+verified at the end of the seeded tests; the pregnancy items left from phase 12; and a complete patient merge.
+Separation of duties as built: whoever counts cash or stock does not approve their own difference (the owner may),
+discounts above the limit and all credit notes need a permission only the owner has by default.
+
+---
+
 ## 14.11 Roadmap
 
 | Phase | Scope | Size |
@@ -284,6 +363,10 @@ activity (visits, deliveries, purchases, cheques, counts) through the real servi
 | 20 | Hardening: roles, full permission matrix, crawl, performance, `seed_center`, user guide (14.10) | M |
 
 Each phase follows the CLAUDE.md rules: quality gates, Definition of Done reported, commit `phase-N: ...`, stop for approval.
+
+**Status 2026-11-16: phases 11 to 20 are all built.** 11 and 12 have a commit each; 13 to 20 were built in
+one run and committed together. The report of every phase in plain language
+is in `docs/phase-reports.md`.
 
 ### Definition of Done highlights
 - 12: opening any pregnant patient anywhere shows week + day, month and EDD; changing the LMP or choosing ultrasound

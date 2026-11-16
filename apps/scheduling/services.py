@@ -253,7 +253,10 @@ def reschedule(appt, *, by, new_start_at=None, new_day=None, new_period_key=None
         notify=False,  # on_rescheduled sends "rescheduled" instead of a fresh confirmation
     )
     new_appt.price, new_appt.discount, new_appt.followup_of_id = appt.price, appt.discount, appt.followup_of_id
-    new_appt.save(update_fields=["price", "discount", "followup_of", "updated_at"])
+    new_appt.discount_reason = appt.discount_reason
+    new_appt.save(update_fields=["price", "discount", "discount_reason", "followup_of", "updated_at"])
+    # what was paid in advance for the visit follows it to its new date
+    appt.payments.update(appointment=new_appt)
     appt.status = AppointmentStatus.RESCHEDULED
     appt.rescheduled_to = new_appt
     appt.version += 1
@@ -293,7 +296,15 @@ def cancel(appt, *, by, reason="", notify=True):
         transaction.on_commit(lambda: notifications.on_cancelled(appt, by=by))
     else:
         transaction.on_commit(lambda: notifications.cancel_pending(appt, _("الحجز اتلغى")))
+    _sync_invoice(appt, by)
     return appt
+
+
+def _sync_invoice(appt, by) -> None:
+    """The visit changed: its invoice is put right behind the scenes (apps/invoicing)."""
+    from apps.invoicing import services as invoicing
+
+    invoicing.sync_quietly(appt, by=by)
 
 
 @transaction.atomic
@@ -329,6 +340,7 @@ def transition(appt, to_status, *, by, notes=""):
     if appt.queue_number and to_status in (AppointmentStatus.IN_CONSULTATION, AppointmentStatus.COMPLETED):
         doctor, day = appt.doctor, appt.date
         transaction.on_commit(lambda: notifications.on_queue_progress(doctor, day))
+    _sync_invoice(appt, by)
     return appt
 
 
@@ -352,9 +364,13 @@ def affected_by_closing(doctor, day):
     """Active appointments on `day` that no longer fit the schedule (e.g. after a closing exception),
     each paired with the next free slot/period suggestion."""
     periods = periods_for(doctor, day)
-    appts = Appointment.objects.filter(
-        organization=doctor.organization, doctor=doctor, date=day, status__in=ACTIVE_STATUSES
-    ).select_related("patient", "visit_type")
+    appts = (
+        Appointment.objects.filter(
+            organization=doctor.organization, doctor=doctor, date=day, status__in=ACTIVE_STATUSES
+        )
+        .exclude(source=BookingSource.EMERGENCY)  # an emergency arrival never had a slot to lose
+        .select_related("patient", "visit_type")
+    )
     affected = []
     for appt in appts:
         still_fits = any(p.start_at <= appt.start_at and appt.end_at <= p.end_at for p in periods)
@@ -415,6 +431,37 @@ def walk_in(*, patient, doctor, visit_type, by, overbook=False, now=None):
             raise BookingError(_("مفيش فترة شغالة النهارده."))
         appt = book(day=today, period_key=periods[0].period_id, overbook=overbook, **common)
     return transition(appt, AppointmentStatus.ARRIVED, by=by, notes=_("حضور مباشر"))
+
+
+# --- emergency arrivals (14 §14.3) -----------------------------------------------------------
+
+
+@transaction.atomic
+def emergency_arrival(*, patient, doctor, visit_type, by, price, now=None):
+    """An emergency patient is at the door: an appointment for right now, already `arrived`, whatever the schedule
+    says (outside working hours, a full day, slots or queue mode). No queue number and no messages: she is here.
+    The doctor's queue and the board put `source=emergency` first."""
+    now = now or timezone.now()
+    today = timezone.localtime(now, CAIRO).date()
+    _get_ledger(doctor, today)  # same lock as every other write of that doctor's day
+    duration = visit_type.duration_minutes or doctor.slot_minutes
+    appt = Appointment.objects.create(
+        organization=doctor.organization,
+        patient=patient,
+        doctor=doctor,
+        visit_type=visit_type,
+        date=today,
+        start_at=now,
+        end_at=now + timedelta(minutes=duration),
+        period_key="",  # outside the schedule: no period, no number, nothing taken from the booked patients
+        source=BookingSource.EMERGENCY,
+        price=price,
+        booked_by=by,
+    )
+    AppointmentEvent.objects.create(
+        organization=doctor.organization, appointment=appt, from_status="", to_status=appt.status, by=by
+    )
+    return transition(appt, AppointmentStatus.ARRIVED, by=by, notes=_("طوارئ"))
 
 
 # --- no-shows (12 §7) ------------------------------------------------------------------------

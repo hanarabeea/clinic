@@ -1,7 +1,7 @@
 {% load i18n %}
 <form id="new-patient-form" hx-post="{% url 'scheduling:booking_new_patient' %}" hx-target="this" hx-swap="outerHTML" class="space-y-3">
   {% csrf_token %}
-  <input type="hidden" name="day" value="{{ day }}"><input type="hidden" name="at" value="{{ at }}"><input type="hidden" name="hour" value="{{ hour }}">
+  <input type="hidden" name="day" value="{{ day }}"><input type="hidden" name="at" value="{{ at }}"><input type="hidden" name="hour" value="{{ hour }}"><input type="hidden" name="doctor" value="{{ doctor.pk }}">
   <div class="grid gap-3 sm:grid-cols-2">
     {% include "partials/field.html" with field=form.full_name %}
     {% include "partials/field.html" with field=form.gender %}

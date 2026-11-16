@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "المخزن" %}{% endblock %}
+{% block content %}
+{% comment %}What is on the shelves. On top, only when there is something to act on: items at their reorder level
+and lots about to expire. The value is the stores' own (weighted average), the same number the books hold.{% endcomment %}
+<div class="page-head">
+  <h1>{% translate "المخزن" %}</h1>
+  <span class="ms-auto"></span>
+  {% if can.stock_move %}<a href="{% url 'inventory:setup' %}" class="btn-ghost">{% icon "gear-six" "size-4" %}{% translate "المخازن" %}</a>
+  <a href="{% url 'inventory:item_new' %}" class="btn-primary">{% icon "plus" "size-4" %}{% translate "صنف جديد" %}</a>{% endif %}
+</div>
+{% include "inventory/partials/tabs.html" %}
+
+{% if low %}
+<p class="notice notice-warn mb-3">{% icon "warning" "size-5 shrink-0" %}<span>{% translate "وصلت حد إعادة الطلب:" %}
+  {% for i in low %}<a class="link" href="{% url 'inventory:item' i.pk %}">{{ i.name }}</a> <span class="num text-xs" dir="ltr">({{ i.held|floatformat:"-3" }})</span>{% if not forloop.last %}، {% endif %}{% endfor %}</span></p>
+{% endif %}
+{% if expiring %}
+<p class="notice notice-danger mb-3">{% icon "warning-circle" "size-5 shrink-0" %}<span>{% translate "صلاحية قربت أو انتهت:" %}
+  {% for b in expiring|slice:":8" %}<a class="link" href="{% url 'inventory:item' b.item.pk %}">{{ b.item.name }}</a> <span class="num text-xs" dir="ltr">{{ b.expiry_date|date:"d/m/Y" }}</span>{% if not forloop.last %}، {% endif %}{% endfor %}{% if expiring|length > 8 %} {% translate "وغيرها" %}{% endif %}</span></p>
+{% endif %}
+
+<div class="mb-4 flex flex-wrap items-center gap-3">
+  <form method="get" class="flex max-w-sm flex-1 gap-2">
+    <input type="search" name="q" value="{{ q }}" class="input h-9 py-0" placeholder="{% translate 'اسم الصنف' %}" aria-label="{% translate 'بحث باسم الصنف' %}">
+    <button class="btn-secondary min-h-9 px-3 py-0">{% translate "بحث" %}</button>
+  </form>
+  <span class="ms-auto text-sm text-stone-600">{% translate "قيمة المخزون" %} <b class="num text-ink" dir="ltr">{{ value|money0 }}</b></span>
+  <a href="{% url 'inventory:items' %}?format=xlsx" class="btn-ghost">{% icon "table" "size-4" %}Excel</a>
+</div>
+
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>{% translate "الصنف" %}</th>
+        {% for s in stores %}<th class="text-end!">{{ s.name }}</th>{% endfor %}
+        <th class="text-end!">{% translate "القيمة" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in rows %}
+      <tr class="{% if not i.is_active %}text-stone-500{% endif %}">
+        <td><a href="{% url 'inventory:item' i.pk %}" class="font-semibold hover:text-brand">{{ i.name }}</a> <span class="text-xs text-stone-600">{{ i.unit }}</span>{% if i.low %} <span class="badge bg-amber-50 text-amber-900">{% translate "قرب يخلص" %}</span>{% endif %}</td>
+        {% for c in i.cells %}<td class="num text-end" dir="ltr">{% if c and c.quantity %}{{ c.quantity|floatformat:"-3" }}{% endif %}</td>{% endfor %}
+        <td class="num text-end" dir="ltr">{{ i.value|money }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="{{ stores|length|add:2 }}" class="py-10! text-center text-stone-600">{% translate "مفيش أصناف. ضيف الأصناف، وبعدين سجّل الرصيد الافتتاحي أو فاتورة مشتريات." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

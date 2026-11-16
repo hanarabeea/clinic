@@ -42,8 +42,41 @@ def possible_duplicates(org, phone: str):
     return Patient.objects.for_org(org).filter(phone=e164, is_active=True)
 
 
+# Everything that hangs off a patient and simply follows her to the file that is kept (app label, model, field).
+MERGE_MOVES = [
+    ("scheduling", "Appointment"),
+    ("notifications", "ScheduledMessage"),
+    ("notifications", "InboundMessage"),
+    ("clinical", "Visit"),
+    ("clinical", "Attachment"),
+    ("prescriptions", "Prescription"),
+    ("obstetrics", "Pregnancy"),
+    ("obstetrics", "PregnancyHistory"),
+    ("center", "EmergencyCase"),
+    ("theatre", "Operation"),
+    ("theatre", "Admission"),
+    ("invoicing", "Charge"),
+    ("invoicing", "Invoice"),
+    ("billing", "Payment"),
+]
+
+
 @transaction.atomic
 def merge_patients(primary: Patient, duplicate: Patient, *, by=None) -> Patient:
+    """Two files of the same person become one: everything on `duplicate` moves to `primary` (visits, bookings,
+    prescriptions, attachments, the pregnancy file, operations, invoices and payments), and the duplicate is switched
+    off and remembers where it went. Nothing is deleted.
+
+    Refused when the two files cannot be one without losing a fact: the duplicate still owes money or has a deposit
+    (her account in the books carries her own name: settle it first), or both have a pregnancy being followed, or
+    both are in a room right now."""
+    from django.apps import apps
+
+    from apps.invoicing import services as invoicing
+    from apps.invoicing.models import PatientCoverage
+    from apps.obstetrics.models import ObstetricProfile, Pregnancy, PregnancyStatus
+    from apps.theatre.models import Admission, AdmissionStatus
+
     if primary.organization_id != duplicate.organization_id:
         raise MergeError(_("المريضين لازم يكونوا من نفس العيادة."))
     if primary.pk == duplicate.pk:
@@ -52,11 +85,36 @@ def merge_patients(primary: Patient, duplicate: Patient, *, by=None) -> Patient:
     duplicate = Patient.objects.select_for_update().get(pk=duplicate.pk)
     if duplicate.merged_into_id:
         raise MergeError(_("المريض ده متدمج بالفعل."))
+    if primary.merged_into_id:
+        raise MergeError(_("الملف اللي بتدمج فيه نفسه متدمج في ملف تاني."))
+
+    owed, held = invoicing.patient_balance(duplicate), invoicing.deposit_balance(duplicate)
+    if owed or held:
+        raise MergeError(
+            _("الملف المكرر عليه حساب مفتوح (رصيد %(o)s، مقدم %(h)s). سوّي حسابه الأول وبعدين ادمج.")
+            % {"o": owed, "h": held}
+        )
+    following = Pregnancy.objects.filter(patient__in=(primary, duplicate), status=PregnancyStatus.ACTIVE)
+    if following.count() > 1:
+        raise MergeError(_("الملفين عليهم حمل متابَع. اقفل واحد منهم الأول."))
+    staying = Admission.objects.filter(patient__in=(primary, duplicate), status=AdmissionStatus.ADMITTED)
+    if staying.count() > 1:
+        raise MergeError(_("الملفين مسجلين إقامة دلوقتي. سجّل خروج واحد منهم الأول."))
 
     duplicate.allergies.update(patient=primary)
     duplicate.chronic_conditions.update(patient=primary)
-    # Appointments/visits/attachments move here too once those apps exist (Phase 3/6).
+    for app_label, model_name in MERGE_MOVES:
+        apps.get_model(app_label, model_name)._base_manager.filter(patient=duplicate).update(patient=primary)
+    # one-per-patient records: the kept file's own wins; otherwise the duplicate's comes along
+    for model in (ObstetricProfile, PatientCoverage):
+        if not model.objects.filter(patient=primary).exists():
+            model.objects.filter(patient=duplicate).update(patient=primary)
 
+    for name in ("email", "date_of_birth", "national_id", "address", "whatsapp"):
+        if hasattr(primary, name) and not getattr(primary, name) and getattr(duplicate, name, None):
+            setattr(primary, name, getattr(duplicate, name))
+    primary.no_show_count = (primary.no_show_count or 0) + (duplicate.no_show_count or 0)
+    primary.save()
     duplicate.merged_into = primary
     duplicate.is_active = False
     duplicate.save(update_fields=["merged_into", "is_active", "updated_at"])

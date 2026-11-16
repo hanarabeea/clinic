@@ -33,6 +33,42 @@
     {"name_ar": "إعادة", "duration_minutes": 10, "price": "200.00", "is_followup": true, "free_followup_days": 14, "color": "#6B9E3F"},
     {"name_ar": "استشارة", "duration_minutes": 10, "price": "150.00", "is_followup": false, "free_followup_days": 0, "color": "#C08A1E"}
   ],
+  "extra_doctors": [
+    {
+      "name_ar": "منى حسن", "name_en": "Mona Hassan", "title_ar": "د.",
+      "specialty_ar": "أخصائي النسا والتوليد والسونار",
+      "qualifications": ["بكالوريوس الطب والجراحة، جامعة عين شمس", "دبلومة السونار رباعي الأبعاد"],
+      "booking_mode": "queue", "slot_minutes": 15, "booking_horizon_days": 30, "min_notice_minutes": 0,
+      "queue_avg_minutes": 15, "near_turn_threshold": 2, "allow_overbooking": true,
+      "working_periods": [
+        {"weekday": 0, "start": "10:00", "end": "14:00", "max_patients": 16},
+        {"weekday": 1, "start": "10:00", "end": "14:00", "max_patients": 16},
+        {"weekday": 2, "start": "10:00", "end": "14:00", "max_patients": 16},
+        {"weekday": 3, "start": "10:00", "end": "14:00", "max_patients": 16},
+        {"weekday": 4, "start": "10:00", "end": "14:00", "max_patients": 16}
+      ],
+      "visit_types": [
+        {"name_ar": "كشف", "duration_minutes": 15, "price": "300.00", "is_followup": false, "free_followup_days": 0, "color": "#0E7C86"},
+        {"name_ar": "إعادة", "duration_minutes": 10, "price": "150.00", "is_followup": true, "free_followup_days": 14, "color": "#6B9E3F"}
+      ]
+    }
+  ],
+  "center": {"emergency_fee": "600.00"},
+  "services": [
+    {"name_ar": "سونار عادي", "name_en": "2D ultrasound", "category": "ultrasound", "price": "250.00", "doctor_share_percent": "40"},
+    {"name_ar": "سونار رباعي الأبعاد", "name_en": "4D ultrasound", "category": "ultrasound", "price": "600.00", "doctor_share_percent": "40"},
+    {"name_ar": "سونار مهبلي", "name_en": "Transvaginal ultrasound", "category": "ultrasound", "price": "300.00", "doctor_share_percent": "40"},
+    {"name_ar": "دوبلر", "name_en": "Doppler", "category": "ultrasound", "price": "500.00", "doctor_share_percent": "40"},
+    {"name_ar": "رسم قلب الجنين", "name_en": "CTG", "category": "procedure", "price": "200.00", "doctor_share_percent": "0"},
+    {"name_ar": "تركيب لولب", "name_en": "IUD insertion", "category": "procedure", "price": "700.00", "doctor_share_percent": "50"},
+    {"name_ar": "إزالة لولب", "name_en": "IUD removal", "category": "procedure", "price": "300.00", "doctor_share_percent": "50"},
+    {"name_ar": "كي عنق الرحم", "name_en": "Cervical cautery", "category": "procedure", "price": "900.00", "doctor_share_percent": "50"},
+    {"name_ar": "مسحة عنق الرحم", "name_en": "Pap smear", "category": "lab", "price": "350.00", "doctor_share_percent": "0"},
+    {"name_ar": "سحب عينة تحاليل", "name_en": "Lab sample collection", "category": "lab", "price": "50.00", "doctor_share_percent": "0"},
+    {"name_ar": "حقنة عضل", "name_en": "IM injection", "category": "injection", "price": "40.00", "doctor_share_percent": "0"},
+    {"name_ar": "حقنة أنتي دي", "name_en": "Anti-D injection", "category": "injection", "price": "150.00", "doctor_share_percent": "0"},
+    {"name_ar": "تركيب محلول", "name_en": "IV fluids", "category": "injection", "price": "150.00", "doctor_share_percent": "0"}
+  ],
   "notification_settings": {
     "is_enabled": true, "quiet_start": "22:00", "quiet_end": "09:00", "quiet_policy": "defer",
     "default_channel": "preferred", "email_fallback": true,

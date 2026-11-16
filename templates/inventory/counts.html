@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load i18n clock %}
+{% block title %}{% translate "جرد المخزن" %}{% endblock %}
+{% block content %}
+{% comment %}Counts. Whoever counts does not see what the books expect; the differences wait for a second person.{% endcomment %}
+<div class="page-head">
+  <h1>{% translate "المخزن" %}</h1>
+</div>
+{% include "inventory/partials/tabs.html" %}
+{% if can.stock_count %}
+<form method="post" action="{% url 'inventory:count_start' %}" class="card mb-5 flex flex-wrap items-end gap-3 p-4" x-data="{ kind: 'full' }">
+  {% csrf_token %}
+  <div class="form-field w-48"><label for="cn-store">{% translate "المخزن" %}</label>
+    <select id="cn-store" name="warehouse" class="input">{% for s in stores %}<option value="{{ s.pk }}">{{ s.name }}</option>{% endfor %}</select></div>
+  <div class="form-field w-48"><label for="cn-kind">{% translate "نوع الجرد" %}</label>
+    <select id="cn-kind" name="kind" class="input" x-model="kind">{% for v, l in kinds %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+  <div class="form-field w-32" x-show="kind === 'spot'" x-cloak><label for="cn-sample">{% translate "كام صنف" %}</label><input id="cn-sample" name="sample" class="input" dir="ltr" inputmode="numeric" value="5"></div>
+  <button class="btn-primary">{% translate "ابدأ جرد" %}</button>
+</form>
+{% endif %}
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th class="w-40">{% translate "بدأ" %}</th><th>{% translate "المخزن" %}</th><th>{% translate "النوع" %}</th><th>{% translate "اللي عدّ" %}</th><th>{% translate "الحالة" %}</th></tr></thead>
+    <tbody>
+      {% for c in rows %}
+      <tr>
+        <td><a href="{% url 'inventory:count' c.pk %}" class="num font-semibold hover:text-brand" dir="ltr">{{ c.started_at|date:"d/m/Y" }} {{ c.started_at|ampm }}</a></td>
+        <td>{{ c.warehouse.name }}</td>
+        <td class="text-stone-600">{{ c.get_kind_display }}</td>
+        <td class="text-stone-600">{{ c.counted_by.full_name|default:c.counted_by.username }}</td>
+        <td>{{ c.get_status_display }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="py-10! text-center text-stone-600">{% translate "مفيش جرد اتعمل لسه." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

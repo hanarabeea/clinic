@@ -1,0 +1,29 @@
+{% load i18n %}
+{% comment %}The period a report covers, and its two ways out (Excel, print). `action` is the report's own URL and
+`keep` whatever else it filters by, as a ready query-string tail ("&depth=2"). Changing a date reloads the report.{% endcomment %}
+<div class="mb-4 flex flex-wrap items-center gap-2 print:hidden" id="report-range" data-action="{{ action }}" data-keep="{{ keep }}">
+  <div class="segmented">
+    {% for p in presets %}
+    <a href="{{ action }}?from={{ p.from|date:'Y-m-d' }}&to={{ p.to|date:'Y-m-d' }}{{ keep }}" class="{% if p.active %}is-active{% endif %}">{{ p.label }}</a>
+    {% endfor %}
+  </div>
+  <label class="flex items-center gap-1.5 text-sm text-stone-600">{% translate "من" %}
+    <input type="date" name="from" value="{{ start|date:'Y-m-d' }}" class="input h-9 w-auto py-0">
+  </label>
+  <label class="flex items-center gap-1.5 text-sm text-stone-600">{% translate "إلى" %}
+    <input type="date" name="to" value="{{ end|date:'Y-m-d' }}" class="input h-9 w-auto py-0">
+  </label>
+  <span class="ms-auto"></span>
+  <a href="{{ action }}?from={{ start|date:'Y-m-d' }}&to={{ end|date:'Y-m-d' }}{{ keep }}&format=xlsx" class="btn-ghost">{% icon "table" "size-4" %}Excel</a>
+  <a href="{{ action }}?from={{ start|date:'Y-m-d' }}&to={{ end|date:'Y-m-d' }}{{ keep }}&format=pdf" target="_blank" rel="noopener" class="btn-ghost">{% icon "printer" "size-4" %}{% translate "طباعة" %}</a>
+</div>
+<script>
+  (() => {
+    const box = document.getElementById("report-range");
+    const go = () => {
+      const from = box.querySelector("[name=from]").value, to = box.querySelector("[name=to]").value;
+      if (from && to) location.href = `${box.dataset.action}?from=${from}&to=${to}${box.dataset.keep}`;
+    };
+    box.querySelectorAll("input[type=date]").forEach((el) => el.addEventListener("change", go));
+  })();
+</script>

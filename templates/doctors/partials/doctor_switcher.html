@@ -1,0 +1,13 @@
+{% load i18n %}
+{% comment %}Which doctor a settings page is about (only shown when the clinic has several). `url_name` is the page;
+the choice travels as ?doctor=<pk> and is remembered (doctors.services.current_doctor).{% endcomment %}
+{% if doctors|length > 1 %}
+<div class="mb-4 flex flex-wrap items-center gap-2">
+  <span class="text-[13px] font-semibold text-stone-600">{% translate "الدكتور" %}</span>
+  <div class="segmented flex-wrap">
+    {% for d in doctors %}
+    <a href="{% url url_name %}?doctor={{ d.pk }}" class="{% if d.pk == doctor.pk %}is-active{% endif %}" {% if d.pk == doctor.pk %}aria-current="true"{% endif %}>{{ d }}{% if not d.is_active %} <span class="font-normal text-stone-500">({% translate "متوقف" %})</span>{% endif %}</a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}

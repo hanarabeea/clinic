@@ -2,6 +2,7 @@
 obstetric history and its counts, milestones, the antenatal sheet, and who may see what."""
 
 import io
+import re
 from datetime import date, timedelta
 from decimal import Decimal
 
@@ -424,6 +425,7 @@ def test_reception_sees_the_week_but_nothing_of_the_file(client, ob):
         for url in (reverse("reception:today"), reverse("patients:detail", args=[patient.pk]), reverse("patients:list"))
     )
     assert "الشهر السادس" in seen and "27/9/2026" in seen
+    seen = re.sub(r"[A-Za-z0-9]{32,}", "", seen)  # security tokens are random letters: they can spell anything
     for secret in ("إجهاض", "نزيف", "ضغط مرتفع", "سر طبي", "AB-", "G2", "Rh"):
         assert secret not in seen, secret
 
@@ -554,3 +556,127 @@ def test_demo_data_and_seeded_clinic(db):
     assert ages == [7, 12, 19, 24, 29, 33, 37, 40]
     call_command("seed_pregnancies", stdout=out)  # again: nothing doubled
     assert Pregnancy.objects.for_org(org).count() == 8
+
+
+# --- phase 20: measurements, the clinic's own schedule, messages, the export ----------------------------------------
+
+
+@freeze_time(NOW)
+def test_ultrasound_measurements_are_saved_and_shown(client, ob):
+    _pregnant(ob)
+    visit = _visit(ob)
+    for name, value in [("bpd_mm", "61"), ("hc_mm", "224"), ("ac_mm", "198"), ("fl_mm", "44")]:
+        services.save_antenatal_field(visit, name, value)
+    sheet = AntenatalVisit.objects.get(visit=visit)
+    assert (sheet.bpd_mm, sheet.hc_mm, sheet.ac_mm, sheet.fl_mm) == (61, 224, 198, 44)
+    with pytest.raises(ValidationError):
+        services.save_antenatal_field(visit, "fl_mm", "200")
+    client.force_login(ob["doc"])
+    page = client.get(reverse("obstetrics:antenatal", args=[visit.pk])).content.decode()
+    assert 'id="an-bpd_mm"' in page and 'value="61"' in page and "<details" in page and " open" in page
+
+
+@freeze_time(NOW)
+def test_the_clinic_edits_its_own_schedule(client, ob, make_member):
+    owner = make_member(ob["org"], "owner")
+    urls = [reverse("obstetrics:milestones"), reverse("obstetrics:milestone_new")]
+    client.force_login(ob["doc"])
+    assert [client.get(u).status_code for u in urls] == [403, 403]  # settings are the owner's and the admin's
+    client.force_login(owner)
+    assert "متابعة الحمل" in client.get(reverse("organizations:settings")).content.decode()
+    page = client.get(urls[0]).content.decode()
+    first = Milestone.objects.filter(organization=ob["org"]).order_by("from_week", "order", "id").first()
+    assert first.name in page
+    new = {"name": "سونار رباعي الأبعاد", "kind": "scan", "from_week": "26", "to_week": "30", "is_active": "on"}
+    resp = client.post(urls[1], new)
+    assert resp.status_code == 302 and Milestone.objects.filter(organization=ob["org"], name=new["name"]).exists()
+    bad = client.post(urls[1], {**new, "from_week": "30", "to_week": "26"})
+    assert bad.status_code == 200 and "نفس الاسم" in bad.content.decode() and "بعد أول أسبوع" in bad.content.decode()
+    edit = reverse("obstetrics:milestone_edit", args=[first.pk])
+    client.post(edit, {"name": first.name, "kind": first.kind, "from_week": first.from_week, "to_week": first.to_week})
+    first.refresh_from_db()
+    assert not first.is_active  # switched off, not deleted
+    p = _pregnant(ob)
+    assert first.pk not in {row.milestone.pk for row in services.milestones_for(p)}
+    # another clinic cannot touch this one's rows, and a clinic without the layer has no such screen
+    client.force_login(ob["other"])
+    assert client.get(edit).status_code in (403, 404)
+    OrganizationSettings.objects.filter(organization=ob["org"]).update(specialty="general")
+    client.force_login(owner)
+    assert client.get(urls[0]).status_code == 404
+
+
+@freeze_time(NOW)
+def test_pregnancy_messages_go_through_the_outbox_once(ob, django_capture_on_commit_callbacks):
+    from apps.notifications.management.commands.seed_notifications import seed_org_notifications
+    from apps.notifications.models import Event, NotificationTemplate, ScheduledMessage
+    from apps.notifications.templating import appointment_ctx, render
+
+    org, patient = ob["org"], ob["patient"]
+    Patient.objects.filter(pk=patient.pk).update(messaging_consent=True)
+    patient.refresh_from_db()
+    seed_org_notifications(org)
+    events = set(NotificationTemplate.objects.filter(organization=org).values_list("event", flat=True))
+    assert {Event.MILESTONE_DUE, Event.POSTPARTUM} <= events  # an OB/GYN clinic gets the two pregnancy templates
+    p = _pregnant(ob)  # 24 weeks + 3 days today
+
+    # the week is available to every appointment message of a pregnant woman
+    appt = booking.book(patient=patient, doctor=ob["doctor"], visit_type=ob["vt"], by=ob["reception"],
+                        start_at=timezone.now() + timedelta(days=7), overbook=True, notify=False)  # fmt: skip
+    ctx = appointment_ctx(appt)
+    assert (ctx["pregnancy_week"], ctx["pregnancy_month"]) == (25, 6)  # on the day of the visit, a week from now
+    assert render("أسبوع {pregnancy_week}", ctx) == "أسبوع 25"
+
+    # what is due in her week is announced once, however often the job runs
+    due = [row.milestone for row in services.milestones_for(p) if row.state == "due"]
+    assert due
+    assert services.notify_milestones() == len(due) and services.notify_milestones() == len(due)
+    queued = ScheduledMessage.objects.filter(organization=org, event=Event.MILESTONE_DUE)
+    assert queued.count() == len(due)
+    first = queued.order_by("id").first()
+    assert first.context["milestone_name"] in {m.name for m in due} and first.context["pregnancy_week"] == 24
+    services.toggle_milestone(p, due[0], by=ob["doc"])  # done: nothing more is queued for it
+    assert services.notify_milestones() == len(due) - 1
+
+    # a birth queues the post-partum follow-up; a loss queues nothing
+    with django_capture_on_commit_callbacks(execute=True):
+        services.close_pregnancy(p, outcome=Outcome.VAGINAL, ended_on=TODAY, by=ob["doc"])
+    row = ScheduledMessage.objects.get(organization=org, event=Event.POSTPARTUM)
+    assert timezone.localtime(row.send_at).date() >= TODAY + timedelta(days=33)
+    assert row.dedupe_key.startswith(f"pp:{p.pk}")
+    with django_capture_on_commit_callbacks(execute=True):
+        dating = services.Dating(method=EddMethod.LMP, lmp=TODAY - timedelta(days=60))
+        lost = services.start_pregnancy(patient, dating, by=ob["doc"], doctor=ob["doctor"])
+        services.close_pregnancy(lost, outcome=Outcome.MISCARRIAGE, ended_on=TODAY, by=ob["doc"])
+    assert ScheduledMessage.objects.filter(organization=org, event=Event.POSTPARTUM).count() == 1
+
+
+def test_a_general_clinic_gets_no_pregnancy_templates(org_a):
+    from apps.notifications.management.commands.seed_notifications import seed_org_notifications
+    from apps.notifications.models import Event, NotificationTemplate
+
+    seed_org_notifications(org_a)
+    events = set(NotificationTemplate.objects.filter(organization=org_a).values_list("event", flat=True))
+    assert not {Event.MILESTONE_DUE, Event.POSTPARTUM} & events
+    OrganizationSettings.objects.filter(organization=org_a).update(specialty="obgyn")
+    org_a.settings.refresh_from_db()
+    assert seed_org_notifications(org_a) == 2  # switched to OB/GYN later: the two are added, nothing else is touched
+
+
+@freeze_time(NOW)
+def test_the_exported_record_carries_the_pregnancy_file(ob):
+    from apps.obstetrics.context import export_ctx
+
+    org, patient = ob["org"], ob["patient"]
+    assert export_ctx(org, patient) == {}  # nothing recorded: no empty section
+    services.add_history(patient, outcome=Outcome.CESAREAN, by=ob["doc"], year=2021)
+    p = _pregnant(ob)
+    visit = _visit(ob)
+    services.save_antenatal_field(visit, "bpd_mm", "61")
+    data = export_ctx(org, patient)["ob"]
+    assert (data["gpal"].label, data["pregnancy"], data["ga"].weeks, len(data["history"]), len(data["sheets"])) == (
+        "G2 P1 A0 L1", p, 24, 1, 1,
+    )  # fmt: skip
+    man = Patient.objects.create(organization=org, full_name="أحمد", phone="+201001112223", gender=Gender.MALE,
+                                 file_number=77)  # fmt: skip
+    assert export_ctx(org, man) == {}

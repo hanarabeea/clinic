@@ -9,6 +9,14 @@
     <button type="button" class="btn-secondary" onclick="window.print()">{% icon "printer" "size-4" %}{% translate "طباعة" %}</button>
   </form>
 </div>
+{% if box.shift or box.in_drawer > 0 %}
+{# the cashier's shift on the cash drawer: it opened with the first money taken, and closes with a count #}
+<div class="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm print:hidden">
+  {% if box.shift %}<span>{% translate "الوردية مفتوحة من" %} <b class="num" dir="ltr">{{ box.shift.opened_at|date:"d/m H:i" }}</b></span>
+  {% else %}<span>{% translate "في الدرج كاش لسه متورّدش للخزينة." %}</span>{% endif %}
+  <a href="{% url 'billing:shift_close' %}" class="btn-secondary ms-auto">{% icon "lock-simple" "size-4" %}{% translate "تقفيل الوردية" %}</a>
+</div>
+{% endif %}
 <h2 class="mb-3 hidden text-xl font-bold print:block">{% translate "تقرير الخزنة" %}: <span dir="ltr">{{ box.day|date:"Y-m-d" }}</span></h2>
 
 <div class="stat-strip mb-4">
@@ -34,8 +42,8 @@
       {% for p in box.payments %}
       <tr>
         <td dir="ltr" class="text-end text-stone-600">{{ p.received_at|date:"H:i" }}</td>
-        <td class="font-semibold">{{ p.appointment.patient.full_name }}</td>
-        <td class="text-stone-600">{{ p.appointment.visit_type.name_ar }}</td>
+        <td class="font-semibold">{{ p.patient.full_name }}</td>
+        <td class="text-stone-600">{% if p.kind == "deposit" %}{% translate "مقدم" %}{% elif p.appointment %}{{ p.appointment.visit_type.name_ar }}{% else %}{% translate "من الحساب" %}{% endif %}</td>
         <td>{{ p.get_method_display }}{% if p.is_refund %} <span class="badge bg-red-50 text-red-800">{% translate "استرداد" %}</span>{% endif %}</td>
         <td class="text-stone-600">{{ p.received_by.get_short_name|default:"-" }}</td>
         <td class="text-end font-semibold {% if p.is_refund %}text-red-700{% endif %}" dir="ltr">{{ p.signed_amount|floatformat:"-2" }}</td>

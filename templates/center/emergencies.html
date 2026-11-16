@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load i18n clock %}
+{% block title %}{% translate "الطوارئ" %}{% endblock %}
+{% block content %}
+{% comment %}The emergency log: one day's arrivals with the three times that matter (arrived, taken in by the doctor,
+what happened next). The live cases also sit on top of the reception board.{% endcomment %}
+<div class="page-head">
+  <div>
+    <h1>{% translate "الطوارئ" %}</h1>
+    <p class="page-sub">{% if day == today %}{% translate "حالات النهارده" %}{% else %}<span class="num" dir="ltr">{{ day|date:"j/n/Y" }}</span>{% endif %}</p>
+  </div>
+  <span class="ms-auto"></span>
+  <form method="get" class="flex items-center gap-2">
+    <input type="date" name="date" value="{{ day|date:'Y-m-d' }}" max="{{ today|date:'Y-m-d' }}" class="input h-9 w-auto py-0" aria-label="{% translate 'اليوم' %}" onchange="this.form.submit()">
+    {% if day != today %}<a href="{% url 'center:emergencies' %}" class="btn-secondary">{% translate "النهارده" %}</a>{% endif %}
+  </form>
+  <button type="button" class="btn-danger px-4" hx-get="{% url 'center:emergency_register' %}" hx-target="#modal">{% icon "siren" "size-4" %}{% translate "تسجيل طوارئ" %}</button>
+</div>
+
+<div class="stat-strip mb-4">
+  <div class="stat"><div class="stat-label">{% translate "الحالات" %}</div><div class="stat-value" dir="ltr">{{ cases|length }}</div></div>
+  <div class="stat"><div class="stat-label">{% translate "حرجة" %}</div><div class="stat-value" dir="ltr">{{ critical_count }}</div></div>
+  <div class="stat"><div class="stat-label">{% translate "متوسط الانتظار (دقيقة)" %}</div><div class="stat-value" dir="ltr">{{ avg_wait|default_if_none:"-" }}</div></div>
+  <div class="stat"><div class="stat-label">{% translate "من غير تصرف" %}</div><div class="stat-value" dir="ltr">{{ undecided }}</div></div>
+</div>
+
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>{% translate "وصلت" %}</th>
+        <th>{% translate "المريضة" %}</th>
+        <th>{% translate "الخطورة" %}</th>
+        <th>{% translate "السبب" %}</th>
+        <th>{% translate "الدكتور" %}</th>
+        <th>{% translate "دخلت للدكتور" %}</th>
+        <th>{% translate "التصرف" %}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for case in cases %}{% with a=case.appointment %}
+      <tr>
+        <td class="num whitespace-nowrap font-semibold" dir="ltr">{{ case.arrived_at|ampm }}</td>
+        <td>
+          {% if can.patient_view_basic %}<a href="{% url 'patients:detail' case.patient.pk %}" class="font-semibold hover:text-brand">{{ case.patient.full_name }}</a>{% else %}<span class="font-semibold">{{ case.patient.full_name }}</span>{% endif %}
+          {% if case.ga and can.pregnancy_view_basic %}{% include "obstetrics/partials/ga_badge.html" with ga=case.ga %}{% endif %}
+        </td>
+        <td>{% include "center/partials/triage_tag.html" %}</td>
+        <td class="text-stone-700">{{ case.reason_label }}</td>
+        <td class="text-stone-600">{{ case.doctor }}</td>
+        <td class="whitespace-nowrap">
+          {% if case.seen_at %}<span class="num" dir="ltr">{{ case.seen_at|ampm }}</span> <span class="text-xs text-stone-600">{% blocktranslate with m=case.minutes_to_seen %}بعد {{ m }} دقيقة{% endblocktranslate %}</span>
+          {% elif a.status == "arrived" %}<span class="badge bg-amber-50 text-amber-900">{% translate "مستنية" %}</span>
+          {% else %}<span class="text-stone-500">-</span>{% endif %}
+        </td>
+        <td>
+          {% if case.disposition %}<span class="font-semibold">{{ case.get_disposition_display }}</span> <span class="num text-xs text-stone-600" dir="ltr">{{ case.disposition_at|ampm }}</span>
+          {% if case.disposition_notes %}<span class="block text-xs text-stone-600">{{ case.disposition_notes }}</span>{% endif %}
+          {% else %}<span class="text-amber-700">{% translate "لسه" %}</span>{% endif %}
+        </td>
+        <td class="text-end">
+          {% if case.disposition == "theatre" and can.theatre_schedule %}<a href="{% url 'theatre:operation_new' %}?emergency_case={{ case.pk }}" class="btn-ghost min-h-8 px-2.5 py-1 text-xs">{% translate "احجز العملية" %}</a>{% endif %}
+          {% if case.disposition == "admitted" and can.admission_manage %}<a href="{% url 'theatre:admit' %}?emergency_case={{ case.pk }}" class="btn-ghost min-h-8 px-2.5 py-1 text-xs">{% translate "دخّلها غرفة" %}</a>{% endif %}
+          <button type="button" class="btn-ghost min-h-8 px-2.5 py-1 text-xs" hx-get="{% url 'center:emergency_disposition' case.pk %}" hx-target="#modal">{% if case.disposition %}{% translate "تغيير" %}{% else %}{% translate "سجّل التصرف" %}{% endif %}</button>
+        </td>
+      </tr>
+      {% endwith %}{% empty %}
+      <tr><td colspan="8" class="py-12! text-center text-stone-600">{% translate "مفيش حالات طوارئ اليوم ده." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div id="modal"></div>
+{% include "partials/htmx_toast.html" %}
+<script>
+  // registering a case or saving a disposition changes the rows: re-read the page
+  document.body.addEventListener("board-refresh", () => setTimeout(() => location.reload(), 600));
+</script>
+{% endblock %}

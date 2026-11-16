@@ -1,7 +1,8 @@
 # HANDOFF: DigiClinic, phases 13 to 20
 
-Last updated 2026-11-16. Phases 0-12 are done and committed on `main`. This file tells a new Claude Code session how
-to carry the project to the end of phase 20 without the earlier conversation.
+Last updated 2026-11-16. **All twenty phases are built.** Everything is committed on `main`: phases 13 to
+20 went in together as one commit on 2026-11-16. Nothing has been pushed. This file tells a new Claude Code session where
+everything is and how to carry on.
 
 ## 1. What this project is
 
@@ -25,19 +26,32 @@ and wants Claude to decide and think deeply.
 | Phase | Scope | State |
 |---|---|---|
 | 11 | Design system, work screen per role, sign-in box | done, commit `b0fe8ad` |
-| 12 | Pregnancy file (`apps/obstetrics`): week / month / due date on every screen, obstetric history, antenatal sheet, milestones | done (see the last `phase-12` commit) |
-| 13 | Center mode: several doctors in the UI, services catalog, emergency arrivals | next |
-| 14 | Accounting core: chart of accounts, journal, periods, treasury, shift close, trial balance | |
-| 15 | Operating room, deliveries, newborns, admissions | |
-| 16 | Patient invoicing, deposits, doctor shares, payers | |
-| 17 | Suppliers, purchasing, taxes, cheques | |
-| 18 | Inventory, costing, stock counts | |
-| 19 | Financial statements, management reports, books verification, year close | |
-| 20 | Hardening: roles, permission matrix, crawl, performance, `seed_center`, user guide | |
+| 12 | Pregnancy file (`apps/obstetrics`): week / month / due date on every screen, obstetric history, antenatal sheet, milestones | done, commit `a8dafee` |
+| 13 | Center mode: several doctors in the UI, services catalog, emergency arrivals | done |
+| 14 | Accounting core: chart of accounts, journal, periods, treasury, shift close, trial balance | done |
+| 15 | Operating room, deliveries, newborns, admissions | done |
+| 16 | Patient invoicing, deposits, doctor shares, payers | done |
+| 17 | Suppliers, purchasing, taxes, cheques | done |
+| 18 | Inventory, costing, stock counts | done |
+| 19 | Financial statements, management reports, books verification, year close | done |
+| 20 | Hardening: roles, permission matrix, crawl, performance, `seed_center`, user guide | done |
 
-Left over from phase 12, to fold into a later phase (listed at the end of "Obstetrics notes" in CLAUDE.md): pregnancy
-message templates, a settings screen for the milestone list, structured ultrasound biometry, the pregnancy summary on
-the patient export PDF. Phase 15 must link a delivery to `obstetrics.services.close_pregnancy` and add newborns.
+**Commits.** Phases 13 to 20 were built in one run while the owner was away (she had said not to commit meanwhile)
+and were committed together as one commit when she asked, on 2026-11-16. The state at the end of each phase is still
+in `tmp/phase-snapshots/phase-N.tar` (`tmp/` is not in git). Do not push until she asks.
+
+**What is left for the owner to decide or do** (nothing is left to build in the plan):
+
+1. Push, if she wants (nothing from phase 13 on has been pushed).
+2. Have the center's accountant review the chart of accounts and the tax defaults (VAT treated as cost, withholding
+   1 / 3 / 5%, the 300 EGP threshold) before real use. All of them are data, changed from the screens.
+3. Answer the open questions in plan 14 §14.11 (number of doctors and rooms, VAT registration, how doctors are paid,
+   contracts with companies). Each one is a setting, not a rebuild.
+4. Production (phase 10) is prepared in `deploy/` and has not been run on a server.
+
+Ideas that were deliberately left out and would be the natural next steps: depreciation of equipment and a fixed
+assets register, purchase orders, several units per stock item, a cash-flow statement by activity, budgets, e-mail
+alerts for cheques and low stock, payroll.
 
 ## 4. How to work (the rules that are easy to break)
 
@@ -46,7 +60,7 @@ the patient export PDF. Phase 15 must link a delivery to `obstetrics.services.cl
   If she says "continue" or "start", go to the next phase.
 - **Quality gates:** `.venv/Scripts/ruff check .`, `.venv/Scripts/ruff format --check .`,
   `.venv/Scripts/python manage.py makemigrations --check --dry-run`, and the whole test suite green.
-  The suite takes about 17 minutes: run the tests of the files you touched while working, and the whole suite once in
+  The suite takes about 20 minutes: run the tests of the files you touched while working, and the whole suite once in
   the background before the commit (`.venv/Scripts/python -m pytest -p no:cacheprovider -q --tb=short`).
 - **Every new screen:** add it to `apps/core/navigation.py` (`ITEMS`), never to a template. Mark it
   `work_screen=True` if a role could work in it alone (the owner wants staff to get one full-window screen each, like
@@ -85,10 +99,12 @@ The design is in plan 14 §14.5 to §14.10. The parts that must not be skipped:
 - `Decimal` only, rounded once per line with `ROUND_HALF_UP`; totals are sums of rounded lines; any split (discount,
   tax, shares) uses a largest-remainder allocation so the parts always add up to the whole.
 - Gapless numbering per fiscal year under `select_for_update`, closed periods refuse postings.
-- Tests: an exact expected entry for every posting function, **property-based tests** (add `hypothesis` as a dev
-  dependency) that run random sequences of documents and assert the invariants after every step, a test that raw SQL
-  cannot commit an unbalanced entry, and concurrency tests for numbering.
-- Phase 14 must also post every existing `billing.Payment` so the ledger starts in agreement with the cashbox.
+- Tests: an exact expected entry for every posting function, **property-based tests** (`hypothesis`, installed in
+  phase 14) that run random sequences of documents and assert the invariants after every step, a test that raw SQL
+  cannot commit an unbalanced entry, and concurrency tests for numbering. `tests/test_ledger.py` and
+  `tests/test_treasury.py` are the patterns to copy for every later document.
+- Phase 14 is built: read "Accounting core notes (Phase 14)" in CLAUDE.md before adding any document that posts.
+  After `migrate` on an existing database run `manage.py ledger_bootstrap` (run.bat does).
 - Egyptian defaults (all data, not code): medical services VAT-exempt, VAT paid to suppliers treated as cost,
   withholding tax 1% goods / 3% services / 5% professional fees, a standard five-class chart of accounts.
 
@@ -103,9 +119,11 @@ counts. If she corrects one, update plan 14 §14.0 first, then the code.
 - Everything: `run.bat`. Database only: `.venv/Scripts/python scripts/devdb.py start` (it stops when the PC
   restarts; start it again before tests or the server).
 - Preview in Claude Code: `preview_start` with the name `digiclinic` (port 8010). It runs with `--noreload`, so
-  **restart the preview server after editing a template** to see the change.
+  **restart the preview server after editing a template** to see the change. If an old server from another session
+  still holds 8010 (it serves old code), use the second configuration `digiclinic-check` (port 8012).
 - Test logins for the local demo clinic are in `tmp/dev-login.txt` (not in git): the owner account and a
-  receptionist. Demo data: `manage.py seed_demo`, `seed_pregnancies`, `simulate_day`.
+  receptionist. Demo data: `manage.py seed_demo`, `seed_pregnancies`, `simulate_day`, and `seed_center` (a whole
+  month of activity; the local demo clinic was seeded with it on 2026-11-16, and it cannot be run twice or undone).
 - First time on a new machine: `.venv/Scripts/python -m playwright install chromium` (PDF and dictation tests).
 - In the Bash tool, a Python heredoc that contains many quote characters fails to parse on this setup: write the
   script to a file in the scratchpad and run the file.
@@ -114,10 +132,8 @@ counts. If she corrects one, update plan 14 §14.0 first, then the code.
 
 ## 8. Text to paste into a new Claude Code session
 
-> Read `HANDOFF.md`, then `CLAUDE.md`, then `docs/plan/14-obgyn-center.md`. Continue the OB/GYN center plan from the
-> next unfinished phase in the HANDOFF table and keep going one phase at a time until phase 20. For each phase: build
-> it fully with tests, run the quality gates, check the new screens in the browser preview, add the phase's notes to
-> `CLAUDE.md`, update the table in `HANDOFF.md`, commit as `phase-N: <summary>`, and give me a short report in plain
-> language: what was built, what you checked, what is not done, and how I can try it. Then wait for me to say
-> "continue". Do not ask me accounting or tax questions: choose the standard Egyptian practice, make it a setting,
-> and write the assumption down. Load the design-taste skill before any interface work. Do not push unless I ask.
+> Read `HANDOFF.md`, then `CLAUDE.md`, then `docs/phase-reports.md`. All twenty phases of the plan are built; everything
+> is committed on `main` and phases 13 to 20 are not pushed. Do not start new work on your own: ask me what I want next
+> (push, a change to something I tried, or one of the ideas listed in HANDOFF section 3). Do not ask me
+> accounting or tax questions: choose the standard Egyptian practice, make it a setting, and write the assumption
+> down. Load the design-taste skill before any interface work. Do not push unless I ask.

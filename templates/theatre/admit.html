@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "دخول مريضة" %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'theatre:admissions' %}" class="btn-icon" aria-label="{% translate 'رجوع للإقامة' %}">{% icon "arrow-right" %}</a>
+  <h1>{% translate "دخول مريضة غرفة" %}</h1>
+</div>
+<div class="max-w-xl space-y-4">
+  {% if patient %}
+  <div class="flex flex-wrap items-center gap-2 rounded-lg border border-stone-200 bg-white px-4 py-3">
+    <span class="text-base font-bold">{{ patient.full_name }}</span>
+    <span class="num text-xs text-stone-600" dir="ltr">#{{ patient.file_number }}</span>
+    {% if op %}<span class="text-sm text-stone-700">{{ op.procedure_name }}</span>{% endif %}
+    {% if case %}<span class="badge bg-red-50 font-semibold text-red-800">{% translate "طوارئ" %}</span>{% endif %}
+  </div>
+  <form method="post" class="card space-y-4 p-4 sm:p-6" novalidate>
+    {% csrf_token %}
+    <input type="hidden" name="patient" value="{{ patient.pk }}">
+    {% if op %}<input type="hidden" name="operation" value="{{ op.pk }}">{% endif %}
+    {% if case %}<input type="hidden" name="emergency_case" value="{{ case.pk }}">{% endif %}
+    {% for e in form.non_field_errors %}<p class="notice notice-danger font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ e }}</p>{% endfor %}
+    {% include "partials/field.html" with field=form.room %}
+    {% include "partials/field.html" with field=form.reason %}
+    <div class="flex justify-end gap-2">
+      <a href="{% url 'theatre:admissions' %}" class="btn-ghost">{% translate "إلغاء" %}</a>
+      <button type="submit" class="btn-primary">{% translate "دخول" %}</button>
+    </div>
+  </form>
+  {% else %}
+  <div class="card p-4 sm:p-6">
+    <label class="mb-1 block text-[13px] font-semibold text-stone-700" for="ad-q">{% translate "المريضة" %}</label>
+    <input id="ad-q" type="search" name="q" autofocus autocomplete="off" class="input" placeholder="{% translate 'رقم الموبايل أو الاسم أو رقم الملف' %}"
+           hx-get="{% url 'theatre:admit_search' %}" hx-trigger="input changed delay:250ms" hx-target="#ad-results" hx-swap="innerHTML">
+    <div id="ad-results" class="mt-3 empty:hidden"></div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

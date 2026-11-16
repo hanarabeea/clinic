@@ -1,0 +1,7 @@
+{% load i18n %}
+<nav class="tabs">
+  <a href="{% url 'purchasing:invoices' %}" class="tab {% if tab == 'invoices' %}is-active{% endif %}">{% translate "فواتير المشتريات" %}</a>
+  <a href="{% url 'purchasing:suppliers' %}" class="tab {% if tab == 'suppliers' %}is-active{% endif %}">{% translate "الموردين" %}</a>
+  <a href="{% url 'purchasing:payments' %}" class="tab {% if tab == 'payments' %}is-active{% endif %}">{% translate "السداد" %}</a>
+  <a href="{% url 'purchasing:taxes' %}" class="tab {% if tab == 'taxes' %}is-active{% endif %}">{% translate "الضرائب" %}</a>
+</nav>

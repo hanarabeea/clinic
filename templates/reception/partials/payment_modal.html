@@ -7,6 +7,8 @@
   <div class="p-2.5"><dt class="text-xs text-stone-600">{% translate "اتدفع" %}</dt><dd class="text-base font-semibold" dir="ltr">{{ balance.paid|floatformat:0 }}</dd></div>
   <div class="p-2.5"><dt class="text-xs text-stone-600">{% translate "الباقي" %}</dt><dd class="text-base font-bold {% if balance.remaining %}text-brand{% endif %}" dir="ltr">{{ balance.remaining|floatformat:0 }}</dd></div>
 </dl>
+{% if balance.covered %}<p class="num -mt-2 mb-4 text-xs text-stone-600">{% translate "جهة التعاقد بتتحمل" %} <span dir="ltr">{{ balance.covered|floatformat:0 }}</span>، {% translate "والمستحق ده اللي على المريضة." %}</p>{% endif %}
+{% if balance.services %}<p class="num -mt-2 mb-4 text-xs text-stone-600">{% translate "المستحق = الكشف والخدمات اللي اتضافت على الزيارة" %} (<span dir="ltr">{{ balance.services|floatformat:0 }}</span> {% translate "خدمات" %})</p>{% endif %}
 <form hx-post="{% url 'reception:payment' a.pk %}" hx-target="#reception" class="space-y-3" novalidate>
   <div class="grid grid-cols-2 gap-3">
     {% include "partials/field.html" with field=form.amount %}

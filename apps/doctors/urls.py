@@ -5,6 +5,8 @@ from . import views
 app_name = "doctors"
 
 urlpatterns = [
+    path("org/settings/doctors/", views.doctors_list, name="list"),
+    path("org/settings/doctors/<int:pk>/toggle/", views.doctor_toggle, name="toggle"),
     path("org/settings/doctor/", views.schedule_settings, name="schedule"),
     path("org/settings/doctor/periods/add/", views.period_add, name="period_add"),
     path("org/settings/doctor/periods/<int:pk>/delete/", views.period_delete, name="period_delete"),

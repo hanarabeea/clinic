@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "سداد مورد" %}{% endblock %}
+{% block content %}
+{% comment %}Paying a supplier: who, how much, from where. The invoices it settles and the tax withheld are folded:
+most payments settle the oldest invoices in full and the usual withholding applies.{% endcomment %}
+<div class="page-head">
+  <a href="{% url 'purchasing:payments' %}" class="btn-icon" aria-label="{% translate 'رجوع للسداد' %}">{% icon "arrow-right" %}</a>
+  <h1>{% translate "سداد مورد" %}</h1>
+</div>
+{% if error %}<p class="notice notice-danger mb-4 font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ error }}</p>{% endif %}
+
+<form method="get" class="card mb-4 max-w-3xl p-4">
+  <div class="form-field">
+    <label for="pay-supplier">{% translate "المورد" %}</label>
+    <select id="pay-supplier" name="supplier" class="input" onchange="this.form.submit()">
+      <option value="">{% translate "اختار المورد" %}</option>
+      {% for s in suppliers %}<option value="{{ s.pk }}" {% if supplier and s.pk == supplier.pk %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+    </select>
+  </div>
+</form>
+
+{% if supplier %}
+<form method="post" class="max-w-3xl space-y-4" novalidate x-data="{ method: '{{ post.method|default:'cash' }}' }">
+  {% csrf_token %}
+  <input type="hidden" name="supplier" value="{{ supplier.pk }}"><input type="hidden" name="go" value="1">
+  <p class="text-sm text-stone-600">{% if owed < 0 %}{% translate "لينا عنده" %} <b class="num text-ink" dir="ltr">{{ owed|cut:"-"|money0 }}</b>{% else %}{% translate "علينا له" %} <b class="num text-ink" dir="ltr">{{ owed|money0 }}</b>{% endif %}</p>
+  <div class="card grid gap-4 p-4 sm:grid-cols-4">
+    <div class="form-field"><label for="pay-amount">{% translate "المبلغ" %}</label><input id="pay-amount" name="amount" class="input" dir="ltr" inputmode="decimal" value="{{ post.amount }}" required></div>
+    <div class="form-field"><label for="pay-method">{% translate "طريقة السداد" %}</label>
+      <select id="pay-method" name="method" class="input" x-model="method">{% for v, l in methods %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+    <div class="form-field"><label for="pay-treasury">{% translate "من" %}</label>
+      <select id="pay-treasury" name="treasury" class="input" required x-effect="method; $nextTick(() => { const shown = [...$el.options].find((o) => o.style.display !== 'none'); if (shown && $el.selectedOptions[0]?.style.display === 'none') $el.value = shown.value; })">
+        {% for p in places %}<option value="{{ p.pk }}" {% if p.pk|stringformat:"s" == post.treasury %}selected{% endif %} x-show="method === 'cash' ? {{ p.holds_cash|yesno:'true,false' }} : {{ p.holds_cash|yesno:'false,true' }}">{{ p.name }}</option>{% endfor %}
+      </select></div>
+    <div class="form-field"><label for="pay-date">{% translate "التاريخ" %}</label><input id="pay-date" type="date" name="date" class="input" value="{% if post.date %}{{ post.date }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}"></div>
+    <div class="form-field sm:col-span-2" x-show="method === 'cheque'" x-cloak><label for="pay-chq">{% translate "رقم الشيك" %}</label><input id="pay-chq" name="cheque_number" class="input" dir="ltr" maxlength="40" value="{{ post.cheque_number }}"></div>
+    <div class="form-field sm:col-span-2" x-show="method === 'cheque'" x-cloak><label for="pay-due">{% translate "تاريخ استحقاق الشيك" %}</label><input id="pay-due" type="date" name="cheque_due" class="input" value="{{ post.cheque_due }}"></div>
+  </div>
+
+  {% if open_rows %}
+  <details class="text-sm" {% if error %}open{% endif %}>
+    <summary class="cursor-pointer text-stone-600">{% translate "الفواتير اللي بيسددها" %}</summary>
+    <div class="card mt-3 overflow-x-auto">
+      <table class="data-table">
+        <thead><tr><th>{% translate "الفاتورة" %}</th><th>{% translate "تستحق" %}</th><th class="text-end!">{% translate "الباقي" %}</th><th class="w-36 text-end!">{% translate "يتسدد منها" %}</th></tr></thead>
+        <tbody>
+          {% for row in open_rows %}
+          <tr>
+            <td class="num" dir="ltr">{{ row.invoice.label }}</td>
+            <td class="num text-stone-600" dir="ltr">{{ row.invoice.due_date|date:"d/m/Y" }}</td>
+            <td class="num text-end" dir="ltr">{{ row.open|money0 }}</td>
+            <td><input name="alloc_{{ row.invoice.pk }}" value="{{ row.typed }}" class="input py-1 text-end" dir="ltr" inputmode="decimal" data-open="{{ row.open|floatformat:'2u' }}" aria-label="{% translate 'يتسدد منها' %}"></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="mt-2"><button type="button" class="link text-xs" id="spread">{% translate "وزّع المبلغ على الأقدم فالأقدم" %}</button> <span class="text-xs text-stone-600">{% translate "اللي ما يتوزعش بيفضل دفعة مقدمة للمورد." %}</span></p>
+  </details>
+  {% endif %}
+
+  <details class="text-sm" {% if supplier.default_withholding_id or post.wht_code %}open{% endif %}>
+    <summary class="cursor-pointer text-stone-600">{% translate "خصم تحت حساب الضريبة" %}</summary>
+    <div class="card mt-3 grid gap-4 p-4 sm:grid-cols-4">
+      <div class="form-field sm:col-span-2"><label for="pay-wht">{% translate "النسبة" %}</label>
+        <select id="pay-wht" name="wht_code" class="input">
+          <option value="">{% translate "من غير خصم" %}</option>
+          {% for c in codes %}<option value="{{ c.pk }}" {% if post.wht_code %}{% if c.pk|stringformat:"s" == post.wht_code %}selected{% endif %}{% elif not post.go and supplier.default_withholding_id == c.pk %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
+        </select></div>
+      <div class="form-field sm:col-span-2"><label for="pay-base">{% translate "القيمة الخاضعة (اختياري)" %}</label><input id="pay-base" name="wht_base" class="input" dir="ltr" inputmode="decimal" value="{{ post.wht_base }}"><p class="help">{% translate "فاضي = قيمة الفواتير المسددة من غير ضريبة القيمة المضافة." %}</p></div>
+      <p class="text-xs text-stone-600 sm:col-span-4">{% blocktranslate with t=threshold|floatformat:"-2" %}المورد بيستلم المبلغ ناقص الخصم، والخصم بيتورّد للضرائب. السداد اللي قيمته {{ t }} أو أقل مالوش خصم: اختار «من غير خصم».{% endblocktranslate %}</p>
+    </div>
+  </details>
+
+  <div class="form-field"><label for="pay-notes">{% translate "ملاحظات" %}</label><input id="pay-notes" name="notes" class="input" maxlength="300" value="{{ post.notes }}"></div>
+  <div class="flex justify-end gap-2">
+    <a href="{% url 'purchasing:payments' %}" class="btn-ghost">{% translate "إلغاء" %}</a>
+    <button type="submit" class="btn-primary min-h-10 px-6">{% translate "تسجيل السداد" %}</button>
+  </div>
+</form>
+<script>
+  (() => {
+    const button = document.getElementById("spread");
+    if (!button) return;
+    button.addEventListener("click", () => {
+      let left = Math.round((parseFloat(document.getElementById("pay-amount").value) || 0) * 100);
+      document.querySelectorAll("[data-open]").forEach((el) => {
+        const take = Math.min(left, Math.round(parseFloat(el.dataset.open) * 100));
+        el.value = take > 0 ? (take / 100).toFixed(2) : "";
+        left -= take;
+      });
+    });
+  })();
+</script>
+{% endif %}
+{% endblock %}

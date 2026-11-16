@@ -1,0 +1,1 @@
+{% comment %}How urgent an emergency case is. Critical is the one solid red tag on the screen.{% endcomment %}<span class="badge {% if case.triage == 'critical' %}bg-red-600 px-2 font-bold text-white{% elif case.triage == 'urgent' %}bg-amber-100 font-semibold text-amber-900{% else %}bg-stone-200 text-stone-700{% endif %}">{{ case.get_triage_display }}</span>

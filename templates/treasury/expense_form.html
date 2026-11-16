@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% if template %}{{ template.name }}{% else %}{% translate "مصروف متكرر" %}{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'treasury:expenses' %}" class="btn-icon" aria-label="{% translate 'رجوع' %}">{% icon "arrow-right" %}</a>
+  <h1>{% if template %}{{ template.name }}{% else %}{% translate "مصروف متكرر" %}{% endif %}</h1>
+</div>
+<form method="post" class="card max-w-2xl space-y-4 p-4 sm:p-6" novalidate>
+  {% csrf_token %}
+  {% for e in form.non_field_errors %}<p class="notice notice-danger font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ e }}</p>{% endfor %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {% for field in form.visible_fields %}
+      {% if field.name == "is_active" %}
+      {% else %}{% include "partials/field.html" %}{% endif %}
+    {% endfor %}
+  </div>
+  {% if template %}<label class="flex items-center gap-2 text-sm">{{ form.is_active }} {{ form.is_active.label }}</label>
+  {% else %}<input type="hidden" name="is_active" value="on">{% endif %}
+  <div class="flex justify-end gap-2">
+    <a href="{% url 'treasury:expenses' %}" class="btn-ghost">{% translate "إلغاء" %}</a>
+    <button type="submit" class="btn-primary">{% translate "حفظ" %}</button>
+  </div>
+</form>
+{% endblock %}

@@ -14,16 +14,18 @@ from django.views.decorators.http import require_POST
 from apps.accounts.permissions import has_perm, require_perm
 from apps.audit import services as audit
 from apps.billing import services as billing
+from apps.center import services as center
 from apps.clinical import services as clinical
 from apps.clinical.models import Visit, Vitals
 from apps.core.ratelimit import search_limit
 from apps.core.timeutils import CAIRO
-from apps.doctors.models import BookingMode, VisitType
-from apps.doctors.services import get_doctor
+from apps.doctors import services as doctor_services
+from apps.doctors.models import VisitType
 from apps.notifications.templating import fmt_date, fmt_time
+from apps.obstetrics import services as obstetrics
 from apps.patients.models import Patient
 from apps.scheduling import services as booking
-from apps.scheduling.models import Appointment, AppointmentStatus
+from apps.scheduling.models import Appointment, AppointmentStatus, BookingSource
 from apps.scheduling.views import week_start
 
 from . import board
@@ -58,38 +60,60 @@ def _session_state(request):
     return view, _parse_day(request.session.get("board_date")) or _today()
 
 
-def _signature(appts, view, day) -> str:
-    raw = f"{view}:{day}:" + "|".join(
-        f"{a.pk}:{a.status}:{a.updated_at.timestamp()}:{len(a.payments.all())}" for a in appts
+def _signature(appts, emergencies, view, day, who) -> str:
+    raw = f"{view}:{day}:{who}:" + "|".join(
+        f"{a.pk}:{a.status}:{a.updated_at.timestamp()}:{len(a.payments.all())}"
+        f":{sum(1 for o in a.service_orders.all() if o.is_active)}"
+        for a in appts
     )
+    raw += "#" + "|".join(f"{c.pk}:{c.appointment.status}:{c.triage}:{c.disposition}" for c in emergencies)
     return hashlib.sha1(raw.encode(), usedforsecurity=False).hexdigest()[:16]
 
 
 def _board_ctx(request, view, day):
-    doctor = get_doctor(request.organization)
+    """One board per doctor shown: the picked doctor, or every active doctor one under the other ("all")."""
+    org = request.organization
+    doctors = doctor_services.active_doctors(org)
+    selected = doctor_services.board_doctor(request, doctors)
+    shown = [selected] if selected else doctors
     now = timezone.now()
+    today = _today()
     if view == "week":
         start = week_start(day)
-        b = board.week_board(request.organization, doctor, start, now)
+        boards = [board.week_board(org, d, start, now) for d in shown]
         prev_day, next_day = start - timedelta(days=7), start + timedelta(days=7)
-        title = f"{fmt_date(b['start'])} – {fmt_date(b['end'])}"
+        title = f"{fmt_date(start)} – {fmt_date(start + timedelta(days=6))}"
+        is_today = start <= today <= start + timedelta(days=6)
     else:
-        b = board.day_board(request.organization, doctor, day, now)
+        boards = [board.day_board(org, d, day, now) for d in shown]
         prev_day, next_day = day - timedelta(days=1), day + timedelta(days=1)
         title = fmt_date(day)
-    today = _today()
+        is_today = day == today
+    # emergencies in the building right now, whoever's board is open: the whole center has to see them
+    emergencies = center.active_cases(org, today)
+    pregnant = obstetrics.badges_for(org, [c.patient_id for c in emergencies]) if emergencies else {}
+    for case in emergencies:
+        case.ga = pregnant.get(case.patient_id)
+        arrived = case.appointment.status == AppointmentStatus.ARRIVED
+        case.waiting = int((now - case.arrived_at).total_seconds() // 60) if arrived else None
+    appts = [a for b in boards for a in b["appointments"]]
     return {
-        "board": b,
+        "boards": boards,
+        "board": boards[0],
         "view": view,
         "day": day,
         "today": today,
-        "is_today": day == today if view == "day" else b["start"] <= today <= b["end"],
+        "is_today": is_today,
         "title": title,
         "prev_day": prev_day,
         "next_day": next_day,
-        "doctor": doctor,
-        "slots_mode": doctor.booking_mode == BookingMode.SLOTS,
-        "sig": _signature(b["appointments"], view, day),
+        "doctors": doctors,
+        "selected_doctor": selected,
+        "doctor": selected or shown[0],
+        "doctor_param": selected.pk if selected else doctor_services.ALL,
+        "slots_mode": boards[0]["slots_mode"],
+        "emergencies": emergencies,
+        "sig": _signature(appts, emergencies, view, day, selected.pk if selected else "all"),
     }
 
 
@@ -193,6 +217,8 @@ def step(request, pk, action):
     try:
         if action in STEP_TARGETS:
             booking.transition(appt, STEP_TARGETS[action], by=request.user)
+            if action == "call":
+                center.mark_seen(appt)  # an emergency arrival: the time the doctor took her in
             return _refresh(request)
         if action == "no_show":
             rebooked = booking.mark_no_show(appt, by=request.user)
@@ -201,6 +227,9 @@ def step(request, pk, action):
                 return _refresh(request, toast=_("لم يحضر، اتحجزله %(w)s") % {"w": when})
             return _refresh(request, toast=_("لم يحضر"))
         if action == "undo":
+            if appt.source == BookingSource.EMERGENCY and appt.status == AppointmentStatus.ARRIVED:
+                # "not arrived" makes no sense for someone who came in as an emergency
+                return _refresh(request, error=_("دي حالة طوارئ. لو اتسجلت بالغلط الغي تسجيلها."))
             if appt.status == AppointmentStatus.NO_SHOW:
                 booking.undo_no_show(appt, by=request.user)
             elif appt.status in UNDO_TARGETS:
@@ -238,17 +267,48 @@ def payment(request, pk):
     return resp
 
 
+@require_perm("invoice.discount")
+def discount(request, pk):
+    """A discount on the visit fee, with its reason. Above the clinic's limit it needs "invoice.discount_any"."""
+    from apps.invoicing import services as invoicing
+    from apps.invoicing.models import InvoiceSettings
+
+    appt = _appt(request, pk)
+    error = ""
+    if request.method == "POST":
+        try:
+            invoicing.set_visit_discount(
+                appt, amount=request.POST.get("amount") or 0, reason=request.POST.get("reason", ""),
+                by=request.user, membership=request.membership,
+            )  # fmt: skip
+        except invoicing.InvoiceError as e:
+            error = str(e)
+        else:
+            audit.log("invoice.visit_discount", request=request, target=appt, summary=request.POST.get("amount", "0"))
+            return _refresh(request, toast=_("الخصم اتسجل"))
+    ctx = {"a": appt, "error": error, "limit": InvoiceSettings.for_org(request.organization).discount_limit_percent,
+           "amount": request.POST.get("amount", appt.discount or ""),
+           "reason": request.POST.get("reason", appt.discount_reason)}  # fmt: skip
+    resp = render(request, "reception/partials/discount_modal.html", ctx)
+    if request.method == "POST":
+        resp["HX-Retarget"] = "#modal"
+    return resp
+
+
 # --- walk-in (12 §8) -------------------------------------------------------------------------
 
 
 @require_perm("reception.operate")
 @search_limit
 def walk_in(request):
-    doctor = get_doctor(request.organization)
-    visit_types = VisitType.objects.for_org(request.organization).filter(doctor=doctor, is_active=True)
+    doctor = doctor_services.current_doctor(request)
+    active_types = VisitType.objects.for_org(request.organization).filter(is_active=True, doctor__is_active=True)
+    visit_types = active_types.filter(doctor=doctor)
     if request.method == "POST":
         patient = get_object_or_404(Patient.objects.for_org(request.organization), pk=request.POST.get("patient"))
-        visit_type = get_object_or_404(visit_types, pk=request.POST.get("visit_type"))
+        # the visit type says which doctor: each doctor has their own
+        visit_type = get_object_or_404(active_types.select_related("doctor"), pk=request.POST.get("visit_type"))
+        doctor = visit_type.doctor
         overbook = request.POST.get("overbook") == "1" and has_perm(request.membership, "appointment.overbook")
         try:
             appt = booking.walk_in(
@@ -275,7 +335,10 @@ def walk_in(request):
         return redirect("reception:today")
     q = request.GET.get("q", "").strip()
     patients = Patient.objects.for_org(request.organization).filter(is_active=True).search(q)[:15] if q else []
-    ctx = {"q": q, "patients": patients, "visit_types": visit_types}
+    several = len(doctor_services.active_doctors(request.organization)) > 1
+    if several:
+        visit_types = active_types.select_related("doctor").order_by("doctor_id", "order", "id")
+    ctx = {"q": q, "patients": patients, "visit_types": visit_types.filter(is_system=False), "several": several}
     if request.htmx:
         return render(request, "reception/partials/walk_in_results.html", ctx)
     return render(request, "reception/walk_in.html", ctx)

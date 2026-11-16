@@ -47,7 +47,31 @@ JOBS = [
     ("backup", timedelta(hours=1), lambda now: _daily_backup(now)),
     # drugs added / spoken forms learned since: the offline voice listens for them (file only rewritten on change)
     ("speech_boost", timedelta(hours=6), lambda now: _speech_boost()),
+    # a visit whose invoice could not be made at the moment (see invoicing.sync_quietly) is put right here
+    ("invoice_sync", timedelta(hours=1), lambda now: _invoice_sync()),
+    # the nightly proof that the books are sound (owners are told when they are not)
+    ("verify_books", timedelta(days=1), lambda now: _verify_books()),
+    # OB/GYN clinics: a pregnancy that entered a milestone's window gets its message (once per milestone)
+    ("pregnancy_milestones", timedelta(hours=6), lambda now: _pregnancy_milestones(now)),
 ]
+
+
+def _pregnancy_milestones(now):
+    from apps.obstetrics import services as obstetrics
+
+    obstetrics.notify_milestones(now)
+
+
+def _verify_books():
+    from apps.ledger import verify
+
+    verify.run_all()
+
+
+def _invoice_sync():
+    from apps.invoicing import services as invoicing
+
+    invoicing.sync_recent()
 
 
 def _speech_boost():

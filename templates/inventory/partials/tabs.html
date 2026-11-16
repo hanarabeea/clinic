@@ -1,0 +1,6 @@
+{% load i18n %}
+<nav class="tabs">
+  <a href="{% url 'inventory:items' %}" class="tab {% if tab == 'items' %}is-active{% endif %}">{% translate "الأصناف" %}</a>
+  <a href="{% url 'inventory:docs' %}" class="tab {% if tab == 'docs' %}is-active{% endif %}">{% translate "الصرف والتحويل" %}</a>
+  <a href="{% url 'inventory:counts' %}" class="tab {% if tab == 'counts' %}is-active{% endif %}">{% translate "الجرد" %}</a>
+</nav>

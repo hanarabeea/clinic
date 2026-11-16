@@ -50,18 +50,20 @@ class Command(BaseCommand):
         s.timezone = c.get("timezone", s.timezone)
         s.whatsapp_sender = c.get("whatsapp_sender", "")
         s.save()
-        self._seed_doctor(org, data)
+        for d in [data.get("doctor"), *data.get("extra_doctors", [])]:
+            # the first doctor's schedule and visit types sit at the top level of clinic.json (the original layout)
+            self._seed_doctor(org, d, data if d is data.get("doctor") else d)
         verb = "Created" if created else "Updated"
         self.stdout.write(self.style.SUCCESS(f"{verb} organization '{org.slug}' ({org.name_ar})"))
 
-    def _seed_doctor(self, org, data):
-        d = data.get("doctor")
+    def _seed_doctor(self, org, d, data):
+        """One doctor (matched by name) with the working periods and visit types found in `data`."""
         if not d:
             return
         doctor, _created = Doctor.objects.update_or_create(
             organization=org,
+            name_ar=d["name_ar"],
             defaults={
-                "name_ar": d["name_ar"],
                 "name_en": d.get("name_en", ""),
                 "title_ar": d.get("title_ar", ""),
                 "specialty_ar": d.get("specialty_ar", ""),
@@ -85,7 +87,7 @@ class Command(BaseCommand):
                 end_time=wp["end"],
                 max_patients=wp.get("max_patients"),
             )
-        VisitType.objects.filter(doctor=doctor).delete()
+        VisitType.objects.filter(doctor=doctor, appointments__isnull=True).delete()
         for order, vt in enumerate(data.get("visit_types", [])):
             VisitType.objects.create(
                 organization=org,

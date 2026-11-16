@@ -13,7 +13,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.accounts.permissions import effective_permissions
 from apps.organizations.models import Role
 
-CLINIC, FOLLOW_UP, ADMIN = _("العيادة"), _("المتابعة"), _("الإدارة")
+CLINIC, FOLLOW_UP, BOOKS, ADMIN = _("العيادة"), _("المتابعة"), _("الحسابات"), _("الإدارة")
 
 
 @dataclass(frozen=True)
@@ -46,17 +46,37 @@ ITEMS = (
     Item("desk", _("شاشة الدكتور"), "stethoscope", "clinical:desk", ("clinical.view",), CLINIC,
          prefixes=("clinical:", "prescriptions:"), work_screen=True),
     Item("patients", _("المرضى"), "users", "patients:list", ("patient.view_basic",), CLINIC, prefixes=("patients:",)),
+    Item("theatre", _("العمليات والإقامة"), "first-aid-kit", "theatre:board", ("theatre.view",), CLINIC,
+         prefixes=("theatre:",), work_screen=True),
+    Item("emergencies", _("الطوارئ"), "siren", "center:emergencies", ("emergency.register",), CLINIC,
+         exact=("center:emergencies",)),
     Item("messages", _("الرسايل"), "chats", "notifications:log", ("messages.view",), FOLLOW_UP,
          exact=("notifications:log",)),
     Item("cashbox", _("الخزنة"), "cash-register", "billing:cashbox", ("payment.record",), FOLLOW_UP,
          prefixes=("billing:",), work_screen=True),
     Item("reports", _("التقارير"), "chart-bar", "dashboard:reports", ("report.finance",), FOLLOW_UP,
-         exact=("dashboard:reports",)),
+         exact=("dashboard:reports", "invoicing:report_revenue", "invoicing:report_operations",
+                "invoicing:report_receivables", "invoicing:report_cash")),
+    Item("invoices", _("الفواتير"), "receipt", "invoicing:list", ("invoice.view",), BOOKS,
+         prefixes=("invoicing:",), work_screen=True),
+    Item("purchases", _("المشتريات والموردين"), "truck", "purchasing:invoices", ("purchase.view",), BOOKS,
+         prefixes=("purchasing:",), work_screen=True),
+    Item("stock", _("المخزن"), "package", "inventory:items", ("stock.view",), BOOKS,
+         prefixes=("inventory:",), work_screen=True),
+    Item("treasury", _("الخزن والسندات"), "bank", "treasury:home", ("treasury.view",), BOOKS,
+         prefixes=("treasury:",), work_screen=True),
+    Item("books", _("الدفاتر"), "scales", "ledger:trial_balance", ("ledger.view", "report.statements", "books.verify"),
+         BOOKS, prefixes=("ledger:",), work_screen=True,
+         by_perm=(("ledger.view", "ledger:trial_balance"), ("report.statements", "ledger:income_statement"),
+                  ("books.verify", "ledger:verify"))),
     Item("users", _("المستخدمين"), "user-gear", "accounts:users", ("user.manage",), ADMIN, prefixes=("accounts:",)),
     Item("settings", _("الإعدادات"), "gear-six", "organizations:settings",
          ("settings.manage", "schedule.manage", "drug.manage"), ADMIN,
          exact=("organizations:settings", "patients:fields_settings", "prescriptions:categories",
-                "prescriptions:settings"),
+                "prescriptions:settings", "center:services", "center:service_edit", "theatre:setup",
+                "theatre:room_add", "theatre:room_edit", "theatre:procedure_add", "theatre:procedure_edit",
+                "invoicing:settings", "obstetrics:milestones", "obstetrics:milestone_new",
+                "obstetrics:milestone_edit"),
          prefixes=("doctors:", "messaging:", "notifications:"),
          # each settings tab has its own permission: open the first one this person may see
          by_perm=(("settings.manage", "organizations:settings"), ("schedule.manage", "doctors:schedule"),

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<style>
+{{ font_css|safe }}
+@page { size: A4; margin: 16mm 14mm; }
+body { font-family: "Cairo", "Poppins", sans-serif; font-size: 10.5pt; color: #111; line-height: 1.6; margin: 0; }
+header { display: flex; align-items: center; gap: 4mm; border-bottom: 1px solid #999; padding-bottom: 3mm; margin-bottom: 5mm; }
+header img { height: 14mm; }
+h1 { font-size: 15pt; margin: 0; }
+.clinic { margin-inline-start: auto; text-align: left; color: #444; font-size: 9.5pt; }
+.ltr { direction: ltr; unicode-bidi: isolate; font-family: "Poppins", "Cairo", sans-serif; }
+table { width: 100%; border-collapse: collapse; }
+.meta td { padding: 0.6mm 0; vertical-align: top; }
+.meta td.k { color: #555; width: 30mm; }
+.lines { margin-top: 5mm; }
+.lines th { text-align: right; font-size: 9.5pt; color: #444; border-bottom: 1px solid #999; padding: 1.5mm 1mm; }
+.lines td { padding: 1.8mm 1mm; border-bottom: 1px solid #e3e3e3; }
+.n { text-align: left; white-space: nowrap; }
+.totals { width: 78mm; margin-top: 4mm; margin-inline-start: auto; }
+.totals td { padding: 1mm; }
+.totals tr.big td { font-weight: 700; border-top: 1px solid #999; }
+footer { margin-top: 12mm; color: #555; font-size: 9pt; }
+</style>
+</head>
+<body>
+<header>
+  {% if logo_uri %}<img src="{{ logo_uri }}" alt="">{% endif %}
+  <h1>{{ invoice.get_kind_display }}</h1>
+  <div class="clinic">{{ settings.clinic_name_ar|default:org.name_ar }}
+    {% if inv_settings.tax_registration_number %}<br>الرقم الضريبي: <span class="ltr">{{ inv_settings.tax_registration_number }}</span>{% endif %}
+    {% if inv_settings.commercial_register %}<br>السجل التجاري: <span class="ltr">{{ inv_settings.commercial_register }}</span>{% endif %}
+  </div>
+</header>
+<table class="meta">
+  <tr><td class="k">الرقم</td><td><b class="ltr">{{ invoice.label }}</b></td></tr>
+  <tr><td class="k">التاريخ</td><td><span class="ltr">{{ invoice.date|date:"d/m/Y" }}</span></td></tr>
+  <tr><td class="k">المريضة</td><td><b>{{ invoice.patient.full_name }}</b> <span class="ltr">#{{ invoice.patient.file_number }}</span></td></tr>
+  {% if invoice.payer %}<tr><td class="k">جهة التعاقد</td><td>{{ invoice.payer.name }}</td></tr>{% endif %}
+  {% if invoice.is_credit %}<tr><td class="k">على الفاتورة</td><td><span class="ltr">{{ invoice.credit_of.label }}</span>{% if invoice.reason %}، {{ invoice.reason }}{% endif %}</td></tr>{% endif %}
+</table>
+<table class="lines">
+  <thead><tr><th>البند</th><th class="n">العدد</th><th class="n">السعر</th><th class="n">الخصم</th><th class="n">الصافي</th></tr></thead>
+  <tbody>
+    {% for line in lines %}
+    <tr>
+      <td>{{ line.description }}</td>
+      <td class="n"><span class="ltr">{{ line.quantity }}</span></td>
+      <td class="n"><span class="ltr">{{ line.unit_price|floatformat:"2g" }}</span></td>
+      <td class="n"><span class="ltr">{% if line.discount %}{{ line.discount|floatformat:"2g" }}{% endif %}</span></td>
+      <td class="n"><span class="ltr">{{ line.net|floatformat:"2g" }}</span></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<table class="totals">
+  {% if invoice.discount %}
+  <tr><td>قبل الخصم</td><td class="n"><span class="ltr">{{ invoice.gross|floatformat:"2g" }}</span></td></tr>
+  <tr><td>الخصم</td><td class="n"><span class="ltr">{{ invoice.discount|floatformat:"2g" }}</span></td></tr>
+  {% endif %}
+  <tr class="big"><td>الإجمالي (جنيه)</td><td class="n"><span class="ltr">{{ invoice.total|floatformat:"2g" }}</span></td></tr>
+  {% if invoice.payer %}
+  <tr><td>على {{ invoice.payer.name }}</td><td class="n"><span class="ltr">{{ invoice.payer_share|floatformat:"2g" }}</span></td></tr>
+  <tr><td>على المريضة</td><td class="n"><span class="ltr">{{ invoice.patient_share|floatformat:"2g" }}</span></td></tr>
+  {% endif %}
+  {% if state %}
+  {% if invoice.deposit_applied %}<tr><td>مخصوم من المقدم</td><td class="n"><span class="ltr">{{ invoice.deposit_applied|floatformat:"2g" }}</span></td></tr>{% endif %}
+  <tr><td>المدفوع</td><td class="n"><span class="ltr">{{ state.paid|floatformat:"2g" }}</span></td></tr>
+  <tr class="big"><td>الباقي</td><td class="n"><span class="ltr">{{ state.remaining|floatformat:"2g" }}</span></td></tr>
+  {% endif %}
+</table>
+<footer>{% if inv_settings.invoice_footer %}{{ inv_settings.invoice_footer }}{% endif %}</footer>
+</body>
+</html>

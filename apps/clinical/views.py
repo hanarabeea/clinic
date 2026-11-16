@@ -13,9 +13,10 @@ from django.views.decorators.http import require_POST
 
 from apps.accounts.permissions import has_perm, require_perm
 from apps.audit import services as audit
+from apps.center import services as center
 from apps.core.ratelimit import search_limit
 from apps.core.timeutils import CAIRO
-from apps.doctors.services import get_doctor
+from apps.doctors import services as doctor_services
 from apps.obstetrics import context as ob_context
 from apps.obstetrics import services as obstetrics
 from apps.patients import custom_fields
@@ -52,7 +53,9 @@ def _patient(request, pk):
 
 def _visit(request, pk):
     return get_object_or_404(
-        Visit.objects.for_org(request.organization).select_related("patient", "appointment__visit_type", "doctor"),
+        Visit.objects.for_org(request.organization).select_related(
+            "patient", "appointment__visit_type", "appointment__emergency", "doctor"
+        ),
         pk=pk,
     )
 
@@ -78,6 +81,8 @@ def _header_ctx(patient, current=None):
         "last_visit": previous.order_by("-finished_at").first(),
         "visit_number": (visits.filter(created_at__lte=current.created_at).count() if current else None),
         "vitals": Vitals.objects.filter(visit=current).first() if current else None,
+        # an emergency arrival: its triage, reason and times sit under the header
+        "emergency": center.case_of(current.appointment) if current else None,
     }
     if obstetrics.enabled(patient.organization) and obstetrics.applies_to(patient):
         ctx.update(ob_context.overview(patient))  # the pregnancy tag in the header + the band under it
@@ -85,7 +90,9 @@ def _header_ctx(patient, current=None):
 
 
 def _queue_ctx(request):
-    doctor = get_doctor(request.organization)
+    """Whose queue: the doctor in the request, the one picked last, else the signed-in user's own doctor record."""
+    doctors = doctor_services.active_doctors(request.organization)
+    doctor = doctor_services.current_doctor(request, doctors)
     current, waiting, not_arrived = services.today_queue(doctor)
     from apps.prescriptions import speech
     from apps.prescriptions.models import PrescriptionSettings
@@ -96,6 +103,7 @@ def _queue_ctx(request):
         "voice_engine": speech.engine(rx_settings) if voice else "",
         "voice_local_ready": voice and speech.engine(rx_settings) != "browser" and speech.local_ready(),
         "doctor": doctor,
+        "doctors": doctors,
         "q_current": current,
         "q_waiting": waiting,
         "q_not_arrived": not_arrived,
@@ -203,7 +211,7 @@ def visit_finish(request, pk):
 
 
 def _poll_ctx(request):
-    current, waiting, _n = services.today_queue(get_doctor(request.organization))
+    current, waiting, _n = services.today_queue(doctor_services.current_doctor(request))
     return {"ready": current[0] if current else None, "waiting_count": len(waiting)}
 
 
@@ -212,6 +220,24 @@ def _poll_ctx(request):
 def desk_poll(request):
     """ "مستني المريض الجاي": reception moves the next patient in → this shows "مريض جديد جاهز" (polled every 5 s)."""
     return render(request, "clinical/partials/next_patient.html", _poll_ctx(request))
+
+
+def _waiting_emergencies(request):
+    """Emergency arrivals waiting for the desk's doctor, the most urgent first."""
+    now = timezone.now()
+    today = timezone.localtime(now, CAIRO).date()
+    doctor = doctor_services.current_doctor(request)
+    cases = [c for c in center.active_cases(request.organization, today, [doctor]) if c.seen_at is None]
+    for case in cases:
+        case.waiting = int((now - case.arrived_at).total_seconds() // 60)
+    return cases
+
+
+@require_perm("clinical.view")
+@desk_unlocked
+def emergency_alert(request):
+    """The red banner on the doctor's desk (polled every 10 s by every desk page)."""
+    return render(request, "clinical/partials/emergency_alert.html", {"alerts": _waiting_emergencies(request)})
 
 
 @require_perm("clinical.view")
@@ -421,6 +447,7 @@ def patient_export(request, pk):
         "fonts": engine.font_css(),
         "clinic": request.organization,
         "generated_at": timezone.now(),
+        **ob_context.export_ctx(request.organization, patient),
     }
     try:
         data = engine.render_pdf(render_to_string("pdf/patient_summary.html", ctx), print_background=True,

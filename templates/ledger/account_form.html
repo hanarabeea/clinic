@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% if account %}{{ account.name_ar }}{% else %}{% translate "حساب جديد" %}{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'ledger:accounts' %}" class="btn-icon" aria-label="{% translate 'رجوع لشجرة الحسابات' %}">{% icon "arrow-right" %}</a>
+  <h1>{% if account %}<span class="num text-stone-500" dir="ltr">{{ account.code }}</span> {{ account.name_ar }}{% else %}{% translate "حساب جديد" %}{% endif %}</h1>
+</div>
+
+{% if error %}<p class="notice notice-danger mb-4 max-w-2xl font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ error }}</p>{% endif %}
+
+{% if account %}
+<form method="post" class="card max-w-2xl space-y-4 p-4 sm:p-6" novalidate>
+  {% csrf_token %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="form-field"><label for="a-name">{% translate "اسم الحساب" %}</label><input id="a-name" type="text" name="name_ar" value="{{ account.name_ar }}" maxlength="120" required></div>
+    <div class="form-field"><label for="a-en">{% translate "الاسم بالإنجليزي" %}</label><input id="a-en" type="text" name="name_en" value="{{ account.name_en }}" maxlength="120" dir="ltr"></div>
+  </div>
+  {% if not account.is_group and account.parent_id %}
+  <div class="form-field max-w-sm">
+    <label for="a-parent">{% translate "تحت مجموعة" %}</label>
+    <select id="a-parent" name="parent">
+      {% for g in groups %}<option value="{{ g.pk }}" {% if g.pk == account.parent_id %}selected{% endif %}>{{ g.code }} {{ g.name_ar }}</option>{% endfor %}
+    </select>
+    <p class="help">{% translate "لو نقلته لمجموعة تانية هياخد كود جديد فيها. قيوده بتفضل زي ما هي." %}</p>
+  </div>
+  {% endif %}
+  <div class="flex justify-end"><button type="submit" class="btn-primary">{% translate "حفظ" %}</button></div>
+</form>
+
+{% if not locked %}
+<div class="mt-6 flex max-w-2xl flex-wrap items-center gap-2 text-sm">
+  <form method="post">{% csrf_token %}<input type="hidden" name="action" value="toggle">
+    <button class="btn-secondary">{% if account.is_active %}{% translate "وقّف الحساب" %}{% else %}{% translate "شغّل الحساب" %}{% endif %}</button>
+  </form>
+  {% if not used %}
+  <form method="post" onsubmit="return confirm('{% translate 'تمسح الحساب ده؟' %}')">{% csrf_token %}<input type="hidden" name="action" value="delete">
+    <button class="btn-danger">{% translate "مسح" %}</button>
+  </form>
+  {% else %}
+  <span class="text-stone-600">{% translate "الحساب عليه قيود، فمينفعش يتمسح. ممكن توقفه لما رصيده يبقى صفر." %}</span>
+  {% endif %}
+</div>
+{% else %}
+<p class="mt-4 max-w-2xl text-sm text-stone-600">{% translate "الحساب ده البرنامج بيسجّل عليه تلقائي، فمينفعش يتوقف أو يتمسح. تقدر تغيّر اسمه." %}</p>
+{% endif %}
+
+{% else %}
+<form method="post" class="card max-w-2xl space-y-4 p-4 sm:p-6" novalidate>
+  {% csrf_token %}
+  <div class="form-field">
+    <label for="a-parent">{% translate "تحت مجموعة" %}</label>
+    <select id="a-parent" name="parent" required onchange="location.href = '{% url 'ledger:account_add' %}?parent=' + this.value">
+      <option value="">{% translate "اختار المجموعة" %}</option>
+      {% for g in groups %}<option value="{{ g.pk }}" {% if g.pk == parent.pk %}selected{% endif %}>{{ g.code }} {{ g.name_ar }}</option>{% endfor %}
+    </select>
+  </div>
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div class="form-field"><label for="a-name">{% translate "اسم الحساب" %}</label><input id="a-name" type="text" name="name_ar" value="{{ values.name_ar }}" maxlength="120" required></div>
+    <div class="form-field"><label for="a-en">{% translate "الاسم بالإنجليزي (اختياري)" %}</label><input id="a-en" type="text" name="name_en" value="{{ values.name_en }}" maxlength="120" dir="ltr"></div>
+  </div>
+  <div class="form-field max-w-48">
+    <label for="a-code">{% translate "الكود" %}</label>
+    <input id="a-code" type="text" name="code" value="{{ values.code|default:suggested }}" inputmode="numeric" dir="ltr" maxlength="20">
+    <p class="help">{% translate "سيبه زي ما هو لو مش فارق معاك." %}</p>
+  </div>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_group" value="1" {% if values.is_group %}checked{% endif %}> {% translate "ده مجموعة هيتضاف تحتها حسابات (مش بيتسجل عليها قيود)" %}</label>
+  <div class="flex justify-end gap-2">
+    <a href="{% url 'ledger:accounts' %}" class="btn-ghost">{% translate "إلغاء" %}</a>
+    <button type="submit" class="btn-primary">{% translate "إضافة الحساب" %}</button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

@@ -3,18 +3,18 @@
 reception actions, free ones an "احجز" that opens the booking panel on that time.{% endcomment %}
 <div class="mb-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
   <span class="text-stone-600">{% translate "محجوز" %} <b class="num text-ink">{{ board.counts.booked }}</b></span>
-  <span class="text-stone-600">{% translate "وصل" %} <b class="num {% if board.counts.arrived %}text-amber-700{% else %}text-ink{% endif %}">{{ board.counts.arrived }}</b></span>
-  <span class="text-stone-600">{% translate "عند الدكتور" %} <b class="num {% if board.counts.in_consultation %}text-sky-700{% else %}text-ink{% endif %}">{{ board.counts.in_consultation }}</b></span>
+  <span class="text-stone-600">{% translate "وصل" %} <b class="num text-ink">{{ board.counts.arrived }}</b></span>
+  <span class="text-stone-600">{% translate "عند الدكتور" %} <b class="num text-ink">{{ board.counts.in_consultation }}</b></span>
   <span class="text-stone-600">{% translate "تم" %} <b class="num text-ink">{{ board.counts.completed }}</b></span>
-  <span class="text-stone-600">{% translate "لم يحضر" %} <b class="num {% if board.counts.no_show %}text-red-700{% else %}text-ink{% endif %}">{{ board.counts.no_show }}</b></span>
+  {% if board.counts.no_show %}<span class="text-stone-600">{% translate "لم يحضر" %} <b class="num text-ink">{{ board.counts.no_show }}</b></span>{% endif %}
   <span class="ms-auto flex items-center gap-1.5 text-xs text-stone-600">
     {% if board.periods %}{% icon "clock" "size-4 text-stone-400" %}{% endif %}
     {% for p in board.periods %}<span dir="ltr">{{ p.start_at|ampm }} - {{ p.end_at|ampm }}</span>{% if not forloop.last %}<span class="text-stone-300">|</span>{% endif %}{% empty %}{% translate "مفيش شغل اليوم ده" %}{% endfor %}
   </span>
 </div>
 
-<div class="card overflow-x-auto" x-data="{ hideFree: false }">
-  {% if slots_mode and board.slots %}
+<div class="card overflow-x-auto" x-data="{ hideFree: {% if compact %}true{% else %}false{% endif %} }">
+  {% if slots_mode and board.slots and not compact %}
   <div class="flex items-center justify-end border-b border-stone-100 px-3 py-1.5 text-xs">
     <label class="flex cursor-pointer items-center gap-1.5 text-stone-600"><input type="checkbox" x-model="hideFree" class="size-3.5"> {% translate "إخفاء المواعيد الفاضية" %}</label>
   </div>
@@ -43,7 +43,7 @@ reception actions, free ones an "احجز" that opens the booking panel on that 
               <span>{% translate "فاضي" %}</span>
               {% if slot.bookable and can.appointment_book %}
               <button type="button" class="inline-flex items-center gap-1 rounded-md border border-dashed border-stone-300 px-2.5 py-0.5 font-semibold text-brand transition-colors hover:border-brand hover:bg-brand-soft"
-                      hx-get="{% url 'scheduling:booking_panel' %}?at={{ slot.time.isoformat|urlencode }}" hx-target="#modal">{% icon "plus" "size-3.5" %}{% translate "احجز" %}</button>
+                      hx-get="{% url 'scheduling:booking_panel' %}?at={{ slot.time.isoformat|urlencode }}&doctor={{ doctor.pk }}" hx-target="#modal">{% icon "plus" "size-3.5" %}{% translate "احجز" %}</button>
               {% endif %}
             </div>
           </td>
@@ -51,6 +51,8 @@ reception actions, free ones an "احجز" that opens the booking panel on that 
         {% endif %}
       {% endfor %}
     {% else %}
+      {# emergency arrivals and bookings outside the periods come first: they have no number to wait for #}
+      {% for e in board.queue_outside %}{% include "reception/partials/board_row.html" with time=e.a.start_at first=True %}{% endfor %}
       {% for q in board.queue %}
       <tr class="bg-stone-50"><td colspan="6" class="px-3 py-1.5 text-xs font-semibold text-stone-600">
         <span dir="ltr">{{ q.period.start_at|ampm }} - {{ q.period.end_at|ampm }}</span>
@@ -60,11 +62,10 @@ reception actions, free ones an "احجز" that opens the booking panel on that 
         {% if can.appointment_book and day >= today %}
         <tr><td colspan="6" class="px-3 py-1 text-end">
           <button type="button" class="inline-flex items-center gap-1 rounded-md border border-dashed border-stone-300 px-2.5 py-0.5 text-xs font-semibold text-brand transition-colors hover:border-brand hover:bg-brand-soft"
-                  hx-get="{% url 'scheduling:booking_panel' %}?day={{ day|date:'Y-m-d' }}" hx-target="#modal">{% icon "plus" "size-3.5" %}{% translate "احجز رقم في الفترة دي" %}</button>
+                  hx-get="{% url 'scheduling:booking_panel' %}?day={{ day|date:'Y-m-d' }}&doctor={{ doctor.pk }}" hx-target="#modal">{% icon "plus" "size-3.5" %}{% translate "احجز رقم في الفترة دي" %}</button>
         </td></tr>
         {% endif %}
       {% endfor %}
-      {% for e in board.queue_outside %}{% include "reception/partials/board_row.html" with time=e.a.start_at first=True %}{% endfor %}
     {% endif %}
     {% if not board.entries and not board.periods %}
       <tr><td colspan="6" class="px-3 py-12 text-center text-stone-600">{% translate "مفيش شغل ولا حجوزات اليوم ده." %}</td></tr>

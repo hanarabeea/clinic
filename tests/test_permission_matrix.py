@@ -232,7 +232,26 @@ def test_every_url_needs_its_permission(client, org_a, perm):
 
 URL_IN_PAGE = re.compile(r"""["'](/[^"'\s<>{}]*)["']""")
 FOLLOW = re.compile(r'(?:href|hx-get|data-drawer)="(/[^"]*)"')
-SKIP = re.compile(r"logout|/pdf/|\.pdf|export|calibration|/static/|/media/|password-reset|/admin/|/lock/|healthz")
+# report exports (?format=xlsx|pdf) are not followed: every report links two per date range, and each print renders a
+# PDF. They have their own tests (test_treasury.test_reports_export_to_excel_and_pdf).
+SKIP = re.compile(
+    r"logout|/pdf/|\.pdf|export|calibration|/static/|/media/|password-reset|/admin/|/lock/|healthz|format=(?:xlsx|pdf)"
+    r"|[?&]from=\d{4}"  # a report's date presets: the same page again for another period
+)
+# pages that exist once per account of the chart (about ninety of each, one template): a few are enough
+FANOUT = re.compile(r"^/books/accounts/\d+/(?:edit/)?$")
+FANOUT_CAP = 3
+
+
+def _over_fanout(url, shapes) -> bool:
+    path = urlparse(url).path
+    if not FANOUT.match(path):
+        return False
+    shape = re.sub(r"\d+", "N", path)
+    shapes[shape] = shapes.get(shape, 0) + 1
+    return shapes[shape] > FANOUT_CAP
+
+
 MAX_PAGES = 450
 
 
@@ -243,7 +262,7 @@ def clinic(db):
     out = io.StringIO()
     call_command("seed_org", stdout=out)
     org = Organization.objects.get(slug="demo-clinic")
-    for cmd in ("seed_notifications", "import_drugs"):
+    for cmd in ("seed_notifications", "seed_services", "import_drugs"):
         call_command(cmd, org=org.slug, stdout=out)
     call_command("seed_demo", org=org.slug, stdout=out)
     call_command("seed_pregnancies", org=org.slug, stdout=out)  # the OB/GYN layer has something to show
@@ -255,11 +274,11 @@ def _visit_as(client, user, max_pages=MAX_PAGES):
     """Crawl from the home page; return the problems: links to something not allowed, links answering 403, crashes."""
     perms = _perms_of(user)
     client.force_login(user)
-    seen, queue, problems, pages = set(), deque(["/"]), [], 0
+    seen, queue, problems, pages, shapes = set(), deque(["/"]), [], 0, {}
     checked = {}
     while queue and len(seen) < max_pages:
         url = urldefrag(queue.popleft())[0]
-        if url in seen or SKIP.search(url):
+        if url in seen or SKIP.search(url) or _over_fanout(url, shapes):
             continue
         seen.add(url)
         try:
@@ -363,6 +382,13 @@ NAV = {
     "clinical.view": "clinical:desk",
     "appointment.view": "reception:today",  # the board: reception + day/week + booking
     "patient.view_basic": "patients:list",
+    "emergency.register": "center:emergencies",
+    "ledger.view": "ledger:trial_balance",
+    "invoice.view": "invoicing:list",
+    "purchase.view": "purchasing:invoices",
+    "stock.view": "inventory:items",
+    "theatre.view": "theatre:board",
+    "treasury.view": "treasury:home",
     "messages.view": "notifications:log",
     "payment.record": "billing:cashbox",
     "report.finance": "dashboard:reports",

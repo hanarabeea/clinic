@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{{ service.name_ar }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'center:services' %}" class="btn-icon" aria-label="{% translate 'رجوع للخدمات' %}">{% icon "arrow-right" %}</a>
+  <h1>{{ service.name_ar }}</h1>
+</div>
+
+<form method="post" class="card max-w-2xl space-y-4 p-4 sm:p-6" novalidate>
+  {% csrf_token %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {% include "partials/field.html" with field=form.name_ar %}
+    {% include "partials/field.html" with field=form.name_en %}
+  </div>
+  <div class="grid gap-4 sm:grid-cols-3">
+    {% include "partials/field.html" with field=form.category %}
+    {% include "partials/field.html" with field=form.price %}
+    {% include "partials/field.html" with field=form.doctor_share_percent %}
+  </div>
+  <label class="flex items-center gap-2 text-sm">{{ form.is_active }} {% translate "مفعّلة (بتظهر وقت إضافة خدمة على زيارة)" %}</label>
+  <p class="text-xs text-stone-600">{% translate "تغيير السعر أو النسبة بيمشي على اللي هيتضاف من دلوقتي. الزيارات القديمة بتفضل بسعرها." %}</p>
+  <div class="flex justify-end gap-2">
+    <a href="{% url 'center:services' %}" class="btn-ghost">{% translate "إلغاء" %}</a>
+    <button type="submit" class="btn-primary">{% translate "حفظ" %}</button>
+  </div>
+</form>
+{% endblock %}

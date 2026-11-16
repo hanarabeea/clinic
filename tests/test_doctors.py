@@ -129,8 +129,13 @@ def test_seed_org_creates_doctor_schedule_and_visit_types(db):
     from django.core.management import call_command
 
     call_command("seed_org")
-    doctor = Doctor.objects.get()
+    doctor = Doctor.objects.order_by("id").first()
     assert doctor.name_ar == "سارة علي" and doctor.booking_mode == "slots"
     assert WorkingPeriod.objects.filter(doctor=doctor).count() == 5
     assert VisitType.objects.filter(doctor=doctor).count() == 3
+    # center mode: the demo center has a second doctor with her own hours, visit types and booking mode
+    second = Doctor.objects.exclude(pk=doctor.pk).get()
+    assert second.name_ar == "منى حسن" and second.booking_mode == "queue"
+    assert WorkingPeriod.objects.filter(doctor=second).count() == 5
+    assert VisitType.objects.filter(doctor=second).count() == 2
     assert periods_for(doctor, date(2026, 1, 8)) == []  # Thursday: not in the seeded working periods

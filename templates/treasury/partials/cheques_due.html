@@ -1,0 +1,9 @@
+{% load i18n money %}
+{% comment %}`soon` = treasury.cheques.due_soon(): a bank account that cannot pay the cheques drawn on it, and how
+many cheques fall due in the coming days.{% endcomment %}
+{% for row in soon.short %}
+<p class="notice notice-danger mb-4">{% icon "warning-circle" "size-5 shrink-0" %}<span>{% blocktranslate with b=row.bank.name %}رصيد {{ b }} مش مكفّي الشيكات المستحقة عليه:{% endblocktranslate %} {% translate "الرصيد" %} <b class="num" dir="ltr">{{ row.balance|money0 }}</b>، {% translate "والشيكات" %} <b class="num" dir="ltr">{{ row.due|money0 }}</b>. <a class="link" href="{% url 'treasury:cheques' %}?direction=issued">{% translate "الشيكات" %}</a></span></p>
+{% endfor %}
+{% if soon.issued and not soon.short %}
+<p class="notice notice-info mb-4">{% icon "info" "size-5 shrink-0" %}<span>{% blocktranslate count n=soon.issued|length with d=soon.until|date:"d/m" %}شيك صادر يستحق لحد {{ d }}.{% plural %}{{ n }} شيكات صادرة تستحق لحد {{ d }}.{% endblocktranslate %} <a class="link" href="{% url 'treasury:cheques' %}?direction=issued">{% translate "الشيكات" %}</a></span></p>
+{% endif %}

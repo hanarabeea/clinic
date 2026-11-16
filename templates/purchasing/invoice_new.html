@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "فاتورة مشتريات" %}{% endblock %}
+{% block content %}
+{% comment %}A supplier's invoice as it is on paper: one row per thing bought, each on the account it belongs to.
+The page adds the rows up as they are typed; the server works the tax out again line by line and posts.{% endcomment %}
+<div class="page-head">
+  <a href="{% url 'purchasing:invoices' %}" class="btn-icon" aria-label="{% translate 'رجوع لفواتير المشتريات' %}">{% icon "arrow-right" %}</a>
+  <h1>{% translate "فاتورة مشتريات" %}</h1>
+</div>
+{% if error %}<p class="notice notice-danger mb-4 font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ error }}</p>{% endif %}
+{% if not suppliers %}<p class="notice notice-info mb-4">{% icon "info" "size-5 shrink-0" %}<span>{% translate "مفيش موردين لسه." %} {% if can.supplier_manage %}<a class="link" href="{% url 'purchasing:supplier_new' %}">{% translate "ضيف مورد الأول" %}</a>{% endif %}</span></p>{% endif %}
+
+<form method="post" enctype="multipart/form-data" class="space-y-4" novalidate>
+  {% csrf_token %}
+  <div class="card grid gap-4 p-4 sm:grid-cols-4 sm:p-5">
+    <div class="form-field sm:col-span-2">
+      <label for="p-supplier">{% translate "المورد" %}</label>
+      <select id="p-supplier" name="supplier" class="input" required>
+        <option value="">{% translate "اختار المورد" %}</option>
+        {% for s in suppliers %}<option value="{{ s.pk }}" {% if s.pk|stringformat:"s" == chosen %}selected{% endif %}>{{ s.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-field"><label for="p-ref">{% translate "رقم فاتورة المورد" %}</label><input id="p-ref" name="supplier_ref" class="input" dir="ltr" maxlength="60" value="{{ post.supplier_ref }}"></div>
+    <div class="form-field"><label for="p-date">{% translate "تاريخ الفاتورة" %}</label><input id="p-date" type="date" name="date" class="input" value="{% if post.date %}{{ post.date }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}" required></div>
+  </div>
+
+  <div class="card overflow-x-auto">
+    <table class="data-table" id="lines">
+      <thead>
+        <tr>
+          {% if stock_items %}<th class="w-48">{% translate "صنف مخزن" %}</th>{% endif %}
+          <th>{% translate "البيان" %}</th>
+          <th class="w-56">{% translate "الحساب" %}</th>
+          <th class="w-36">{% translate "مركز التكلفة" %}</th>
+          <th class="w-20 text-end!">{% translate "الكمية" %}</th>
+          <th class="w-28 text-end!">{% translate "السعر" %}</th>
+          <th class="w-24 text-end!">{% translate "خصم" %}</th>
+          <th class="w-36">{% translate "الضريبة" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          {% if stock_items %}
+          <td>
+            <select name="item" class="input py-1.5" aria-label="{% translate 'صنف مخزن' %}">
+              <option value="">{% translate "مش صنف مخزن" %}</option>
+              {% for i in stock_items %}<option value="{{ i.pk }}" data-expiry="{{ i.track_expiry|yesno:'1,0' }}" {% if i.pk|stringformat:"s" == row.item %}selected{% endif %}>{{ i.name }}</option>{% endfor %}
+            </select>
+            <input type="date" name="expiry" value="{{ row.expiry }}" class="input mt-1 py-1 text-xs {% if not row.expiry %}hidden{% endif %}" aria-label="{% translate 'تاريخ الصلاحية' %}" title="{% translate 'تاريخ الصلاحية' %}">
+          </td>
+          {% endif %}
+          <td><input type="text" name="description" value="{{ row.description }}" maxlength="200" class="input py-1.5" aria-label="{% translate 'البيان' %}"></td>
+          <td>
+            <select name="account" class="input py-1.5" aria-label="{% translate 'الحساب' %}">
+              <option value="">{% translate "اختار الحساب" %}</option>
+              {% for a in accounts %}<option value="{{ a.pk }}" {% if a.pk|stringformat:"s" == row.account %}selected{% endif %}>{{ a.code }} {{ a.name_ar }}</option>{% endfor %}
+            </select>
+          </td>
+          <td>
+            <select name="cost_center" class="input py-1.5" aria-label="{% translate 'مركز التكلفة' %}">
+              <option value="">-</option>
+              {% for c in centers %}<option value="{{ c.pk }}" {% if c.pk|stringformat:"s" == row.cost_center %}selected{% endif %}>{{ c.name_ar }}</option>{% endfor %}
+            </select>
+          </td>
+          <td><input type="text" name="quantity" value="{{ row.quantity }}" inputmode="decimal" dir="ltr" class="input py-1.5 text-end" aria-label="{% translate 'الكمية' %}"></td>
+          <td><input type="text" name="unit_price" value="{{ row.unit_price }}" inputmode="decimal" dir="ltr" class="input py-1.5 text-end" aria-label="{% translate 'السعر' %}"></td>
+          <td><input type="text" name="discount" value="{{ row.discount }}" inputmode="decimal" dir="ltr" class="input py-1.5 text-end" aria-label="{% translate 'خصم' %}"></td>
+          <td>
+            <select name="tax_code" class="input py-1.5" aria-label="{% translate 'الضريبة' %}">
+              <option value="" data-rate="0">{% translate "من غير" %}</option>
+              {% for t in taxes %}<option value="{{ t.pk }}" data-rate="{{ t.rate|floatformat:'2u' }}" {% if t.pk|stringformat:"s" == row.tax_code %}selected{% endif %}>{{ t.name }}</option>{% endfor %}
+            </select>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+      <tfoot>
+        <tr class="border-t border-stone-300 bg-stone-50 font-bold">
+          <td class="px-3 py-2" colspan="{% if stock_items %}5{% else %}4{% endif %}">{% translate "الإجمالي المستحق للمورد" %} <span class="text-xs font-normal text-stone-600">({% translate "منه ضريبة" %} <span class="num" dir="ltr" id="sum-vat">0.00</span>)</span></td>
+          <td class="num px-3 py-2 text-end" dir="ltr" colspan="3" id="sum-total">0.00</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+  <p class="text-xs text-stone-600">{% translate "حسابات المصروفات محتاجة مركز تكلفة." %}{% if stock_items %} {% translate "سطر صنف المخزن مش محتاج حساب ولا مركز تكلفة: بيدخل المخزن بتكلفته." %}{% endif %}</p>
+  {% if stores %}
+  <div class="form-field max-w-xs"><label for="p-store">{% translate "أصناف المخزن تدخل" %}</label>
+    <select id="p-store" name="warehouse" class="input">{% for s in stores %}<option value="{{ s.pk }}" {% if s.pk|stringformat:"s" == post.warehouse %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></div>
+  {% endif %}
+
+  <details class="text-sm">
+    <summary class="cursor-pointer text-stone-600">{% translate "تاريخ الاستحقاق، صورة الفاتورة، ملاحظات" %}</summary>
+    <div class="card mt-3 grid gap-4 p-4 sm:grid-cols-4">
+      <div class="form-field"><label for="p-due">{% translate "تاريخ الاستحقاق" %}</label><input id="p-due" type="date" name="due_date" class="input" value="{{ post.due_date }}"><p class="help">{% translate "فاضي = حسب مهلة سداد المورد." %}</p></div>
+      <div class="form-field sm:col-span-2"><label for="p-scan">{% translate "صورة الفاتورة (PDF أو صورة)" %}</label><input id="p-scan" type="file" name="scan" accept="application/pdf,image/jpeg,image/png" class="input"></div>
+      <label class="flex items-center gap-2 self-end pb-2 text-sm"><input type="checkbox" name="prices_include_vat" {% if post.prices_include_vat %}checked{% endif %} id="p-incl"> {% translate "الأسعار شاملة الضريبة" %}</label>
+      <div class="form-field sm:col-span-4"><label for="p-notes">{% translate "ملاحظات" %}</label><input id="p-notes" name="notes" class="input" maxlength="300" value="{{ post.notes }}"></div>
+    </div>
+  </details>
+
+  <div class="flex flex-wrap items-center gap-2">
+    <button type="button" class="btn-secondary" id="add-line">{% icon "plus" "size-4" %}{% translate "سطر كمان" %}</button>
+    <span class="ms-auto"></span>
+    <a href="{% url 'purchasing:invoices' %}" class="btn-ghost">{% translate "إلغاء" %}</a>
+    <button type="submit" class="btn-primary min-h-10 px-6">{% translate "تسجيل الفاتورة" %}</button>
+  </div>
+</form>
+
+<script>
+  (() => {
+    const body = document.querySelector("#lines tbody");
+    const incl = document.getElementById("p-incl");
+    const num = (v) => { const n = parseFloat(String(v).replace(/,/g, "")); return Number.isFinite(n) ? n : 0; };
+    const show = () => {
+      let total = 0, vat = 0;
+      body.querySelectorAll("tr").forEach((tr) => {
+        const get = (n) => tr.querySelector(`[name=${n}]`);
+        const gross = Math.round(num(get("quantity").value) * num(get("unit_price").value) * 100) - Math.round(num(get("discount").value) * 100);
+        const rate = num(get("tax_code").selectedOptions[0]?.dataset.rate);
+        if (gross <= 0) return;
+        if (incl.checked) { const net = Math.round(gross * 100 / (100 + rate)); vat += gross - net; total += gross; }
+        else { const v = Math.round(gross * rate / 100); vat += v; total += gross + v; }
+      });
+      document.getElementById("sum-total").textContent = (total / 100).toFixed(2);
+      document.getElementById("sum-vat").textContent = (vat / 100).toFixed(2);
+    };
+    body.addEventListener("input", show);
+    body.addEventListener("change", show);
+    // an item with an expiry date asks for it; the others keep the row short
+    body.addEventListener("change", (e) => {
+      if (e.target.name !== "item") return;
+      const date = e.target.parentElement.querySelector("[name=expiry]");
+      date.classList.toggle("hidden", e.target.selectedOptions[0]?.dataset.expiry !== "1");
+    });
+    incl.addEventListener("change", show);
+    document.getElementById("add-line").addEventListener("click", () => {
+      const row = body.querySelector("tr:last-child").cloneNode(true);
+      row.querySelectorAll("input").forEach((el) => { el.value = el.name === "quantity" ? "1" : ""; });
+      row.querySelectorAll("select").forEach((el) => { el.selectedIndex = 0; });
+      row.querySelector("[name=expiry]")?.classList.add("hidden");
+      body.appendChild(row);
+      row.querySelector("input").focus();
+    });
+    show();
+  })();
+</script>
+{% endblock %}

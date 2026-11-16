@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load i18n clock %}
+{% block title %}{% translate "فحص الدفاتر" %}{% endblock %}
+{% block content %}
+{% comment %}The proof that the books are sound: every entry balances, every document has its entry, every control
+account equals its subledger, numbering has no gaps, no shelf or drawer is negative. Run every night and on demand.{% endcomment %}
+<div class="page-head">
+  <h1>{% translate "الحسابات" %}</h1>
+  <span class="ms-auto"></span>
+  <form method="post">{% csrf_token %}<button class="btn-primary">{% icon "check-circle" "size-4" %}{% translate "افحص دلوقتي" %}</button></form>
+</div>
+{% include "ledger/partials/tabs.html" %}
+
+{% if last %}
+  {% if last.ok %}
+  <p class="notice notice-info mb-4">{% icon "check-circle" "size-5 shrink-0" %}<span><b>{% translate "الدفاتر سليمة." %}</b> {% translate "آخر فحص" %} <span class="num" dir="ltr">{{ last.ran_at|date:"d/m/Y" }} {{ last.ran_at|ampm }}</span></span></p>
+  {% else %}
+  <p class="notice notice-danger mb-3 font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}<span>{% blocktranslate count n=last.problems|length %}الفحص لقى مشكلة واحدة.{% plural %}الفحص لقى {{ n }} مشاكل.{% endblocktranslate %} <span class="font-normal">{% translate "آخر فحص" %} <span class="num" dir="ltr">{{ last.ran_at|date:"d/m/Y" }} {{ last.ran_at|ampm }}</span></span></span></p>
+  <ul class="card mb-4 max-w-3xl divide-y divide-stone-100 text-sm">
+    {% for p in last.problems %}<li class="px-4 py-2.5">{{ p.message }}</li>{% endfor %}
+  </ul>
+  <p class="mb-6 max-w-3xl text-sm text-stone-600">{% translate "الشهر مش هيتقفل والسنة مش هتتقفل طول ما فيه مشكلة. بلّغ الدعم الفني بالرسايل دي." %}</p>
+  {% endif %}
+{% else %}
+<p class="card mb-4 max-w-3xl px-4 py-8 text-center text-sm text-stone-600">{% translate "لسه ما اتعملش فحص. الفحص بيتعمل لوحده كل ليلة، وتقدر تعمله دلوقتي." %}</p>
+{% endif %}
+
+<details class="max-w-3xl text-sm">
+  <summary class="cursor-pointer text-stone-600">{% translate "الفحص بيتأكد من إيه" %}</summary>
+  <ul class="mt-3 list-disc space-y-1 ps-5 text-stone-700">
+    <li>{% translate "كل قيد متزن، والدفاتر كلها متزنة." %}</li>
+    <li>{% translate "كل تحصيل وسند وفاتورة له قيده، وكل قيد مستنده موجود." %}</li>
+    <li>{% translate "حساب المرضى، الموردين، الدكاترة، جهات التعاقد، الشيكات والمخزون: كل واحد يساوي مجموع تفاصيله." %}</li>
+    <li>{% translate "الترقيم من غير فجوات ولا تكرار، ومفيش حاجة اتسجلت في شهر بعد قفله." %}</li>
+    <li>{% translate "مفيش خزينة ولا صنف رصيده بالسالب، وكل رصيد صنف يساوي حركته." %}</li>
+    <li>{% translate "زيارات آخر 30 يوم فواتيرها مطابقة لها." %}</li>
+  </ul>
+</details>
+
+{% if history|length > 1 %}
+<h2 class="section-title mt-8">{% translate "آخر الفحوصات" %}</h2>
+<ul class="card max-w-3xl divide-y divide-stone-100 text-sm">
+  {% for h in history %}
+  <li class="flex items-center gap-3 px-4 py-2"><span class="num text-stone-600" dir="ltr">{{ h.ran_at|date:"d/m/Y" }} {{ h.ran_at|ampm }}</span>
+    <span class="{% if not h.ok %}font-semibold text-red-700{% endif %}">{% if h.ok %}{% translate "سليمة" %}{% else %}{% blocktranslate count n=h.problems|length %}مشكلة واحدة{% plural %}{{ n }} مشاكل{% endblocktranslate %}{% endif %}</span>
+    <span class="ms-auto text-xs text-stone-600">{% if h.ran_by %}{{ h.ran_by.full_name|default:h.ran_by.username }}{% else %}{% translate "تلقائي" %}{% endif %}</span></li>
+  {% endfor %}
+</ul>
+{% endif %}
+{% endblock %}

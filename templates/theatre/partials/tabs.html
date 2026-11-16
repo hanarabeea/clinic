@@ -1,0 +1,5 @@
+{% load i18n %}
+<nav class="tabs">
+  <a href="{% url 'theatre:board' %}" class="tab {% if tab == 'board' %}is-active{% endif %}">{% translate "العمليات" %}</a>
+  <a href="{% url 'theatre:admissions' %}" class="tab {% if tab == 'admissions' %}is-active{% endif %}">{% translate "الإقامة" %}</a>
+</nav>

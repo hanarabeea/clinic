@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "الصرف والتحويل" %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{% translate "المخزن" %}</h1>
+  <span class="ms-auto"></span>
+  {% if can.stock_move %}
+  <a href="{% url 'inventory:opening_new' %}" class="btn-ghost">{% translate "رصيد افتتاحي" %}</a>
+  <a href="{% url 'inventory:transfer_new' %}" class="btn-ghost">{% translate "تحويل بين مخزنين" %}</a>
+  <a href="{% url 'inventory:issue_new' %}" class="btn-primary">{% icon "plus" "size-4" %}{% translate "صرف" %}</a>
+  {% endif %}
+</div>
+{% include "inventory/partials/tabs.html" %}
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th class="w-40">{% translate "المستند" %}</th><th class="w-28">{% translate "التاريخ" %}</th><th>{% translate "من / إلى" %}</th><th>{% translate "الأصناف" %}</th></tr></thead>
+    <tbody>
+      {% for d in rows %}
+      <tr>
+        <td><span class="num font-semibold" dir="ltr">{{ d.label }}</span> <span class="block text-xs text-stone-600">{{ d.get_kind_display }}</span></td>
+        <td class="num text-stone-600" dir="ltr">{{ d.date|date:"d/m/Y" }}</td>
+        <td>{{ d.warehouse.name }}{% if d.to_warehouse %} {% icon "arrow-left" "inline size-3.5" %} {{ d.to_warehouse.name }}{% endif %}{% if d.cost_center %} <span class="text-xs text-stone-600">({{ d.cost_center.name_ar }})</span>{% endif %}{% if d.operation %} <a class="link text-xs" href="{% url 'theatre:operation' d.operation.pk %}">{{ d.operation.procedure_name }}</a>{% endif %}</td>
+        <td class="text-sm text-stone-700">{% for m in d.lines %}{{ m.item.name }} <span class="num" dir="ltr">{{ m.quantity|floatformat:"-3" }}</span>{% if m.kind == "issue_return" %} <span class="text-xs">({% translate "رجع" %})</span>{% endif %}{% if not forloop.last %}، {% endif %}{% endfor %}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="py-10! text-center text-stone-600">{% translate "مفيش صرف أو تحويل لسه." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

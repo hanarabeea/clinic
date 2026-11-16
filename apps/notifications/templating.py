@@ -29,6 +29,14 @@ VARIABLES = {
     "patients_ahead": "عدد اللي قدامه",
     "rx_number": "رقم الروشتة",
     "next_visit_date": "ميعاد الإعادة",
+    "operation_name": "اسم العملية",
+    "operation_date": "يوم العملية",
+    "operation_time": "ساعة العملية",
+    "fasting_hours": "ساعات الصيام",
+    "room_name": "الغرفة",
+    "pregnancy_week": "أسبوع الحمل",
+    "pregnancy_month": "شهر الحمل",
+    "milestone_name": "محطة المتابعة",
 }
 
 MONTHS = ("يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر")
@@ -106,10 +114,34 @@ def appointment_ctx(appt) -> dict:
         visit_type=appt.visit_type.name_ar,
         price=fmt_money(appt.price - appt.discount),
     )
+    ctx.update(_pregnancy_ctx(patient, appt.date))
     if appt.queue_number:
         ctx["time_label"] = _("دورك رقم %(n)s — حوالي الساعة %(t)s") % {"n": appt.queue_number, "t": ctx["time"]}
     else:
         ctx["time_label"] = _("الساعة %(t)s") % {"t": ctx["time"]}
+    return ctx
+
+
+def _pregnancy_ctx(patient, on) -> dict:
+    """{pregnancy_week} / {pregnancy_month} on the day of the visit, for a woman whose pregnancy is followed in an
+    OB/GYN clinic. Blank for everyone else, so a template that uses them reads fine for any patient."""
+    from apps.obstetrics import services as obstetrics
+
+    if not obstetrics.applies_to(patient):
+        return {}
+    pregnancy = obstetrics.active_pregnancy(patient)
+    if pregnancy is None:
+        return {}
+    age = pregnancy.ga(on)
+    return {"pregnancy_week": age.weeks, "pregnancy_month": age.month}
+
+
+def patient_ctx(org, patient) -> dict:
+    """For messages that hang off no appointment (an operation): the clinic and who it is for. The rest comes from
+    the row's own context."""
+    ctx = _org_ctx(org)
+    name = patient.full_name if patient else ""
+    ctx.update(patient_name=name, first_name=name.split()[0] if name else "")
     return ctx
 
 
@@ -145,6 +177,11 @@ def sample_ctx(org) -> dict:
         old_time=fmt_time(old),
         patients_ahead=3,
         rx_number="RX-0042",
+        operation_name="ولادة قيصرية",
+        operation_date=fmt_date(day.date()),
+        operation_time=fmt_time(day),
+        fasting_hours=8,
+        room_name="غرفة العمليات",
         next_visit_date=fmt_date((day + timedelta(days=14)).date()),
     )
     doctor = Doctor.objects.filter(organization=org).first()

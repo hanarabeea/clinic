@@ -117,7 +117,7 @@ def test_close_day_from_calendar_goes_to_affected_screen(client, world):
     client.force_login(world["owner"])
     with freeze_time(NOW):
         resp = client.post(reverse("scheduling:close_day"), {"date": "2026-01-03"})
-        assert resp.url == reverse("scheduling:affected") + "?date=2026-01-03"
+        assert resp.url == reverse("scheduling:affected") + f"?date=2026-01-03&doctor={world['doctor'].pk}"
         resp = client.post(reverse("scheduling:close_day"), {"date": "2026-01-04"})  # nothing booked
         assert resp.url == reverse("reception:today") + "?date=2026-01-04"
     assert ScheduleException.objects.filter(doctor=world["doctor"], kind="closed").count() == 2

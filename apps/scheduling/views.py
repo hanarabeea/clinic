@@ -14,8 +14,8 @@ from apps.audit import services as audit
 from apps.core.ratelimit import search_limit
 from apps.core.templatetags.clock import ampm
 from apps.core.timeutils import CAIRO, weekday_egypt
+from apps.doctors import services as doctor_services
 from apps.doctors.models import BookingMode, ScheduleException, ScheduleExceptionKind, VisitType
-from apps.doctors.services import get_doctor
 from apps.notifications.models import Event, MessageStatus
 from apps.notifications.templating import fmt_date
 from apps.obstetrics import services as obstetrics
@@ -65,7 +65,7 @@ def booking_panel(request):
     """The booking panel: find / add the patient, pick the visit type and a time — opened from "+ حجز جديد" or a free
     cell of the board (`at` = that slot, or `day` + `hour` from the week table)."""
     org = request.organization
-    doctor = get_doctor(org)
+    doctor = doctor_services.current_doctor(request)
     pk = request.GET.get("patient", "")
     patient = Patient.objects.for_org(org).filter(pk=pk, is_active=True).first() if pk.isdigit() else None
     return render(request, "scheduling/partials/booking_panel.html", _panel_ctx(request, doctor, patient))
@@ -81,12 +81,15 @@ def _panel_ctx(request, doctor, patient, error=""):
         except ValueError:
             at = None
     day = at.astimezone(CAIRO).date() if at else _parse_day(data.get("day"))
-    visit_types = list(VisitType.objects.for_org(request.organization).filter(doctor=doctor, is_active=True))
+    visit_types = list(
+        VisitType.objects.for_org(request.organization).filter(doctor=doctor, is_active=True, is_system=False)
+    )
     chosen = str(data.get("visit_type") or "")
     visit_type = next((vt for vt in visit_types if str(vt.pk) == chosen), visit_types[0] if visit_types else None)
     ctx = {
         "patient": patient,
         "doctor": doctor,
+        "doctors": doctor_services.active_doctors(request.organization),  # several: the panel asks which one
         "day": day,
         "at": at.isoformat() if at else "",
         "at_dt": at,
@@ -132,7 +135,8 @@ def booking_search(request):
     initial = {"phone": q} if looks_like_phone else {"full_name": q}
     form = PatientForm(initial=initial) if q else None
     ctx = {"q": q, "patients": patients, "form": form, "day": request.GET.get("day", ""),
-           "at": request.GET.get("at", ""), "hour": request.GET.get("hour", "")}  # fmt: skip
+           "at": request.GET.get("at", ""), "hour": request.GET.get("hour", ""),
+           "doctor": doctor_services.current_doctor(request)}  # fmt: skip
     return render(request, "scheduling/partials/search_results.html", ctx)
 
 
@@ -144,18 +148,25 @@ def booking_new_patient(request):
         patient = patient_services.create_patient(request.organization, form.save(commit=False), by=request.user)
         audit.log("patient.created", request=request, target=patient, summary=patient.full_name)
         if request.htmx:
-            ctx = _panel_ctx(request, get_doctor(request.organization), patient)
+            ctx = _panel_ctx(request, doctor_services.current_doctor(request), patient)
             resp = render(request, "scheduling/partials/booking_panel.html", ctx)
             resp["HX-Retarget"], resp["HX-Reswap"] = "#modal", "innerHTML"
             return resp
         return redirect(_board(book=patient.pk))
     ctx = {"form": form, "day": request.POST.get("day", ""), "at": request.POST.get("at", ""),
-           "hour": request.POST.get("hour", "")}  # fmt: skip
+           "hour": request.POST.get("hour", ""), "doctor": doctor_services.current_doctor(request)}  # fmt: skip
     return render(request, "scheduling/partials/new_patient_form.html", ctx)
 
 
 def _patient(request, pk):
     return get_object_or_404(Patient.objects.for_org(request.organization), pk=pk)
+
+
+def _visit_type(request, pk):
+    """The visit type being booked. It also says which doctor: every doctor has their own visit types."""
+    types = VisitType.objects.for_org(request.organization).filter(is_system=False, doctor__is_active=True)
+    pk = str(pk or "")
+    return get_object_or_404(types.select_related("doctor"), pk=pk if pk.isdigit() else 0)
 
 
 @require_perm("appointment.book")
@@ -168,9 +179,9 @@ def booking_patient(request, patient_pk):
 @require_perm("appointment.book")
 def booking_slots(request, patient_pk):
     patient = _patient(request, patient_pk)
-    doctor = get_doctor(request.organization)
     day = _parse_day(request.GET.get("day"))
-    visit_type = get_object_or_404(VisitType.objects.filter(doctor=doctor), pk=request.GET.get("visit_type"))
+    visit_type = _visit_type(request, request.GET.get("visit_type"))
+    doctor = visit_type.doctor
     ctx = {"patient": patient, "doctor": doctor, "visit_type": visit_type, "day": day}
     if doctor.booking_mode == BookingMode.SLOTS:
         ctx["slots"] = services.free_slots(doctor, visit_type, day)
@@ -182,8 +193,8 @@ def booking_slots(request, patient_pk):
 @require_perm("appointment.book")
 def booking_confirm(request, patient_pk):
     patient = _patient(request, patient_pk)
-    doctor = get_doctor(request.organization)
-    visit_type = get_object_or_404(VisitType.objects.filter(doctor=doctor), pk=request.POST.get("visit_type"))
+    visit_type = _visit_type(request, request.POST.get("visit_type"))
+    doctor = visit_type.doctor
     overbook = request.POST.get("overbook") == "1" and has_perm(request.membership, "appointment.overbook")
     try:
         if doctor.booking_mode == BookingMode.SLOTS:
@@ -281,10 +292,14 @@ def appointment_cancel(request, pk):
 
 @require_perm("schedule.manage")
 def affected_appointments(request):
-    doctor = get_doctor(request.organization)
+    """Bookings that no longer fit after a day was closed: one doctor's (`?doctor=`), or every doctor's."""
+    doctors = doctor_services.active_doctors(request.organization)
+    if request.GET.get("doctor", "").isdigit():
+        doctors = [doctor_services.current_doctor(request, doctors)]
     day = _parse_day(request.GET.get("date"))
-    affected = services.affected_by_closing(doctor, day)
-    return render(request, "scheduling/affected.html", {"doctor": doctor, "day": day, "affected": affected})
+    affected = [pair for d in doctors for pair in services.affected_by_closing(d, day)]
+    ctx = {"doctor": doctors[0], "several": len(doctors) > 1, "day": day, "affected": affected}
+    return render(request, "scheduling/affected.html", ctx)
 
 
 @require_perm("schedule.manage")
@@ -296,7 +311,7 @@ def affected_reschedule(request, pk):
         messages.success(request, _("اتأجل حجز %(p)s.") % {"p": appt.patient.full_name})
     except services.BookingError as e:
         messages.error(request, str(e))
-    return redirect(f"{reverse('scheduling:affected')}?date={appt.date}")
+    return redirect(f"{reverse('scheduling:affected')}?date={appt.date}&doctor={appt.doctor_id}")
 
 
 # --- week calendar (03 §3.3) -----------------------------------------------------------------
@@ -357,15 +372,22 @@ def reschedule_confirm(request, pk):
 @require_perm("schedule.manage")
 def close_day(request):
     """ "قفل يوم" from the calendar → closed exception → the affected-bookings screen if anything is booked (12 §5)."""
-    doctor = get_doctor(request.organization)
+    doctors = doctor_services.active_doctors(request.organization)
+    whole_center = request.POST.get("doctor") == doctor_services.ALL
+    if not whole_center:  # one doctor's day; "all" (the board showing everyone) closes the center for the day
+        doctors = [doctor_services.current_doctor(request, doctors)]
     day = _parse_day(request.POST.get("date"))
-    _exc, created = ScheduleException.objects.get_or_create(
-        organization=request.organization, doctor=doctor, date=day, kind=ScheduleExceptionKind.CLOSED,
-        defaults={"reason": request.POST.get("reason", "")[:150]},
-    )  # fmt: skip
-    if created:
-        audit.log("settings.doctor", request=request, summary=f"{_('قفل يوم')}: {day}")
-    if services.affected_by_closing(doctor, day):
-        return redirect(f"{reverse('scheduling:affected')}?date={day.isoformat()}")
+    affected = False
+    for doctor in doctors:
+        _exc, created = ScheduleException.objects.get_or_create(
+            organization=request.organization, doctor=doctor, date=day, kind=ScheduleExceptionKind.CLOSED,
+            defaults={"reason": request.POST.get("reason", "")[:150]},
+        )  # fmt: skip
+        if created:
+            audit.log("settings.doctor", request=request, summary=f"{_('قفل يوم')}: {day} ({doctor})")
+        affected = affected or bool(services.affected_by_closing(doctor, day))
+    if affected:
+        query = f"?date={day.isoformat()}" + ("" if whole_center else f"&doctor={doctors[0].pk}")
+        return redirect(reverse("scheduling:affected") + query)
     messages.success(request, _("اليوم اتقفل."))
     return redirect(_board(day=day))

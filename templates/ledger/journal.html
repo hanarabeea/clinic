@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "دفتر اليومية" %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{% translate "الحسابات" %}</h1>
+  <span class="ms-auto"></span>
+  {% if can.ledger_post %}<a href="{% url 'ledger:entry_new' %}" class="btn-primary">{% icon "plus" "size-4" %}{% translate "قيد جديد" %}</a>{% endif %}
+</div>
+{% include "ledger/partials/tabs.html" %}
+
+{% url 'ledger:journal' as action %}
+{% include "ledger/partials/range.html" %}
+
+<form method="get" action="{{ action }}" class="mb-3 flex max-w-sm items-center gap-2 print:hidden" role="search">
+  <input type="hidden" name="from" value="{{ start|date:'Y-m-d' }}"><input type="hidden" name="to" value="{{ end|date:'Y-m-d' }}">
+  <input type="search" name="q" value="{{ q }}" class="input h-9 py-0" placeholder="{% translate 'رقم القيد أو كلمة من البيان' %}" aria-label="{% translate 'بحث في القيود' %}">
+  <button class="btn-secondary">{% translate "بحث" %}</button>
+</form>
+
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th class="w-20">{% translate "رقم" %}</th>
+        <th class="w-28">{% translate "التاريخ" %}</th>
+        <th>{% translate "البيان" %}</th>
+        <th class="text-end!">{% translate "المبلغ" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in entries %}
+      <tr class="cursor-pointer hover:bg-stone-50" onclick="location.href='{% url 'ledger:entry' e.pk %}'">
+        <td class="num font-semibold" dir="ltr"><a href="{% url 'ledger:entry' e.pk %}" class="hover:text-brand">{{ e.number }}</a></td>
+        <td class="num text-stone-600" dir="ltr">{{ e.date|date:"d/m/Y" }}</td>
+        <td>{{ e.memo }}{% if e.reverses_id %} <span class="badge bg-stone-100 text-stone-700">{% translate "قيد عكسي" %}</span>{% endif %}</td>
+        <td class="num text-end font-semibold" dir="ltr">{{ e.total|money0 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="py-12! text-center text-stone-600">{% translate "مفيش قيود في الفترة دي." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

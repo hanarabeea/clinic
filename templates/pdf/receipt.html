@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<style>
+{{ font_css|safe }}
+@page { size: A5 landscape; margin: 12mm; }
+body { font-family: "Cairo", "Poppins", sans-serif; font-size: 11pt; color: #111; line-height: 1.7; margin: 0; }
+header { display: flex; align-items: center; gap: 4mm; border-bottom: 1px solid #999; padding-bottom: 3mm; margin-bottom: 6mm; }
+header img { height: 13mm; }
+h1 { font-size: 15pt; margin: 0; }
+.clinic { margin-inline-start: auto; text-align: left; color: #444; font-size: 9.5pt; }
+.ltr { direction: ltr; unicode-bidi: isolate; font-family: "Poppins", "Cairo", sans-serif; }
+table { width: 100%; border-collapse: collapse; }
+td { padding: 1mm 0; vertical-align: top; }
+td.k { color: #555; width: 32mm; }
+.amount { font-size: 16pt; font-weight: 700; }
+.sign { margin-top: 12mm; display: flex; justify-content: space-between; color: #333; font-size: 10pt; }
+</style>
+</head>
+<body>
+<header>
+  {% if logo_uri %}<img src="{{ logo_uri }}" alt="">{% endif %}
+  <h1>{% if payment.is_refund %}إيصال رد مبلغ{% elif payment.kind == "deposit" %}إيصال مقدم{% else %}إيصال استلام نقدية{% endif %}</h1>
+  <div class="clinic">{{ settings.clinic_name_ar|default:org.name_ar }}
+    {% if inv_settings.tax_registration_number %}<br>الرقم الضريبي: <span class="ltr">{{ inv_settings.tax_registration_number }}</span>{% endif %}
+  </div>
+</header>
+<table>
+  <tr><td class="k">رقم الإيصال</td><td><b class="ltr">{{ payment.pk }}</b></td></tr>
+  <tr><td class="k">التاريخ</td><td><span class="ltr">{{ payment.received_at|date:"d/m/Y H:i" }}</span></td></tr>
+  <tr><td class="k">{% if payment.is_refund %}رُدّ إلى{% else %}استلمنا من{% endif %}</td><td><b>{{ payment.patient.full_name }}</b> <span class="ltr">#{{ payment.patient.file_number }}</span></td></tr>
+  <tr><td class="k">مبلغ وقدره</td><td><span class="amount ltr">{{ payment.amount|floatformat:"2g" }}</span> جنيه ({{ payment.get_method_display }})</td></tr>
+  <tr><td class="k">وذلك عن</td><td>{% if payment.kind == "deposit" %}مقدم تحت الحساب{% elif payment.appointment %}{{ payment.appointment.visit_type.name_ar }} <span class="ltr">{{ payment.appointment.date|date:"d/m/Y" }}</span>{% else %}سداد من الحساب{% endif %}{% if payment.note %}، {{ payment.note }}{% endif %}</td></tr>
+</table>
+<div class="sign"><span>المستلم: {{ payment.received_by.full_name|default:"............................" }}</span><span>التوقيع: ............................</span></div>
+</body>
+</html>

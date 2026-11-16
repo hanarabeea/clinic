@@ -1,0 +1,8 @@
+{% load i18n %}
+<nav class="tabs">
+  <a href="{% url 'treasury:home' %}" class="tab {% if tab == 'home' %}is-active{% endif %}">{% translate "الخزن" %}</a>
+  <a href="{% url 'treasury:vouchers' %}" class="tab {% if tab == 'vouchers' %}is-active{% endif %}">{% translate "السندات" %}</a>
+  <a href="{% url 'treasury:cheques' %}" class="tab {% if tab == 'cheques' %}is-active{% endif %}">{% translate "الشيكات" %}</a>
+  <a href="{% url 'treasury:expenses' %}" class="tab {% if tab == 'expenses' %}is-active{% endif %}">{% translate "مصروفات متكررة" %}</a>
+  <a href="{% url 'treasury:counts' %}" class="tab {% if tab == 'counts' %}is-active{% endif %}">{% translate "الجرد" %}</a>
+</nav>

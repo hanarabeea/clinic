@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "جهات التعاقد" %}{% endblock %}
+{% block content %}
+{% comment %}Companies and insurers that pay part of their people's invoices, and what each owes the center.{% endcomment %}
+<div class="page-head">
+  <h1>{% translate "الفواتير" %}</h1>
+  <span class="ms-auto"></span>
+  <a href="{% url 'invoicing:payer_new' %}" class="btn-primary">{% icon "plus" "size-4" %}{% translate "جهة جديدة" %}</a>
+</div>
+{% include "invoicing/partials/tabs.html" %}
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th>{% translate "الجهة" %}</th><th>{% translate "النوع" %}</th><th class="text-end!">{% translate "مستحق عليها" %}</th></tr></thead>
+    <tbody>
+      {% for p in payers %}
+      <tr class="{% if not p.is_active %}text-stone-500{% endif %}">
+        <td><a href="{% url 'invoicing:payer' p.pk %}" class="font-semibold hover:text-brand">{{ p.name }}</a>{% if not p.is_active %} <span class="badge bg-stone-200 text-stone-700">{% translate "متوقفة" %}</span>{% endif %}</td>
+        <td class="text-stone-600">{{ p.get_kind_display }}</td>
+        <td class="num text-end font-semibold" dir="ltr">{{ p.owed|money0 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="3" class="py-10! text-center text-stone-600">{% translate "مفيش جهات تعاقد. ضيف شركة أو تأمين، وبعدين سجّل المريضة عليها من صفحة حسابها." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

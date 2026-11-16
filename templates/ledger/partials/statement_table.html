@@ -1,0 +1,43 @@
+{% load i18n money %}
+{% comment %}An account's lines with the balance after each (ledger.reports.account_statement as `st`). Used by the
+account statement and by a treasury's movement (`in_out` = name the two columns داخل / خارج instead of مدين / دائن).{% endcomment %}
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th class="w-28">{% translate "التاريخ" %}</th>
+        <th class="w-20">{% translate "القيد" %}</th>
+        <th>{% translate "البيان" %}</th>
+        <th class="text-end!">{% if in_out %}{% translate "داخل" %}{% else %}{% translate "مدين" %}{% endif %}</th>
+        <th class="text-end!">{% if in_out %}{% translate "خارج" %}{% else %}{% translate "دائن" %}{% endif %}</th>
+        <th class="text-end!">{% translate "الرصيد" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr class="text-stone-600">
+        <td colspan="5">{% translate "رصيد أول المدة" %}</td>
+        <td class="num text-end font-semibold" dir="ltr">{{ st.opening|money0 }}</td>
+      </tr>
+      {% for row in st.lines %}
+      <tr>
+        <td class="num text-stone-600" dir="ltr">{{ row.line.entry.date|date:"d/m/Y" }}</td>
+        <td class="num" dir="ltr">{% if can.ledger_view %}<a href="{% url 'ledger:entry' row.line.entry_id %}" class="hover:text-brand">{{ row.line.entry.number }}</a>{% else %}{{ row.line.entry.number }}{% endif %}</td>
+        <td>{{ row.line.memo|default:row.line.entry.memo }}</td>
+        <td class="num text-end" dir="ltr">{{ row.line.debit|money }}</td>
+        <td class="num text-end" dir="ltr">{{ row.line.credit|money }}</td>
+        <td class="num text-end font-semibold" dir="ltr">{{ row.balance|money0 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="py-10! text-center text-stone-600">{% translate "مفيش حركة في الفترة دي." %}</td></tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="border-t border-stone-300 bg-stone-50 font-bold">
+        <td class="px-3 py-2" colspan="3">{% translate "الإجمالي ورصيد آخر المدة" %}</td>
+        <td class="num px-3 py-2 text-end" dir="ltr">{{ st.debit|money0 }}</td>
+        <td class="num px-3 py-2 text-end" dir="ltr">{{ st.credit|money0 }}</td>
+        <td class="num px-3 py-2 text-end" dir="ltr">{{ st.closing|money0 }}</td>
+      </tr>
+    </tfoot>
+  </table>
+</div>

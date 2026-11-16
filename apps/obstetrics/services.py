@@ -213,6 +213,8 @@ def close_pregnancy(
     pregnancy.status = PregnancyStatus.DELIVERED if outcome in BIRTHS else PregnancyStatus.LOST
     pregnancy.ended_on = ended_on
     pregnancy.save()
+    if outcome in LIVE_BIRTHS:  # nobody is congratulated after a loss
+        transaction.on_commit(lambda: notify_postpartum(pregnancy, by=by))
     return PregnancyHistory.objects.create(
         organization=pregnancy.organization,
         patient=pregnancy.patient,
@@ -452,6 +454,10 @@ ANTENATAL_NUMBERS = {
     "hemoglobin": (Decimal, 3, 20),
     "efw_g": (int, 0, 7000),
     "afi_cm": (Decimal, 0, 50),
+    "bpd_mm": (int, 5, 120),
+    "hc_mm": (int, 20, 420),
+    "ac_mm": (int, 20, 450),
+    "fl_mm": (int, 3, 95),
 }
 ANTENATAL_CHOICES = ("fetal_movement", "presentation", "edema", "urine_albumin", "urine_sugar")
 ANTENATAL_TEXT = {"placenta": 100, "ultrasound_notes": None}
@@ -502,3 +508,57 @@ def save_antenatal_field(visit, name, raw) -> AntenatalVisit:
     setattr(sheet, name, value)
     sheet.save(update_fields=[name, "updated_at"])
     return sheet
+
+
+# --- messages about the pregnancy (all through the outbox, apps/notifications) ---------------------------------
+
+POSTPARTUM_AFTER_DAYS = 33  # a week before the six-week check
+MILESTONE_HOUR = 11
+
+
+def _at(day, hour=MILESTONE_HOUR):
+    from datetime import datetime, time
+
+    return datetime.combine(day, time(hour, 0), tzinfo=CAIRO)
+
+
+def notify_postpartum(pregnancy, by=None) -> list:
+    """After a birth: one message a week before the six-week check. Idempotent per pregnancy."""
+    from apps.notifications import services as outbox
+    from apps.notifications.models import Event
+
+    if pregnancy.status != PregnancyStatus.DELIVERED or not pregnancy.ended_on:
+        return []
+    return outbox.enqueue_for_patient(
+        org=pregnancy.organization, patient=pregnancy.patient, event=Event.POSTPARTUM,
+        send_at=_at(pregnancy.ended_on + timedelta(days=POSTPARTUM_AFTER_DAYS)), context={},
+        key=f"pp:{pregnancy.pk}", by=by,
+    )  # fmt: skip
+
+
+def notify_milestones(now=None) -> int:
+    """The scheduler's job: every followed pregnancy inside a milestone's window that has not had it gets one
+    message about it. Idempotent per pregnancy and milestone, so running it again sends nothing twice. Returns how
+    many pregnancy / milestone pairs are due."""
+    from apps.notifications import services as outbox
+    from apps.notifications.models import Event
+
+    on = timezone.localtime(now or timezone.now(), CAIRO).date()
+    queued = 0
+    following = Pregnancy.objects.filter(status=PregnancyStatus.ACTIVE).select_related("patient", "organization")
+    for pregnancy in following.prefetch_related("milestone_checks"):
+        if not enabled(pregnancy.organization):
+            continue
+        age = pregnancy.ga(on)
+        profile = ObstetricProfile.objects.filter(patient=pregnancy.patient).first()
+        for row in milestones_for(pregnancy, profile, on=on):
+            if row.state != "due":
+                continue
+            rows = outbox.enqueue_for_patient(
+                org=pregnancy.organization, patient=pregnancy.patient, event=Event.MILESTONE_DUE,
+                send_at=_at(on), key=f"ms:{pregnancy.pk}:{row.milestone.pk}",
+                context={"milestone_name": row.milestone.name, "pregnancy_week": age.weeks,
+                         "pregnancy_month": age.month},
+            )  # fmt: skip
+            queued += 1 if rows else 0
+    return queued

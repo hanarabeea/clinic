@@ -4,6 +4,7 @@
 {% block content %}
 <div class="page-head"><h1>{% translate "الإعدادات" %}</h1></div>
 {% include "partials/settings_tabs.html" %}
+{% include "doctors/partials/doctor_switcher.html" with url_name="prescriptions:categories" %}
 
 <section class="card mb-6 p-4 sm:p-6">
   <h2 class="mb-1 text-[15px] font-bold">{% translate "التخصص" %}</h2>

@@ -7,7 +7,7 @@ found → add them right here (new_patient_form) and continue.{% endcomment %}
     {% for p in patients %}
     <li>
       <button type="button" class="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-start transition-colors hover:bg-stone-50"
-              hx-get="{% url 'scheduling:booking_panel' %}?patient={{ p.pk }}&day={{ day }}&at={{ at|urlencode }}&hour={{ hour }}" hx-target="#modal">
+              hx-get="{% url 'scheduling:booking_panel' %}?patient={{ p.pk }}&day={{ day }}&at={{ at|urlencode }}&hour={{ hour }}&doctor={{ doctor.pk }}" hx-target="#modal">
         <span class="num text-xs text-stone-500" dir="ltr">#{{ p.file_number }}</span>
         <span class="font-semibold">{{ p.full_name }}</span>
         <span class="num text-stone-600" dir="ltr">{{ p.phone }}</span>

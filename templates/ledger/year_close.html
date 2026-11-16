@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "إقفال السنة" %} {{ year.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'ledger:periods' %}" class="btn-icon" aria-label="{% translate 'رجوع للشهور' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{% translate "السنة المالية" %} {{ year.name }}</h1>
+    <p class="page-sub"><span class="num" dir="ltr">{{ year.start_date|date:"d/m/Y" }} - {{ year.end_date|date:"d/m/Y" }}</span>، {% if is_closed %}{% translate "مقفولة" %}{% else %}{% translate "مفتوحة" %}{% endif %}</p>
+  </div>
+</div>
+
+<p class="mb-4 max-w-2xl text-sm text-stone-600">{% translate "إقفال السنة بيرحّل نتيجتها (ربح أو خسارة) للأرباح المرحّلة، ويبدأ حسابات الإيرادات والمصروفات من صفر للسنة الجديدة، ويقفل آخر شهر فيها." %}</p>
+
+<dl class="card mb-5 max-w-2xl text-sm">
+  <div class="flex px-4 py-3"><dt class="text-stone-600">{% if result < 0 %}{% translate "خسارة السنة" %}{% else %}{% translate "ربح السنة" %}{% endif %}</dt><dd class="ms-auto font-bold"><span class="num" dir="ltr">{{ result|money0 }}</span></dd></div>
+</dl>
+
+{% if is_closed %}
+{% if entry and can.ledger_view %}<p class="mb-4 text-sm text-stone-600">{% translate "قيد الإقفال" %} <a class="link num" dir="ltr" href="{% url 'ledger:entry' entry.pk %}">{{ entry.number }}</a></p>{% endif %}
+<form method="post" onsubmit="return confirm('{% translate 'تفتح السنة دي تاني؟ قيد الإقفال هيتعكس وآخر شهر هيتفتح.' %}')">{% csrf_token %}
+  <input type="hidden" name="action" value="reopen">
+  <button class="btn-ghost">{% icon "lock-simple-open" "size-4" %}{% translate "افتح السنة تاني" %}</button>
+</form>
+{% else %}
+<h2 class="section-title">{% translate "قبل الإقفال" %}</h2>
+<ul class="card mb-5 max-w-2xl divide-y divide-stone-100 text-sm">
+  {% for c in checks %}
+  <li class="flex items-start gap-3 px-4 py-2.5">
+    {% if c.ok %}{% icon "check-circle" "size-5 shrink-0 text-emerald-700" %}{% else %}{% icon "warning-circle" "size-5 shrink-0 text-red-700" %}{% endif %}
+    <span><span class="{% if not c.ok %}font-semibold{% endif %}">{{ c.label }}</span>{% if not c.ok and c.detail %}<span class="block text-xs text-stone-600">{{ c.detail }}</span>{% endif %}</span>
+  </li>
+  {% endfor %}
+</ul>
+{% if ready %}
+<form method="post" onsubmit="return confirm('{% translate 'تقفل السنة دي؟' %}')">{% csrf_token %}
+  <button class="btn-primary">{% icon "lock-simple" "size-4" %}{% translate "اقفل السنة" %}</button>
+</form>
+{% else %}<p class="text-sm text-stone-600">{% translate "خلّص البنود اللي فوق الأول." %}</p>{% endif %}
+{% endif %}
+{% endblock %}

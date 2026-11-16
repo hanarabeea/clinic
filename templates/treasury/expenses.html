@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "مصروفات متكررة" %}{% endblock %}
+{% block content %}
+{% comment %}Rent, salaries, bills: the vouchers the clinic writes every month. The program fills the voucher in and
+says which ones this month still has not paid; a person presses the button.{% endcomment %}
+<div class="page-head">
+  <h1>{% translate "الخزن والسندات" %}</h1>
+  <span class="ms-auto"></span>
+  {% if can.treasury_operate %}<a href="{% url 'treasury:expense_new' %}" class="btn-primary">{% icon "plus" "size-4" %}{% translate "مصروف متكرر" %}</a>{% endif %}
+</div>
+{% include "treasury/partials/tabs.html" %}
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th>{% translate "المصروف" %}</th><th>{% translate "من" %}</th><th>{% translate "الشهر ده" %}</th><th class="text-end!">{% translate "المبلغ" %}</th><th></th></tr></thead>
+    <tbody>
+      {% for t in rows %}
+      <tr class="{% if not t.is_active %}text-stone-500{% endif %}">
+        <td><span class="font-semibold">{{ t.name }}</span> <span class="text-xs text-stone-600">{{ t.counter_account.name_ar }}</span></td>
+        <td class="text-stone-600">{{ t.treasury.name }}</td>
+        <td>{% if t.paid_voucher %}<a href="{% url 'treasury:voucher' t.paid_voucher.pk %}" class="link text-sm">{% translate "اتسجل" %} <span class="num" dir="ltr">{{ t.paid_voucher.date|date:"d/m" }}</span></a>{% elif not t.is_active %}{% translate "متوقف" %}{% elif t.overdue %}<span class="font-semibold text-red-700">{% translate "فات ميعاده" %}</span>{% else %}<span class="text-stone-600">{% translate "يوم" %} <span class="num" dir="ltr">{{ t.day_of_month }}</span></span>{% endif %}</td>
+        <td class="num text-end font-semibold" dir="ltr">{{ t.amount|money0 }}</td>
+        <td>
+          <div class="flex items-center justify-end gap-1">
+            {% if can.treasury_operate and t.is_active and not t.paid_voucher %}
+            <form method="post" action="{% url 'treasury:expense_record' t.pk %}" class="flex items-center gap-1" onsubmit="return confirm('{% translate 'تسجل سند الصرف ده؟' %}')">{% csrf_token %}
+              <input name="amount" class="input h-8 w-24 py-0 text-end" dir="ltr" inputmode="decimal" value="{{ t.amount|floatformat:'2u' }}" aria-label="{% translate 'المبلغ' %}">
+              <button class="btn-secondary min-h-8 px-3 py-1 text-xs">{% translate "سجّل" %}</button>
+            </form>
+            {% endif %}
+            {% if can.treasury_operate %}<a href="{% url 'treasury:expense_edit' t.pk %}" class="btn-icon size-7" aria-label="{% translate 'تعديل' %}">{% icon "pencil-simple" "size-4" %}</a>{% endif %}
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="py-10! text-center text-stone-600">{% translate "ضيف المصروفات اللي بتتكرر كل شهر (الإيجار، المرتبات، الكهربا) عشان تتسجل بضغطة." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

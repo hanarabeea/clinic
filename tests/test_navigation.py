@@ -29,7 +29,10 @@ def staff(org_a, make_member):
 def test_default_reception_role_works_in_the_reception_screen(org_a):
     roles.ensure_defaults(org_a)
     by_key = {r.key: r.start_screen for r in ClinicRole.objects.filter(organization=org_a)}
-    assert by_key == {"admin": "", "doctor": "", "reception": "reception", "viewer": ""}
+    assert by_key == {
+        "admin": "", "doctor": "", "reception": "reception", "viewer": "",
+        "accountant": "books", "cashier": "cashbox", "storekeeper": "stock", "theatre_nurse": "theatre",
+    }  # fmt: skip
 
 
 def test_work_screen_is_the_roles_unless_the_person_cannot_open_it(org_a, make_member, staff):
@@ -40,8 +43,9 @@ def test_work_screen_is_the_roles_unless_the_person_cannot_open_it(org_a, make_m
     _user, m = staff("reception")
     assert navigation.work_screen(m).key == "reception"
 
+    # everything that brings the board with it (IMPLIES), not only the board's own permission
     m.revoked_permissions = ["appointment.view", "appointment.book", "appointment.reschedule", "appointment.cancel",
-                             "reception.operate"]  # fmt: skip
+                             "reception.operate", "emergency.register", "service.order"]  # fmt: skip
     m.save()
     assert navigation.work_screen(Membership.objects.get(pk=m.pk)) is None  # can't open it: back to the whole system
 

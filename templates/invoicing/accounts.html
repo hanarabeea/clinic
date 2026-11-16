@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "حسابات المرضى" %}{% endblock %}
+{% block content %}
+{% comment %}Patients with something open: work not invoiced yet, a balance she owes, or money of hers the center
+holds. The balances are the books' own (her account inside "المرضى: ذمم مدينة" and "دفعات مقدمة").{% endcomment %}
+<div class="page-head">
+  <h1>{% translate "الفواتير" %}</h1>
+</div>
+{% include "invoicing/partials/tabs.html" %}
+<div class="stat-strip mb-4">
+  <div class="stat"><div class="stat-label">{% translate "مستحق على المرضى" %}</div><div class="stat-value" dir="ltr">{{ total_owed|money0 }}</div></div>
+  <div class="stat"><div class="stat-label">{% translate "مقدمات عندنا" %}</div><div class="stat-value" dir="ltr">{{ total_deposits|money0 }}</div></div>
+</div>
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>{% translate "المريضة" %}</th>
+        <th></th>
+        <th class="text-end!">{% translate "عليها" %}</th>
+        <th class="text-end!">{% translate "مقدم" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in patients %}
+      <tr>
+        <td><a href="{% url 'invoicing:account' p.pk %}" class="font-semibold hover:text-brand">{{ p.full_name }}</a> <span class="num text-xs text-stone-600" dir="ltr">#{{ p.file_number }}</span></td>
+        <td class="text-sm text-stone-600">{% if p.waiting %}{% translate "فيه بنود لسه ما اتفوترتش" %}{% endif %}</td>
+        <td class="text-end font-semibold">{% if p.owed < 0 %}<span class="text-xs font-normal text-stone-600">{% translate "ليها" %}</span> <span class="num" dir="ltr">{{ p.owed|cut:"-"|money0 }}</span>{% else %}<span class="num" dir="ltr">{{ p.owed|money }}</span>{% endif %}</td>
+        <td class="num text-end" dir="ltr">{{ p.deposit|money }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="py-10! text-center text-stone-600">{% translate "مفيش حسابات مفتوحة." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

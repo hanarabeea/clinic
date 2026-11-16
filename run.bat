@@ -18,6 +18,8 @@ echo [4/6] Updating database...
 .venv\Scripts\python manage.py migrate --noinput || goto :error
 .venv\Scripts\python manage.py seed_org || goto :error
 .venv\Scripts\python manage.py seed_notifications || goto :error
+.venv\Scripts\python manage.py seed_services || goto :error
+.venv\Scripts\python manage.py ledger_bootstrap || goto :error
 .venv\Scripts\python manage.py import_drugs || goto :error
 .venv\Scripts\python manage.py import_egyptian_drugs || goto :error
 .venv\Scripts\python manage.py build_speech_boost

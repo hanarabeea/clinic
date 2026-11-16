@@ -19,7 +19,7 @@ to reschedule it. A booking opens its day for the reception actions.{% endcommen
           {% for exc in col.exceptions %}<span class="mt-0.5 block rounded px-1 font-normal {% if exc.kind == 'closed' %}bg-red-50 text-red-800{% else %}bg-amber-50 text-amber-900{% endif %}">{{ exc.get_kind_display }}{% if exc.reason %}: {{ exc.reason }}{% endif %}</span>{% endfor %}
           {% if can.schedule_manage and col.periods and not col.is_past %}
           <form method="post" action="{% url 'scheduling:close_day' %}" onsubmit="return confirm('{% translate 'تقفل اليوم ده؟ الحجوزات اللي فيه هتظهرلك عشان تأجلها.' %}')">
-            {% csrf_token %}<input type="hidden" name="date" value="{{ col.day|date:'Y-m-d' }}">
+            {% csrf_token %}<input type="hidden" name="date" value="{{ col.day|date:'Y-m-d' }}"><input type="hidden" name="doctor" value="{{ doctor.pk }}">
             <button class="inline-flex items-center gap-1 font-normal text-stone-500 hover:text-red-700">{% icon "lock-simple" "size-3.5" %}{% translate "قفل" %}</button>
           </form>
           {% endif %}
@@ -46,12 +46,12 @@ to reschedule it. A booking opens its day for the reception actions.{% endcommen
                 {% if a.queue_number %}#{{ a.queue_number }} {% endif %}{{ a.start_at|ampm }}
                 <span class="ms-auto text-stone-500">{% if a.status == 'confirmed' %}{% icon "check" "size-3.5 text-green-700" %}{% elif a.status == 'arrived' %}{% icon "door-open" "size-3.5 text-amber-700" %}{% elif a.status == 'in_consultation' %}{% icon "stethoscope" "size-3.5 text-sky-700" %}{% elif a.status == 'completed' %}{% icon "checks" "size-3.5" %}{% elif a.status == 'no_show' %}{% icon "x" "size-3.5 text-red-700" %}{% endif %}</span>
               </span>
-              <span class="block truncate font-medium">{% if a.ga and can.pregnancy_view_basic %}{% icon "baby" "size-3 text-brand" %} {% endif %}{{ a.patient.full_name }}</span>
+              <span class="block truncate font-medium">{% if e.emergency %}{% icon "siren" "size-3 text-red-700" %} {% endif %}{% if a.ga and can.pregnancy_view_basic %}{% icon "baby" "size-3 text-brand" %} {% endif %}{{ a.patient.full_name }}</span>
             </a>
             {% endwith %}{% endwith %}{% endfor %}
             {% if cell.bookable and can.appointment_book %}
             <button type="button" class="flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-stone-300 py-0.5 font-semibold text-brand opacity-0 transition hover:border-brand hover:bg-brand-soft focus:opacity-100 group-hover:opacity-100 pointer-coarse:opacity-100"
-                    hx-get="{% url 'scheduling:booking_panel' %}?day={{ cell.day|date:'Y-m-d' }}&hour={{ cell.hour }}" hx-target="#modal">{% icon "plus" "size-3.5" %}{% translate "احجز" %}</button>
+                    hx-get="{% url 'scheduling:booking_panel' %}?day={{ cell.day|date:'Y-m-d' }}&hour={{ cell.hour }}&doctor={{ doctor.pk }}" hx-target="#modal">{% icon "plus" "size-3.5" %}{% translate "احجز" %}</button>
             {% endif %}
           </div>
         </td>

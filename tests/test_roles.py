@@ -4,8 +4,8 @@ assigned to employees, and an employee's pages and buttons follow their role at 
 import pytest
 from django.urls import reverse
 
-from apps.accounts.permissions import ROLE_PERMISSIONS, effective_permissions
-from apps.accounts.roles import ensure_defaults
+from apps.accounts.permissions import EXTRA_ROLE_PERMISSIONS, ROLE_PERMISSIONS, effective_permissions
+from apps.accounts.roles import default_permissions, ensure_defaults
 from apps.organizations.models import ClinicRole, Membership, Role
 
 PASSWORD = "Strong-Pass-2026!"
@@ -32,15 +32,24 @@ def test_every_clinic_starts_with_editable_copies_of_the_built_in_roles(org_a, m
     legacy = Membership.objects.get(user=make_member(org_a, "reception"))
     before = effective_permissions(legacy)
     roles = _roles(org_a)
-    assert set(roles) == {"admin", "doctor", "reception", "viewer"}
+    center = {"accountant", "cashier", "storekeeper", "theatre_nurse"}  # the center's roles, beside the clinic's four
+    assert set(roles) == {"admin", "doctor", "reception", "viewer"} | center
     for key in ("admin", "doctor", "reception", "viewer"):
         assert set(roles[key].permissions) == ROLE_PERMISSIONS[key]
+    for key in center:
+        assert set(roles[key].permissions) == default_permissions(key) >= EXTRA_ROLE_PERMISSIONS[key]
+        assert roles[key].start_screen  # each opens straight onto its own screen
+    assert (roles["accountant"].start_screen, roles["storekeeper"].start_screen) == ("books", "stock")
+    # the accountant keeps the books but gives no discounts; the cashier sees no books; nobody but the doctor the file
+    assert not {"invoice.discount", "invoice.discount_any", "clinical.view"} & set(roles["accountant"].permissions)
+    assert not {"ledger.view", "clinical.view"} & set(roles["cashier"].permissions)
+    assert not {"clinical.view", "payment.record"} & set(roles["theatre_nurse"].permissions)
     legacy.refresh_from_db()
     assert legacy.role == Role.MEMBER and legacy.clinic_role == roles["reception"]
     assert effective_permissions(legacy) == before  # nobody gains or loses anything by the move
     assert legacy.role_name == "استقبال"
     ensure_defaults(org_a)  # idempotent
-    assert ClinicRole.objects.filter(organization=org_a).count() == 4
+    assert ClinicRole.objects.filter(organization=org_a).count() == 8
 
 
 def test_a_deleted_default_role_is_not_recreated(org_a):
@@ -124,7 +133,7 @@ def test_role_names_must_be_unique_and_not_the_owner(client, org_a, owner, name)
     client.force_login(owner)
     resp = _save_role(client, reverse("accounts:role_new"), name, {"appointment.view"})
     assert resp.status_code == 400
-    assert ClinicRole.objects.filter(organization=org_a).count() == 4
+    assert ClinicRole.objects.filter(organization=org_a).count() == 8
 
 
 def test_implied_permissions_are_added_to_a_role(client, org_a, owner):
@@ -151,12 +160,12 @@ def test_delete_only_when_nobody_uses_it(client, org_a, owner, make_member):
 
 def test_add_a_user_on_a_custom_role(client, org_a, owner):
     client.force_login(owner)
-    _save_role(client, reverse("accounts:role_new"), "محاسب", {"payment.record", "report.finance"})
-    role = ClinicRole.objects.get(organization=org_a, name="محاسب")
+    _save_role(client, reverse("accounts:role_new"), "مراقب مالي", {"payment.record", "report.finance"})
+    role = ClinicRole.objects.get(organization=org_a, name="مراقب مالي")
     data = {"full_name": "Sara", "username": "sara", "password1": PASSWORD, "password2": PASSWORD, "role": role.pk}
     assert client.post(reverse("accounts:member_create"), data).status_code == 302
     m = Membership.objects.get(user__username="sara")
-    assert "محاسب" in client.get(reverse("accounts:users")).content.decode()
+    assert "مراقب مالي" in client.get(reverse("accounts:users")).content.decode()
     assert m.clinic_role == role
     assert effective_permissions(m) == {"payment.record", "report.finance"}
 
@@ -217,3 +226,13 @@ def test_role_changes_are_audited(client, org_a, owner):
     client.post(reverse("accounts:role_delete", args=[role.pk]))
     actions = list(AuditEvent.objects.filter(action__startswith="role.").values_list("action", flat=True))
     assert sorted(actions) == ["role.created", "role.deleted", "role.updated"]
+
+
+def test_the_role_migration_gives_existing_clinics_the_same_center_roles():
+    """The migration freezes the four roles as they are today: it must match what a new clinic gets."""
+    from importlib import import_module
+
+    frozen = import_module("apps.organizations.migrations.0007_center_roles").ROLES
+    assert {key for key, *_rest in frozen} == set(EXTRA_ROLE_PERMISSIONS)
+    for key, _name, _description, _screen, perms in frozen:
+        assert set(perms) == default_permissions(key), key

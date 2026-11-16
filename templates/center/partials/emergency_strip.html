@@ -1,0 +1,44 @@
+{% load i18n %}
+{% comment %}On top of the reception board, whoever's schedule is open: the emergency cases in the building right now
+(waiting or with the doctor), the most urgent first. Part of the polled board, so it follows the doctor's desk.
+One line per case: how urgent, who, how long she has waited, and the one next step. The rest is in the "more" menu.{% endcomment %}
+{% if emergencies %}
+<section class="mb-5 overflow-hidden rounded-xl border border-red-200 bg-white" aria-label="{% translate 'حالات الطوارئ' %}">
+  <ul class="divide-y divide-stone-100">
+    {% for case in emergencies %}{% with a=case.appointment %}
+    <li class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm">
+      <span class="text-red-700">{% icon "siren" "size-5" %}</span>
+      {% include "center/partials/triage_tag.html" %}
+      {% if can.patient_view_basic %}<a href="{% url 'patients:detail' case.patient.pk %}" class="font-bold hover:text-brand">{{ case.patient.full_name }}</a>{% else %}<span class="font-bold">{{ case.patient.full_name }}</span>{% endif %}
+      {# why she came in is for the people who handle the case, not for someone who only looks at the schedule #}
+      {% if can.emergency_register or can.clinical_view %}<span class="text-stone-600">{{ case.reason_label }}</span>{% endif %}
+      <span class="text-stone-600">{{ case.doctor }}</span>
+      <span class="ms-auto flex items-center gap-2">
+        {% if a.status == "in_consultation" %}<span class="text-stone-600">{% translate "عند الدكتور" %}</span>
+        {% elif case.waiting is not None %}<span class="num {% if case.waiting >= 10 %}font-semibold text-red-700{% else %}text-stone-600{% endif %}">{% blocktranslate with m=case.waiting %}مستنية {{ m }} دقيقة{% endblocktranslate %}</span>{% endif %}
+        {% if case.disposition %}<span class="text-stone-600">{{ case.get_disposition_display }}</span>{% endif %}
+        {% if can.reception_operate and a.status == "arrived" %}
+        <button class="btn-primary min-h-8 px-3.5 py-1 text-xs" hx-post="{% url 'reception:step' a.pk 'call' %}" hx-target="#reception">{% translate "دخّل للدكتور" %}</button>
+        {% endif %}
+        {% if can.emergency_register or can.payment_record %}
+        <div class="relative" x-data="{ more: false }">
+          <button type="button" class="btn-icon" @click="more = !more" :aria-expanded="more" aria-label="{% translate 'المزيد' %}">{% icon "dots-three-vertical" "size-5" %}</button>
+          <div x-show="more" @click.outside="more = false" @keydown.escape="more = false" x-cloak class="menu absolute end-0 z-20 mt-1 w-48">
+            {% if can.payment_record and a.price %}<button class="menu-item" hx-get="{% url 'reception:payment' a.pk %}" hx-target="#modal">{% icon "money" %}{% translate "تسجيل دفع" %}</button>{% endif %}
+            {% if can.emergency_register %}
+            <button class="menu-item" hx-get="{% url 'center:emergency_disposition' case.pk %}" hx-target="#modal">{% icon "door-open" %}{% translate "التصرف في الحالة" %}</button>
+            <a class="menu-item" href="{% url 'center:emergencies' %}">{% icon "clock-counter-clockwise" %}{% translate "سجل الطوارئ" %}</a>
+            {% if a.status == "arrived" %}
+            <button class="menu-item mt-1 border-t border-stone-100 pt-1.5 text-red-700 hover:bg-red-50 hover:text-red-800 [&_.icon]:text-red-600" hx-post="{% url 'center:emergency_cancel' case.pk %}" hx-swap="none"
+                    hx-confirm="{% translate 'تلغي تسجيل الطوارئ ده؟ (لو اتسجل بالغلط)' %}">{% icon "x" %}{% translate "إلغاء التسجيل" %}</button>
+            {% endif %}
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+      </span>
+    </li>
+    {% endwith %}{% endfor %}
+  </ul>
+</section>
+{% endif %}

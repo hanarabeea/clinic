@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "متابعة الحمل" %}{% endblock %}
+{% block content %}
+{% comment %}The clinic's own schedule: what every pregnancy should get, and in which weeks. The doctor sees it laid
+over each pregnancy (done, due now, overdue), and the patient is reminded when a window opens.{% endcomment %}
+<div class="page-head">
+  <h1>{% translate "الإعدادات" %}</h1>
+  <span class="ms-auto"></span>
+  <a href="{% url 'obstetrics:milestone_new' %}" class="btn-primary">{% icon "plus" "size-4" %}{% translate "محطة جديدة" %}</a>
+</div>
+{% include "partials/settings_tabs.html" %}
+<p class="mb-4 max-w-2xl text-sm text-stone-600">{% translate "دي المحطات اللي كل حمل بيعدّي عليها (تحاليل، سونار، حقن). الدكتور بيشوفها في ملف الحمل: اتعملت، وقتها دلوقتي، أو فاتت. والمريضة بتوصلها رسالة لما وقت المحطة يبدأ." %}</p>
+<div class="card max-w-3xl overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th>{% translate "المحطة" %}</th><th>{% translate "النوع" %}</th><th class="text-end!">{% translate "من أسبوع" %}</th><th class="text-end!">{% translate "لحد أسبوع" %}</th><th></th></tr></thead>
+    <tbody>
+      {% for m in milestones %}
+      <tr class="{% if not m.is_active %}text-stone-500{% endif %}">
+        <td><span class="font-semibold">{{ m.name }}</span>{% if m.rh_negative_only %} <span class="text-xs text-stone-600">{% translate "للـRh السالب بس" %}</span>{% endif %}{% if not m.is_active %} <span class="badge bg-stone-200 text-stone-700">{% translate "متوقفة" %}</span>{% endif %}</td>
+        <td class="text-stone-600">{{ m.get_kind_display }}</td>
+        <td class="num text-end" dir="ltr">{{ m.from_week }}</td>
+        <td class="num text-end" dir="ltr">{{ m.to_week }}</td>
+        <td class="text-end"><a href="{% url 'obstetrics:milestone_edit' m.pk %}" class="btn-icon size-7" aria-label="{% translate 'تعديل المحطة' %}">{% icon "pencil-simple" "size-4" %}</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% load i18n clock money %}
+{% block title %}{{ op.procedure_name }}: {{ op.patient.full_name }}{% endblock %}
+{% block content %}
+{% comment %}One operation. On top: who, what, when, where it stands and the one next step. Under it, a tab per part of
+the work (before the operation, the team, the surgeon's note, the newborn for a delivery, what was used). Each part
+saves by itself and re-reads only itself.{% endcomment %}
+<div class="page-head">
+  <a href="{% url 'theatre:board' %}?date={{ op.date|date:'Y-m-d' }}" class="btn-icon" aria-label="{% translate 'رجوع للعمليات' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{{ op.procedure_name }}</h1>
+    <p class="page-sub">
+      {% if can.patient_view_basic %}<a href="{% url 'patients:detail' op.patient.pk %}" class="font-semibold text-ink hover:text-brand">{{ op.patient.full_name }}</a>{% else %}<span class="font-semibold text-ink">{{ op.patient.full_name }}</span>{% endif %}
+      {% if ga %}{% include "obstetrics/partials/ga_badge.html" %}{% endif %}
+    </p>
+  </div>
+  <span class="ms-auto"></span>
+  {% if can.invoice_view %}<a href="{% url 'invoicing:account' op.patient.pk %}" class="btn-ghost">{% icon "receipt" "size-4" %}{% translate "الحساب" %}</a>{% endif %}
+  {% if can.theatre_operate and next and editable %}
+  <form method="post" action="{% url 'theatre:operation_step' op.pk next.0 %}">{% csrf_token %}
+    <button class="btn-primary min-h-10 px-5">{{ next.1 }}</button>
+  </form>
+  {% endif %}
+</div>
+
+<dl class="card mb-5 grid divide-stone-200 text-sm sm:grid-cols-4 sm:divide-x sm:rtl:divide-x-reverse">
+  <div class="px-4 py-3"><dt class="text-xs text-stone-600">{% translate "الحالة" %}</dt><dd class="font-bold">{{ op.get_status_display }}{% if op.is_emergency %} <span class="badge bg-red-50 font-semibold text-red-800">{% translate "طوارئ" %}</span>{% endif %}</dd></div>
+  <div class="px-4 py-3"><dt class="text-xs text-stone-600">{% translate "الميعاد" %}</dt><dd class="font-semibold"><span class="num" dir="ltr">{{ op.planned_start|date:"d/m/Y" }}</span> <span class="num" dir="ltr">{{ op.planned_start|ampm }}</span></dd></div>
+  <div class="px-4 py-3"><dt class="text-xs text-stone-600">{% translate "الغرفة" %}</dt><dd class="font-semibold">{{ op.room.name }}</dd></div>
+  <div class="px-4 py-3"><dt class="text-xs text-stone-600">{% translate "الجراح" %}</dt><dd class="font-semibold">{{ op.surgeon }}</dd></div>
+</dl>
+{% if op.notes %}<p class="mb-5 text-sm text-stone-700">{{ op.notes }}</p>{% endif %}
+{% if op.status == "postponed" %}
+<p class="notice notice-warn mb-5 flex-wrap items-center">{% icon "warning" "size-5 shrink-0" %}
+  {% if op.postponed_to %}<span>{% translate "العملية دي اتأجلت واتحجزلها" %} <a class="link" href="{% url 'theatre:operation' op.postponed_to.pk %}">{% translate "ميعاد جديد" %}</a>.</span>
+  {% else %}<span>{% translate "العملية دي متأجلة ومستنية ميعاد جديد." %}</span>
+  {% if can.theatre_schedule %}<a href="{% url 'theatre:operation_move' op.pk %}" class="btn-secondary ms-auto min-h-8 px-3 py-1 text-xs">{% translate "احجز ميعاد جديد" %}</a>{% endif %}{% endif %}
+</p>
+{% elif op.status == "cancelled" %}
+<p class="notice notice-warn mb-5">{% icon "warning" "size-5 shrink-0" %}<span>{% translate "العملية دي اتلغت" %}{% if op.cancel_reason %}: {{ op.cancel_reason }}{% endif %}</span></p>
+{% endif %}
+
+<div x-data="{ tab: '{% if op.status == 'scheduled' or op.status == 'admitted' %}checklist{% elif op.is_delivery and not op.delivery_closed %}newborns{% else %}note{% endif %}' }">
+  <nav class="tabs" role="tablist">
+    <button type="button" class="tab" :class="tab === 'checklist' && 'is-active'" @click="tab = 'checklist'">{% translate "قبل العملية" %}</button>
+    <button type="button" class="tab" :class="tab === 'team' && 'is-active'" @click="tab = 'team'">{% translate "الفريق" %}</button>
+    {% if can.clinical_view %}<button type="button" class="tab" :class="tab === 'note' && 'is-active'" @click="tab = 'note'">{% translate "تقرير العملية" %}</button>{% endif %}
+    {% if op.is_delivery %}<button type="button" class="tab" :class="tab === 'newborns' && 'is-active'" @click="tab = 'newborns'">{% translate "المولود" %}</button>{% endif %}
+    <button type="button" class="tab" :class="tab === 'consumables' && 'is-active'" @click="tab = 'consumables'">{% translate "المستلزمات" %}</button>
+    <button type="button" class="tab" :class="tab === 'log' && 'is-active'" @click="tab = 'log'">{% translate "السجل" %}</button>
+  </nav>
+  <div x-show="tab === 'checklist'">{% include "theatre/partials/op_checklist.html" %}</div>
+  <div x-show="tab === 'team'" x-cloak>{% include "theatre/partials/op_team.html" %}</div>
+  {% if can.clinical_view %}<div x-show="tab === 'note'" x-cloak>{% include "theatre/partials/op_note.html" %}</div>{% endif %}
+  {% if op.is_delivery %}<div x-show="tab === 'newborns'" x-cloak>{% include "theatre/partials/op_newborns.html" %}</div>{% endif %}
+  <div x-show="tab === 'consumables'" x-cloak>{% include "theatre/partials/op_consumables.html" %}</div>
+  <div x-show="tab === 'log'" x-cloak>
+    <ul class="card divide-y divide-stone-100 text-sm">
+      {% for e in events %}
+      <li class="flex flex-wrap items-baseline gap-x-3 px-4 py-2"><span class="num text-stone-600" dir="ltr">{{ e.at|date:"d/m" }} {{ e.at|ampm }}</span>
+        <span class="font-semibold">{{ e.to_status_label }}</span>
+        {% if e.notes %}<span class="text-stone-700">{{ e.notes }}</span>{% endif %}
+        {% if e.by %}<span class="ms-auto text-stone-600">{{ e.by.full_name|default:e.by.username }}</span>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+
+{% if editable %}
+<div class="mt-8 flex flex-wrap items-center gap-2 border-t border-stone-200 pt-4 text-sm">
+  {% if can.theatre_operate and can_undo %}
+  <form method="post" action="{% url 'theatre:operation_step' op.pk 'undo' %}">{% csrf_token %}<button class="btn-ghost">{% icon "arrow-u-up-left" "size-4" %}{% translate "رجوع خطوة" %}</button></form>
+  {% endif %}
+  {% if can.theatre_schedule %}
+    {% if op.status == "scheduled" or op.status == "admitted" %}
+    <a href="{% url 'theatre:operation_move' op.pk %}" class="btn-ghost">{% icon "calendar-blank" "size-4" %}{% translate "غيّر الميعاد أو الغرفة" %}</a>
+    {% endif %}
+    {% if op.status == "scheduled" %}
+    <form method="post" action="{% url 'theatre:operation_close' op.pk 'postpone' %}" onsubmit="return confirm('{% translate 'تأجّل العملية من غير ميعاد جديد دلوقتي؟' %}')">{% csrf_token %}<button class="btn-ghost">{% translate "تأجيل" %}</button></form>
+    {% endif %}
+    {% if op.status == "scheduled" or op.status == "admitted" %}
+    <form method="post" action="{% url 'theatre:operation_close' op.pk 'cancel' %}" class="ms-auto flex items-center gap-2" onsubmit="return confirm('{% translate 'تلغي العملية دي؟' %}')">{% csrf_token %}
+      <input type="text" name="reason" maxlength="200" class="input h-9 w-48 py-0" placeholder="{% translate 'سبب الإلغاء' %}" aria-label="{% translate 'سبب الإلغاء' %}">
+      <button class="btn-danger">{% translate "إلغاء العملية" %}</button>
+    </form>
+    {% endif %}
+  {% endif %}
+  {% if can.admission_manage and not admission and op.status != "scheduled" %}
+  <a href="{% url 'theatre:admit' %}?operation={{ op.pk }}" class="btn-secondary">{% icon "bed" "size-4" %}{% translate "دخّلها غرفة" %}</a>
+  {% endif %}
+</div>
+{% endif %}
+{% if admission %}<p class="mt-4 text-sm text-stone-700">{% icon "bed" "size-4" %} {% translate "مقيمة في" %} {{ admission.room.name }} {% translate "من" %} <span class="num" dir="ltr">{{ admission.admitted_at|date:"d/m" }} {{ admission.admitted_at|ampm }}</span>{% if admission.status == "discharged" %}، {% translate "وخرجت" %} <span class="num" dir="ltr">{{ admission.discharged_at|date:"d/m" }}</span>{% endif %}</p>{% endif %}
+{% endblock %}

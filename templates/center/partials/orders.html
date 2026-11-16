@@ -1,0 +1,58 @@
+{% load i18n %}
+{% comment %}The services of one visit (center.views.orders): what was added, what the visit now costs, and the catalog
+to add from. The same box sits in the reception dialog and inside the doctor's workspace; every add / cancel swaps
+it in place.{% endcomment %}
+<div id="orders-box" class="space-y-3">
+  {% if error %}<p class="notice notice-danger font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ error }}</p>{% endif %}
+
+  {% if orders %}
+  <ul class="divide-y divide-stone-100 rounded-lg border border-stone-200">
+    {% for o in orders %}
+    <li class="flex items-center gap-2 px-3 py-1.5 text-sm">
+      <span class="font-semibold">{{ o.name }}</span>
+      {% if o.quantity > 1 %}<span class="num text-xs text-stone-600" dir="ltr">x{{ o.quantity }}</span>{% endif %}
+      <span class="num ms-auto font-semibold"><span dir="ltr">{{ o.total|floatformat:"-2" }}</span></span>
+      {% if open %}
+      <button type="button" class="btn-icon size-7 text-stone-500 hover:bg-red-50 hover:text-red-700" aria-label="{% translate 'شيل الخدمة' %}"
+              hx-post="{% url 'center:order_cancel' o.pk %}{% if inline %}?inline=1{% endif %}" hx-target="#orders-box" hx-swap="outerHTML"
+              hx-confirm="{% blocktranslate with n=o.name %}تشيل {{ n }} من الزيارة؟{% endblocktranslate %}">{% icon "x" "size-4" %}</button>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% elif not inline %}
+  <p class="text-sm text-stone-600">{% translate "مفيش خدمات على الزيارة دي." %}</p>
+  {% endif %}
+
+  {% if not inline %}
+  <p class="num flex flex-wrap items-baseline gap-x-5 text-sm text-stone-600">
+    <span>{% translate "إجمالي الزيارة" %} <b class="text-ink" dir="ltr">{{ balance.due|floatformat:"-2" }}</b></span>
+    {% if balance.remaining %}<span>{% translate "الباقي" %} <b class="text-brand" dir="ltr">{{ balance.remaining|floatformat:"-2" }}</b></span>{% endif %}
+  </p>
+  {% endif %}
+
+  {% if open %}
+  {# in the doctor's visit form the catalog stays folded until asked for; in reception's dialog it is the point #}
+  <details class="group" {% if not inline or adding %}open{% endif %}>
+    <summary class="{% if inline %}inline-flex cursor-pointer list-none items-center gap-1 text-sm font-semibold text-brand hover:underline{% else %}sr-only{% endif %}">{% icon "plus" "size-4" %}{% translate "إضافة خدمة" %}</summary>
+    <div class="mt-2 space-y-2.5">
+    {% for label, items in by_category %}
+    <div>
+      <p class="ws-label mb-1">{{ label }}</p>
+      <div class="flex flex-wrap gap-1.5">
+        {% for s in items %}
+        <button type="button" class="chip" hx-post="{% url 'center:order_add' a.pk %}{% if inline %}?inline=1{% endif %}" hx-vals='{"service": "{{ s.pk }}"}' hx-target="#orders-box" hx-swap="outerHTML">
+          {{ s.name_ar }} <span class="num text-stone-500" dir="ltr">{{ s.price|floatformat:"-2" }}</span>
+        </button>
+        {% endfor %}
+      </div>
+    </div>
+    {% empty %}
+    <p class="text-xs text-stone-600">{% translate "مفيش خدمات متعرّفة." %}{% if can.settings_manage %} <a class="link" href="{% url 'center:services' %}">{% translate "ضيفها من الإعدادات" %}</a>{% endif %}</p>
+    {% endfor %}
+    </div>
+  </details>
+  {% else %}
+  <p class="text-xs text-stone-600">{% translate "الحجز ده مش نشط، مينفعش يتضاف عليه خدمات." %}</p>
+  {% endif %}
+</div>

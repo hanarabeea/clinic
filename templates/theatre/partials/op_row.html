@@ -1,0 +1,19 @@
+{% load i18n clock %}
+{% comment %}One operation on the theatre board: when, who, what, where it stands, and the one next step.{% endcomment %}
+<li class="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm {% if op.status == 'done' or op.status == 'cancelled' %}text-stone-500{% endif %}">
+  <span class="num w-20 shrink-0 font-semibold" dir="ltr">{{ op.planned_start|ampm }}</span>
+  <a href="{% url 'theatre:operation' op.pk %}" class="font-bold hover:text-brand">{{ op.patient.full_name }}</a>
+  {% if op.ga and can.pregnancy_view_basic %}{% include "obstetrics/partials/ga_badge.html" with ga=op.ga %}{% endif %}
+  <span class="text-stone-700">{{ op.procedure_name }}</span>
+  {% if op.is_emergency %}<span class="badge bg-red-50 font-semibold text-red-800">{% translate "طوارئ" %}</span>{% endif %}
+  <span class="text-stone-600">{{ op.surgeon }}</span>
+  {% if show_room %}<span class="text-stone-600">{{ op.room.name }}</span>{% endif %}
+  <span class="ms-auto flex items-center gap-2">
+    <span class="text-stone-600">{{ op.get_status_display }}</span>
+    {% if can.theatre_operate and op.step and op.date == today %}
+    <form method="post" action="{% url 'theatre:operation_step' op.pk op.step.0 %}">{% csrf_token %}<input type="hidden" name="back" value="board">
+      <button class="btn-secondary min-h-8 px-3 py-1 text-xs">{{ op.step.1 }}</button>
+    </form>
+    {% endif %}
+  </span>
+</li>

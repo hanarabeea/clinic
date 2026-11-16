@@ -5,7 +5,7 @@ from pathlib import Path
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from apps.notifications.defaults import DEFAULT_TEMPLATES
+from apps.notifications.defaults import templates_for
 from apps.notifications.models import Event, NotificationSettings, NotificationTemplate
 from apps.organizations.management.commands.seed_org import DEFAULT_CLINIC
 from apps.organizations.models import Organization
@@ -26,13 +26,13 @@ def seed_org_notifications(org, *, clinic_data=None, force=False) -> int:
         ns.save()
 
     if NotificationTemplate.objects.filter(organization=org).exists() and not force:
-        return 0
+        return add_missing(org)
     if force:
         NotificationTemplate.objects.filter(organization=org).delete()
     # clinic.json's `reminders` overrides the offsets/lead times of the default reminders, in order.
     reminders = iter(data.get("reminders") or [])
     created = 0
-    for order, tpl in enumerate(DEFAULT_TEMPLATES):
+    for order, tpl in enumerate(templates_for(org)):
         fields = dict(tpl)
         if fields["event"] == Event.REMINDER:
             override = next(reminders, None)
@@ -40,6 +40,21 @@ def seed_org_notifications(org, *, clinic_data=None, force=False) -> int:
                 fields.update({k: v for k, v in override.items() if k in tpl or k == "applies_to_mode"})
         NotificationTemplate.objects.create(organization=org, order=order, **fields)
         created += 1
+    return created
+
+
+def add_missing(org) -> int:
+    """A clinic set up before an event existed gets that event's default template. Its own templates are never
+    touched, and an event it already has a template for (even a switched-off one) is left alone."""
+    from apps.notifications.defaults import LATER_EVENTS
+
+    have = set(NotificationTemplate.objects.filter(organization=org).values_list("event", flat=True))
+    order = NotificationTemplate.objects.filter(organization=org).count()
+    created = 0
+    for tpl in templates_for(org):
+        if tpl["event"] in LATER_EVENTS and tpl["event"] not in have:
+            NotificationTemplate.objects.create(organization=org, order=order + created, **tpl)
+            created += 1
     return created
 
 

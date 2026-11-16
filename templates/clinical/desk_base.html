@@ -17,6 +17,8 @@ one with "إنهاء الكشف واستدعاء التالي".{% endcomment %}
 {% if can.rx_template_manage %}<a href="{% url 'prescriptions:templates' %}" class="btn-ghost hidden min-h-8 px-2.5 py-1 text-xs md:inline-flex">{% icon "clipboard-text" "size-4" %}{% translate "قوالب الروشتات" %}</a>{% endif %}
 {% endblock %}
 {% block content %}
+{# an emergency arrival waiting for this doctor: a red banner on whatever desk page is open (polled) #}
+<div id="emergency-alert" hx-get="{% url 'clinical:emergency_alert' %}" hx-trigger="load, every 10s" hx-swap="outerHTML"></div>
 <div class="min-w-0">{% block desk %}{% endblock %}</div>
 
 {% if voice_enabled %}

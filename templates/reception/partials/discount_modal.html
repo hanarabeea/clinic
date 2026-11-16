@@ -1,0 +1,14 @@
+{% extends "reception/partials/modal.html" %}
+{% load i18n %}
+{% block title %}{% blocktranslate with p=a.patient.full_name %}خصم على الكشف: {{ p }}{% endblocktranslate %}{% endblock %}
+{% block body %}
+<p class="mb-3 text-sm text-stone-600">{% translate "سعر الكشف" %} <b class="num text-ink" dir="ltr">{{ a.price|floatformat:0 }}</b></p>
+{% if error %}<p class="notice notice-danger mb-3" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}<span>{{ error }}</span></p>{% endif %}
+<form hx-post="{% url 'reception:discount' a.pk %}" hx-target="#reception" class="space-y-3" novalidate>
+  <div class="form-field"><label for="disc-amount">{% translate "الخصم (مبلغ)" %}</label><input id="disc-amount" name="amount" class="input" dir="ltr" inputmode="decimal" value="{{ amount }}"></div>
+  <div class="form-field"><label for="disc-reason">{% translate "السبب" %}</label><input id="disc-reason" name="reason" class="input" maxlength="200" value="{{ reason }}"></div>
+  <p class="text-xs text-stone-600">{% blocktranslate with l=limit|floatformat:"-2" %}خصم أكبر من {{ l }}% محتاج موافقة صاحب العيادة. صفر يشيل الخصم.{% endblocktranslate %}</p>
+  <button class="btn-primary w-full">{% translate "حفظ" %}</button>
+</form>
+<script>document.querySelector("#modal input")?.select();</script>
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "مستحقات الدكاترة" %}{% endblock %}
+{% block content %}
+{% comment %}What the center owes each doctor: their shares of invoiced visits, services and operations, less what
+was paid out. The number is the doctor's own account inside "أتعاب أطباء مستحقة".{% endcomment %}
+<div class="page-head">
+  <h1>{% translate "الفواتير" %}</h1>
+</div>
+{% include "invoicing/partials/tabs.html" %}
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th>{% translate "الدكتور" %}</th><th class="text-end!">{% translate "مستحق له" %}</th></tr></thead>
+    <tbody>
+      {% for d in doctors %}
+      <tr class="{% if not d.is_active %}text-stone-500{% endif %}">
+        <td><a href="{% url 'invoicing:doctor' d.pk %}" class="font-semibold hover:text-brand">{{ d }}</a></td>
+        <td class="num text-end font-semibold" dir="ltr">{{ d.owed|money0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="border-t border-stone-300 bg-stone-50 font-bold"><td class="px-3 py-2">{% translate "الإجمالي" %}</td><td class="num px-3 py-2 text-end" dir="ltr">{{ total|money0 }}</td></tr>
+    </tfoot>
+  </table>
+</div>
+{% if outside %}<p class="mt-3 text-sm text-stone-600">{% translate "أتعاب فريق من بره المركز (تخدير، مساعد...) لسه ما اتصرفتش:" %} <b class="num" dir="ltr">{{ outside|money0 }}</b>. {% translate "بتتصرف بسند صرف على حساب «أتعاب فريق خارجي مستحقة»." %}</p>{% endif %}
+<p class="mt-3 text-xs text-stone-600">{% translate "نسبة الدكتور من الكشف بتتحدد من الإعدادات، الدكاترة. نسبة الخدمة من الإعدادات، الخدمات. أتعاب العملية من صفحة العملية، الفريق." %}</p>
+{% endblock %}

@@ -1,0 +1,10 @@
+{% load i18n %}
+<nav class="tabs">
+  {% if can.ledger_view %}<a href="{% url 'ledger:trial_balance' %}" class="tab {% if tab == 'trial' %}is-active{% endif %}">{% translate "ميزان المراجعة" %}</a>{% endif %}
+  {% if can.report_statements %}<a href="{% url 'ledger:income_statement' %}" class="tab {% if tab == 'income' %}is-active{% endif %}">{% translate "قائمة الدخل" %}</a>
+  <a href="{% url 'ledger:balance_sheet' %}" class="tab {% if tab == 'balance' %}is-active{% endif %}">{% translate "المركز المالي" %}</a>{% endif %}
+  {% if can.ledger_view %}<a href="{% url 'ledger:journal' %}" class="tab {% if tab == 'journal' %}is-active{% endif %}">{% translate "دفتر اليومية" %}</a>
+  <a href="{% url 'ledger:accounts' %}" class="tab {% if tab == 'accounts' %}is-active{% endif %}">{% translate "شجرة الحسابات" %}</a>
+  <a href="{% url 'ledger:periods' %}" class="tab {% if tab == 'periods' %}is-active{% endif %}">{% translate "الشهور والسنين" %}</a>{% endif %}
+  {% if can.books_verify %}<a href="{% url 'ledger:verify' %}" class="tab {% if tab == 'verify' %}is-active{% endif %}">{% translate "فحص الدفاتر" %}</a>{% endif %}
+</nav>

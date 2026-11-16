@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "المركز المالي" %}{% endblock %}
+{% block content %}
+{% comment %}What the center owns and owes on a date. The two sides must be equal; if they are not, the page says so.{% endcomment %}
+<div class="page-head"><h1>{% translate "الحسابات" %}</h1></div>
+{% include "ledger/partials/tabs.html" %}
+
+<form method="get" class="mb-4 flex flex-wrap items-center gap-3 print:hidden">
+  <label class="flex items-center gap-1.5 text-sm text-stone-600">{% translate "في تاريخ" %}
+    <input type="date" name="date" value="{{ as_of|date:'Y-m-d' }}" class="input h-9 w-auto py-0" onchange="this.form.submit()"></label>
+  <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="compare" value="1" {% if compare_as_of %}checked{% endif %} onchange="this.form.submit()"> {% translate "قارن بأول السنة" %}</label>
+  <span class="ms-auto"></span>
+  <a href="{% url 'ledger:balance_sheet' %}?date={{ as_of|date:'Y-m-d' }}{% if compare_as_of %}&compare=1{% endif %}&format=xlsx" class="btn-ghost">{% icon "table" "size-4" %}Excel</a>
+  <a href="{% url 'ledger:balance_sheet' %}?date={{ as_of|date:'Y-m-d' }}{% if compare_as_of %}&compare=1{% endif %}&format=pdf" target="_blank" rel="noopener" class="btn-ghost">{% icon "printer" "size-4" %}{% translate "طباعة" %}</a>
+</form>
+
+{% if not bs.balanced %}<p class="notice notice-danger mb-4 font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{% translate "الطرفين مش متساويين. افتح فحص الدفاتر." %}</p>{% endif %}
+
+{% with compared=compare_as_of drill="?from="|add:year_start_s|add:"&to="|add:as_of_s %}
+<div class="card max-w-3xl overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>{% translate "البند" %}</th>
+        <th class="text-end!"><span class="num" dir="ltr">{{ as_of|date:"d/m/Y" }}</span></th>
+        {% if compared %}<th class="text-end!"><span class="num" dir="ltr">{{ compare_as_of|date:"d/m/Y" }}</span></th>{% endif %}
+      </tr>
+    </thead>
+    <tbody>
+      {% include "ledger/partials/statement_section.html" with section=bs.assets %}
+      {% include "ledger/partials/statement_section.html" with section=bs.liabilities %}
+      {% include "ledger/partials/statement_section.html" with section=bs.equity %}
+      <tr>
+        <td class="px-3 py-2">{% translate "نتيجة الفترة (لسه ما اترحّلتش)" %}</td>
+        <td class="num px-3 py-2 text-end" dir="ltr">{{ bs.result|money0 }}</td>
+        {% if compared %}<td class="num px-3 py-2 text-end text-stone-600" dir="ltr">{{ bs.compare_result|money0 }}</td>{% endif %}
+      </tr>
+    </tbody>
+    <tfoot>
+      <tr class="border-t-2 border-stone-400 bg-stone-50 text-[15px] font-bold">
+        <td class="px-3 py-2.5">{% translate "الالتزامات وحقوق الملكية" %}</td>
+        <td class="num px-3 py-2.5 text-end" dir="ltr">{{ bs.liabilities_and_equity|money0 }}</td>
+        {% if compared %}<td></td>{% endif %}
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{% endwith %}
+{% endblock %}

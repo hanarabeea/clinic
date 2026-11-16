@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{{ payment.label }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'purchasing:payments' %}" class="btn-icon" aria-label="{% translate 'رجوع للسداد' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1><span class="num" dir="ltr">{{ payment.label }}</span></h1>
+    <p class="page-sub"><a href="{% url 'purchasing:supplier' payment.supplier.pk %}" class="font-semibold text-ink hover:text-brand">{{ payment.supplier.name }}</a>، <span class="num" dir="ltr">{{ payment.date|date:"d/m/Y" }}</span></p>
+  </div>
+</div>
+{% if payment.is_cancelled %}<p class="notice notice-warn mb-4">{% icon "warning" "size-5 shrink-0" %}<span>{% translate "السداد ده ملغي" %}{% if payment.cancel_reason %}: {{ payment.cancel_reason }}{% endif %}</span></p>{% endif %}
+
+<dl class="card mb-5 max-w-md divide-y divide-stone-100 text-sm">
+  <div class="flex px-4 py-2 font-bold"><dt>{% translate "اتخصم من حساب المورد" %}</dt><dd class="ms-auto"><span class="num" dir="ltr">{{ payment.amount|money0 }}</span></dd></div>
+  {% if payment.wht_amount %}<div class="flex px-4 py-2"><dt class="text-stone-600">{{ payment.wht_code.name }} {% translate "على" %} <span class="num" dir="ltr">{{ payment.wht_base|money0 }}</span></dt><dd class="ms-auto"><span class="num" dir="ltr">{{ payment.wht_amount|money0 }}</span></dd></div>{% endif %}
+  <div class="flex px-4 py-2"><dt class="text-stone-600">{% translate "اتدفع له" %} ({{ payment.get_method_display }}، {{ payment.treasury.name }})</dt><dd class="ms-auto"><span class="num" dir="ltr">{{ payment.net_paid|money0 }}</span></dd></div>
+  {% if payment.cheque %}<div class="flex px-4 py-2"><dt class="text-stone-600">{% translate "شيك" %} <a class="link num" dir="ltr" href="{% url 'treasury:cheque' payment.cheque.pk %}">{{ payment.cheque.number }}</a>، {% translate "يستحق" %} <span class="num" dir="ltr">{{ payment.cheque.due_date|date:"d/m/Y" }}</span></dt><dd class="ms-auto">{{ payment.cheque.get_status_display }}</dd></div>{% endif %}
+  {% for a in allocations %}<div class="flex px-4 py-2"><dt class="text-stone-600">{% translate "على فاتورة" %} <a class="link num" dir="ltr" href="{% url 'purchasing:invoice' a.invoice.pk %}">{{ a.invoice.label }}</a></dt><dd class="ms-auto"><span class="num" dir="ltr">{{ a.amount|money0 }}</span></dd></div>{% endfor %}
+</dl>
+{% if payment.notes %}<p class="mb-4 text-sm text-stone-700">{{ payment.notes }}</p>{% endif %}
+
+{% if can.supplier_pay and not payment.is_cancelled %}
+<form method="post" action="{% url 'purchasing:payment_cancel' payment.pk %}" class="flex max-w-md items-end gap-2" onsubmit="return confirm('{% translate 'تلغي السداد ده؟ قيده هيتعكس والفواتير هترجع مفتوحة.' %}')">
+  {% csrf_token %}
+  <input name="reason" class="input h-9 py-0" maxlength="200" placeholder="{% translate 'سبب الإلغاء' %}" aria-label="{% translate 'سبب الإلغاء' %}">
+  <button class="btn-danger min-h-9 shrink-0 px-3 py-0">{% translate "إلغاء السداد" %}</button>
+</form>
+{% endif %}
+{% if entry %}<p class="mt-3 text-xs text-stone-600">{% translate "القيد" %} <a class="link num" dir="ltr" href="{% url 'ledger:entry' entry.pk %}">{{ entry.number }}</a></p>{% endif %}
+{% endblock %}

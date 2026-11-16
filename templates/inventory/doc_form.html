@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% if kind == "issue" %}{% translate "صرف من المخزن" %}{% elif kind == "transfer" %}{% translate "تحويل بين مخزنين" %}{% else %}{% translate "رصيد افتتاحي" %}{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'inventory:docs' %}" class="btn-icon" aria-label="{% translate 'رجوع' %}">{% icon "arrow-right" %}</a>
+  <h1>{% if kind == "issue" %}{% translate "صرف من المخزن" %}{% elif kind == "transfer" %}{% translate "تحويل بين مخزنين" %}{% else %}{% translate "رصيد افتتاحي" %}{% endif %}</h1>
+</div>
+{% if error %}<p class="notice notice-danger mb-4 font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ error }}</p>{% endif %}
+<form method="post" class="max-w-3xl space-y-4" novalidate>
+  {% csrf_token %}
+  <div class="card grid gap-4 p-4 sm:grid-cols-2">
+    <div class="form-field"><label for="d-store">{% if kind == "transfer" %}{% translate "من مخزن" %}{% else %}{% translate "المخزن" %}{% endif %}</label>
+      <select id="d-store" name="warehouse" class="input" required>{% for s in stores %}<option value="{{ s.pk }}" {% if s.pk|stringformat:"s" == post.warehouse %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></div>
+    {% if kind == "transfer" %}
+    <div class="form-field"><label for="d-to">{% translate "إلى مخزن" %}</label>
+      <select id="d-to" name="to_warehouse" class="input" required><option value="">{% translate "اختار المخزن" %}</option>{% for s in stores %}<option value="{{ s.pk }}" {% if s.pk|stringformat:"s" == post.to_warehouse %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select></div>
+    {% elif kind == "issue" %}
+    <div class="form-field"><label for="d-center">{% translate "الصرف على" %}</label>
+      <select id="d-center" name="cost_center" class="input" required><option value="">{% translate "اختار القسم" %}</option>{% for c in centers %}<option value="{{ c.pk }}" {% if c.pk|stringformat:"s" == post.cost_center %}selected{% endif %}>{{ c.name_ar }}</option>{% endfor %}</select></div>
+    {% endif %}
+  </div>
+  <div class="card overflow-x-auto">
+    <table class="data-table" id="lines">
+      <thead><tr><th>{% translate "الصنف" %}</th><th class="w-28 text-end!">{% translate "الكمية" %}</th>{% if kind == "opening" %}<th class="w-32 text-end!">{% translate "تكلفة الوحدة" %}</th><th class="w-40">{% translate "الصلاحية" %}</th>{% endif %}</tr></thead>
+      <tbody>
+        {% for row in rows %}
+        <tr>
+          <td><select name="item" class="input py-1.5" aria-label="{% translate 'الصنف' %}"><option value="">{% translate "اختار الصنف" %}</option>{% for i in items %}<option value="{{ i.pk }}" {% if i.pk|stringformat:"s" == row.item %}selected{% endif %}>{{ i.name }} ({{ i.unit }})</option>{% endfor %}</select></td>
+          <td><input type="text" name="quantity" value="{{ row.quantity }}" inputmode="decimal" dir="ltr" class="input py-1.5 text-end" aria-label="{% translate 'الكمية' %}"></td>
+          {% if kind == "opening" %}
+          <td><input type="text" name="unit_cost" value="{{ row.unit_cost }}" inputmode="decimal" dir="ltr" class="input py-1.5 text-end" aria-label="{% translate 'تكلفة الوحدة' %}"></td>
+          <td><input type="date" name="expiry" value="{{ row.expiry }}" class="input py-1.5" aria-label="{% translate 'الصلاحية' %}"></td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="form-field"><label for="d-notes">{% translate "ملاحظات" %}</label><input id="d-notes" name="notes" class="input" maxlength="300" value="{{ post.notes }}"></div>
+  <div class="flex flex-wrap items-center gap-2">
+    <button type="button" class="btn-secondary" id="add-line">{% icon "plus" "size-4" %}{% translate "سطر كمان" %}</button>
+    <span class="ms-auto"></span>
+    <a href="{% url 'inventory:docs' %}" class="btn-ghost">{% translate "إلغاء" %}</a>
+    <button type="submit" class="btn-primary min-h-10 px-6">{% translate "تسجيل" %}</button>
+  </div>
+</form>
+<script>
+  document.getElementById("add-line").addEventListener("click", () => {
+    const body = document.querySelector("#lines tbody");
+    const row = body.querySelector("tr:last-child").cloneNode(true);
+    row.querySelectorAll("input").forEach((el) => { el.value = ""; });
+    row.querySelector("select").selectedIndex = 0;
+    body.appendChild(row);
+  });
+</script>
+{% endblock %}

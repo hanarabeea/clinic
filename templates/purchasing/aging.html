@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "أعمار ديون الموردين" %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'purchasing:suppliers' %}" class="btn-icon print:hidden" aria-label="{% translate 'رجوع للموردين' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{% translate "أعمار ديون الموردين" %}</h1>
+    <p class="page-sub">{% translate "اللي لسه ما اتسددش لكل مورد، وقد إيه متأخر، لحد" %} <span class="num" dir="ltr">{{ as_of|date:"d/m/Y" }}</span></p>
+  </div>
+  <span class="ms-auto"></span>
+  <a href="{% url 'purchasing:aging' %}?date={{ as_of|date:'Y-m-d' }}&format=xlsx" class="btn-ghost print:hidden">{% icon "table" "size-4" %}Excel</a>
+</div>
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th>{% translate "المورد" %}</th>{% for label in labels %}<th class="text-end!">{{ label }}</th>{% endfor %}<th class="text-end!">{% translate "الإجمالي" %}</th></tr></thead>
+    <tbody>
+      {% for r in rows %}
+      <tr>
+        <td><a href="{% url 'purchasing:supplier' r.supplier.pk %}" class="font-semibold hover:text-brand">{{ r.supplier.name }}</a></td>
+        {% for b in r.buckets %}<td class="num text-end {% if forloop.counter > 2 and b %}text-red-700{% endif %}" dir="ltr">{{ b|money }}</td>{% endfor %}
+        <td class="num text-end font-semibold" dir="ltr">{{ r.total|money0 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7" class="py-10! text-center text-stone-600">{% translate "مفيش فواتير مشتريات مفتوحة." %}</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if rows %}
+    <tfoot><tr class="border-t border-stone-300 bg-stone-50 font-bold"><td class="px-3 py-2">{% translate "الإجمالي" %}</td>{% for t in totals %}<td class="num px-3 py-2 text-end" dir="ltr">{{ t|money }}</td>{% endfor %}<td class="num px-3 py-2 text-end" dir="ltr">{{ grand|money0 }}</td></tr></tfoot>
+    {% endif %}
+  </table>
+</div>
+{% endblock %}

@@ -252,6 +252,19 @@ class AntenatalVisit(TenantScopedModel):
         _("السائل الأمنيوسي AFI (سم)"), max_digits=4, decimal_places=1, null=True, blank=True,
         validators=[MaxValueValidator(50)],
     )  # fmt: skip
+    # fetal biometry in millimetres, as the machine gives it
+    bpd_mm = models.PositiveSmallIntegerField(
+        "BPD (mm)", null=True, blank=True, validators=[MinValueValidator(5), MaxValueValidator(120)]
+    )
+    hc_mm = models.PositiveSmallIntegerField(
+        "HC (mm)", null=True, blank=True, validators=[MinValueValidator(20), MaxValueValidator(420)]
+    )
+    ac_mm = models.PositiveSmallIntegerField(
+        "AC (mm)", null=True, blank=True, validators=[MinValueValidator(20), MaxValueValidator(450)]
+    )
+    fl_mm = models.PositiveSmallIntegerField(
+        "FL (mm)", null=True, blank=True, validators=[MinValueValidator(3), MaxValueValidator(95)]
+    )
     placenta = models.CharField(_("المشيمة"), max_length=100, blank=True)
     ultrasound_notes = models.TextField(_("ملاحظات السونار"), blank=True)
 

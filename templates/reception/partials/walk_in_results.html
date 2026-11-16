@@ -8,7 +8,7 @@
       <span class="font-semibold">{{ p.full_name }}</span>
       <span class="num text-xs text-stone-600" dir="ltr">#{{ p.file_number }}</span><span class="num text-xs text-stone-600" dir="ltr">{{ p.phone }}</span>
       <select name="visit_type" class="input ms-auto w-auto py-1.5">
-        {% for vt in visit_types %}<option value="{{ vt.pk }}">{{ vt.name_ar }}</option>{% endfor %}
+        {% for vt in visit_types %}<option value="{{ vt.pk }}">{{ vt.name_ar }}{% if several %} ({{ vt.doctor }}){% endif %}</option>{% endfor %}
       </select>
       {% if can.appointment_overbook %}<label class="flex items-center gap-1 text-xs"><input type="checkbox" name="overbook" value="1"> {% translate "استثنائي" %}</label>{% endif %}
       <button class="btn-primary px-3">{% translate "حجز ووصل" %}</button>

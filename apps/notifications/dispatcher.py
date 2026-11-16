@@ -134,7 +134,10 @@ class Dispatcher:
         if row.prescription_id:
             ctx = templating.prescription_ctx(row.prescription)
         else:
-            ctx = templating.appointment_ctx(row.appointment) if row.appointment else {}
+            if row.appointment:
+                ctx = templating.appointment_ctx(row.appointment)
+            else:
+                ctx = templating.patient_ctx(row.organization, row.patient) if row.patient else {}
         ctx.update(row.context or {})
         row.rendered_text = templating.render(row.template.body if row.template else "", ctx)
         subject = (row.template.email_subject if row.template else "") or row.get_event_display()

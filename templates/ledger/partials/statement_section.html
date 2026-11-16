@@ -1,0 +1,16 @@
+{% load i18n money %}
+{% comment %}One section of a statement (`section`): its accounts as an indented tree, each amount a link to that
+account's own statement (`drill` = the query string of the dates), and its total.{% endcomment %}
+<tr class="bg-stone-50"><td class="px-3 py-2 font-bold" colspan="{% if compared %}3{% else %}2{% endif %}">{{ section.title }}</td></tr>
+{% for r in section.rows %}
+<tr class="{% if r.account.is_group %}font-semibold{% endif %}">
+  <td style="padding-inline-start: {{ r.depth }}rem">{{ r.account.name_ar }}</td>
+  <td class="num text-end" dir="ltr">{% if not r.account.is_group and can.ledger_view %}<a href="{% url 'ledger:statement' r.account.pk %}{{ drill }}" class="hover:text-brand">{{ r.amount|money0 }}</a>{% else %}{{ r.amount|money0 }}{% endif %}</td>
+  {% if compared %}<td class="num text-end text-stone-600" dir="ltr">{{ r.compare|money }}</td>{% endif %}
+</tr>
+{% endfor %}
+<tr class="border-t border-stone-300 font-bold">
+  <td class="px-3 py-2">{% translate "إجمالي" %} {{ section.title }}</td>
+  <td class="num px-3 py-2 text-end" dir="ltr">{{ section.total|money0 }}</td>
+  {% if compared %}<td class="num px-3 py-2 text-end text-stone-600" dir="ltr">{{ section.compare|money0 }}</td>{% endif %}
+</tr>

@@ -12,5 +12,6 @@ urlpatterns = [
     path("reception/<int:pk>/arrive/", views.arrive, name="arrive"),
     path("reception/<int:pk>/vitals/", views.vitals, name="vitals"),
     path("reception/<int:pk>/payment/", views.payment, name="payment"),
+    path("reception/<int:pk>/discount/", views.discount, name="discount"),
     path("reception/<int:pk>/<str:action>/", views.step, name="step"),
 ]

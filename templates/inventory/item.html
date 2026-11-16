@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{{ item.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'inventory:items' %}" class="btn-icon" aria-label="{% translate 'رجوع للأصناف' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{{ item.name }}</h1>
+    <p class="page-sub">{{ item.unit }}{% if item.category %}، {{ item.category }}{% endif %}{% if item.reorder_level %}، {% translate "حد إعادة الطلب" %} <span class="num" dir="ltr">{{ item.reorder_level|floatformat:"-3" }}</span>{% endif %}</p>
+  </div>
+  <span class="ms-auto"></span>
+  {% if can.stock_move %}<a href="{% url 'inventory:item_edit' item.pk %}" class="btn-ghost">{% icon "pencil-simple" "size-4" %}{% translate "تعديل" %}</a>{% endif %}
+</div>
+
+<div class="card mb-6 overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th>{% translate "المخزن" %}</th><th class="text-end!">{% translate "الكمية" %}</th><th class="text-end!">{% translate "متوسط التكلفة" %}</th><th class="text-end!">{% translate "القيمة" %}</th></tr></thead>
+    <tbody>
+      {% for b in balances %}
+      <tr><td class="font-semibold">{{ b.warehouse.name }}</td><td class="num text-end" dir="ltr">{{ b.quantity|floatformat:"-3" }}</td><td class="num text-end" dir="ltr">{{ b.average_cost|floatformat:"2g" }}</td><td class="num text-end font-semibold" dir="ltr">{{ b.value|money0 }}</td></tr>
+      {% empty %}
+      <tr><td colspan="4" class="py-8! text-center text-stone-600">{% translate "مفيش رصيد من الصنف ده." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if batches %}
+<h2 class="section-title">{% translate "التشغيلات والصلاحية" %}</h2>
+<div class="card mb-6 overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th>{% translate "المخزن" %}</th><th>{% translate "الصلاحية" %}</th><th>{% translate "التشغيلة" %}</th><th class="text-end!">{% translate "الكمية" %}</th></tr></thead>
+    <tbody>
+      {% for b in batches %}
+      <tr><td>{{ b.warehouse.name }}</td><td class="num {% if b.expiry_date and b.expiry_date <= today %}font-semibold text-red-700{% endif %}" dir="ltr">{{ b.expiry_date|date:"d/m/Y"|default:"-" }}</td><td class="num" dir="ltr">{{ b.lot|default:"-" }}</td><td class="num text-end" dir="ltr">{{ b.quantity|floatformat:"-3" }}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<h2 class="section-title">{% translate "الحركة" %}</h2>
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th class="w-28">{% translate "التاريخ" %}</th><th>{% translate "الحركة" %}</th><th>{% translate "المخزن" %}</th><th class="text-end!">{% translate "داخل" %}</th><th class="text-end!">{% translate "خارج" %}</th><th class="text-end!">{% translate "الرصيد بعدها" %}</th></tr></thead>
+    <tbody>
+      {% for m in moves %}
+      <tr>
+        <td class="num text-stone-600" dir="ltr">{{ m.date|date:"d/m/Y" }}</td>
+        <td>{{ m.get_kind_display }}{% if m.doc %} <span class="num text-xs text-stone-600" dir="ltr">{{ m.doc.label }}</span>{% elif m.purchase_line %} <span class="num text-xs text-stone-600" dir="ltr">{{ m.purchase_line.invoice.label }}</span>{% endif %}</td>
+        <td class="text-stone-600">{{ m.warehouse.name }}</td>
+        <td class="num text-end" dir="ltr">{% if m.is_in %}{{ m.quantity|floatformat:"-3" }}{% endif %}</td>
+        <td class="num text-end" dir="ltr">{% if not m.is_in %}{{ m.quantity|floatformat:"-3" }}{% endif %}</td>
+        <td class="num text-end font-semibold" dir="ltr">{{ m.quantity_after|floatformat:"-3" }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="py-8! text-center text-stone-600">{% translate "مفيش حركة على الصنف ده." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

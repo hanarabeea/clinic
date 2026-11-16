@@ -76,4 +76,71 @@ DEFAULT_TEMPLATES = [
         "body": "{first_name}، دي روشتة زيارتك النهارده مع {doctor_name} (رقم {rx_number}). ألف سلامة عليك.",
         "email_subject": "روشتة زيارتك",
     },
+    {
+        "event": Event.OPERATION_BOOKED,
+        "name_ar": "حجز عملية",
+        "body": (
+            "أهلًا {first_name}، تم حجز {operation_name} مع {doctor_name} "
+            "يوم {operation_date} الساعة {operation_time}.\n"
+            "العنوان: {clinic_address}\n"
+            "لأي استفسار: {clinic_phone}"
+        ),
+        "email_subject": "حجز عمليتك",
+    },
+    {
+        "event": Event.OPERATION_REMINDER,
+        "name_ar": "تذكير بعملية (قبلها بيوم)",
+        "body": (
+            "تذكير: {operation_name} بكرة {operation_date} الساعة {operation_time} مع {doctor_name}.\n"
+            "الصيام عن الأكل والشرب قبلها بـ{fasting_hours} ساعات، وهاتي معاكي التحاليل وبطاقتك.\n"
+            "لأي استفسار: {clinic_phone}"
+        ),
+        "email_subject": "تذكير بعمليتك بكرة",
+    },
+    {
+        "event": Event.OPERATION_CHANGED,
+        "name_ar": "تغيير ميعاد عملية",
+        "body": (
+            "{first_name}، ميعاد {operation_name} اتغير: يوم {operation_date} الساعة {operation_time}.\n"
+            "لأي استفسار: {clinic_phone}"
+        ),
+        "email_subject": "تغيير ميعاد عمليتك",
+    },
+    # The two below are for OB/GYN clinics only ("obgyn": seeding skips them elsewhere).
+    {
+        "event": Event.MILESTONE_DUE,
+        "name_ar": "وقت محطة متابعة الحمل",
+        "body": (
+            "{first_name}، إنتِ دلوقتي في الأسبوع {pregnancy_week} من الحمل، وده وقت: {milestone_name}.\n"
+            "للحجز أو الاستفسار: {clinic_phone}\n{clinic_name}"
+        ),
+        "email_subject": "وقت متابعة مهمة في حملك",
+        "obgyn": True,
+    },
+    {
+        "event": Event.POSTPARTUM,
+        "name_ar": "متابعة بعد الولادة",
+        "body": (
+            "حمد لله على سلامتك يا {first_name}، وألف مبروك.\n"
+            "فاضل أسبوع على ميعاد متابعة بعد الولادة. للحجز: {clinic_phone}\n{clinic_name}"
+        ),
+        "email_subject": "متابعة بعد الولادة",
+        "obgyn": True,
+    },
 ]
+
+
+def templates_for(org) -> list[dict]:
+    """The default templates that make sense for this clinic, ready to create (the "obgyn" marker taken out)."""
+    from apps.obstetrics.services import enabled
+
+    obgyn = enabled(org)
+    return [
+        {k: v for k, v in tpl.items() if k != "obgyn"} for tpl in DEFAULT_TEMPLATES if obgyn or not tpl.get("obgyn")
+    ]
+
+
+# Events added after a clinic was set up: `add_missing` gives it their default template (and only theirs).
+LATER_EVENTS = (
+    Event.OPERATION_BOOKED, Event.OPERATION_REMINDER, Event.OPERATION_CHANGED, Event.MILESTONE_DUE, Event.POSTPARTUM,
+)  # fmt: skip

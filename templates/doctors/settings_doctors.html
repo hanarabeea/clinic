@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "الدكاترة" %}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{% translate "الإعدادات" %}</h1></div>
+
+{% include "partials/settings_tabs.html" %}
+
+{% comment %}The clinic's doctors: each has their own working hours, visit types and queue. A doctor is switched off,
+never deleted (their visits and prescriptions stay in the patients' files).{% endcomment %}
+<section class="card mb-6 overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>{% translate "الدكتور" %}</th>
+        <th>{% translate "التخصص" %}</th>
+        <th>{% translate "طريقة الحجز" %}</th>
+        <th>{% translate "حساب الدخول" %}</th>
+        <th>{% translate "الحالة" %}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in doctors %}
+      <tr class="{% if not d.is_active %}text-stone-500{% endif %}">
+        <td class="font-semibold">{{ d }}</td>
+        <td class="text-stone-600">{{ d.specialty_ar|default:"-" }}</td>
+        <td class="text-stone-600">{{ d.get_booking_mode_display }}</td>
+        <td class="text-stone-600">{% if d.user %}{{ d.user.full_name|default:d.user.username }}{% else %}-{% endif %}</td>
+        <td>
+          {% if d.is_active %}<span class="badge bg-green-50 text-green-800">{% translate "شغال" %}</span>
+          {% if d.upcoming %}<span class="num text-xs text-stone-600">{% blocktranslate count n=d.upcoming %}{{ n }} حجز جاي{% plural %}{{ n }} حجز جاي{% endblocktranslate %}</span>{% endif %}
+          {% else %}<span class="badge bg-stone-200 text-stone-700">{% translate "متوقف" %}</span>{% endif %}
+        </td>
+        <td>
+          <div class="flex flex-wrap items-center justify-end gap-1">
+            <a href="{% url 'doctors:schedule' %}?doctor={{ d.pk }}" class="btn-ghost min-h-8 px-2.5 py-1 text-xs">{% icon "clock" "size-4" %}{% translate "البيانات والمواعيد" %}</a>
+            <a href="{% url 'doctors:visit_types' %}?doctor={{ d.pk }}" class="btn-ghost min-h-8 px-2.5 py-1 text-xs">{% icon "tag" "size-4" %}{% translate "أنواع الزيارات" %}</a>
+            <form method="post" action="{% url 'doctors:toggle' d.pk %}"
+                  {% if d.is_active %}onsubmit="return confirm('{% translate 'توقف الدكتور ده؟ مش هيظهر في الحجز ولا في شاشة الاستقبال، وزياراته القديمة هتفضل زي ما هي.' %}')"{% endif %}>
+              {% csrf_token %}
+              <button class="btn-ghost min-h-8 px-2.5 py-1 text-xs {% if d.is_active %}text-red-700 hover:bg-red-50 hover:text-red-800{% endif %}">{% if d.is_active %}{% translate "إيقاف" %}{% else %}{% translate "تفعيل" %}{% endif %}</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<section class="card p-4 sm:p-6">
+  <h2 class="mb-1 text-[15px] font-bold">{% translate "إضافة دكتور" %}</h2>
+  <p class="mb-4 text-sm text-stone-600">{% translate "بعد الإضافة هتتفتحلك صفحة مواعيده عشان تحدد أيام وساعات شغله." %}</p>
+  <form method="post" class="space-y-4" novalidate>
+    {% csrf_token %}
+    <div class="grid gap-4 sm:grid-cols-4">
+      {% include "partials/field.html" with field=form.title_ar %}
+      {% include "partials/field.html" with field=form.name_ar %}
+      {% include "partials/field.html" with field=form.specialty_ar %}
+      {% include "partials/field.html" with field=form.booking_mode %}
+    </div>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="copy_visit_types" value="1" checked> {% translate "ابدأ بنفس أنواع الزيارات وأسعارها (تتعدل بعدين)" %}</label>
+    <div class="flex justify-end">
+      <button type="submit" class="btn-primary">{% icon "user-plus" "size-4" %}{% translate "إضافة الدكتور" %}</button>
+    </div>
+  </form>
+</section>
+{% endblock %}

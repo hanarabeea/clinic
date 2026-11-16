@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load i18n clock money %}
+{% block title %}{% translate "خروج" %}: {{ admission.patient.full_name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'theatre:admissions' %}" class="btn-icon" aria-label="{% translate 'رجوع للإقامة' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{% translate "خروج" %}: {{ admission.patient.full_name }}</h1>
+    <p class="page-sub">{{ admission.room.name }}، {% translate "دخلت" %} <span class="num" dir="ltr">{{ admission.admitted_at|date:"d/m/Y" }} {{ admission.admitted_at|ampm }}</span></p>
+  </div>
+</div>
+
+<div class="max-w-2xl">
+  <dl class="card mb-4 grid grid-cols-3 divide-x divide-stone-200 text-center text-sm rtl:divide-x-reverse">
+    <div class="p-3"><dt class="text-xs text-stone-600">{% translate "ليالي" %}</dt><dd class="num text-lg font-bold" dir="ltr">{{ nights }}</dd></div>
+    <div class="p-3"><dt class="text-xs text-stone-600">{% translate "سعر الليلة" %}</dt><dd class="num text-lg font-semibold" dir="ltr">{{ admission.nightly_rate|money0 }}</dd></div>
+    <div class="p-3"><dt class="text-xs text-stone-600">{% translate "حساب الغرفة" %}</dt><dd class="num text-lg font-bold" dir="ltr">{{ charge|money0 }}</dd></div>
+  </dl>
+  {% if admission.status == "admitted" %}
+  <form method="post" class="card space-y-4 p-4 sm:p-6" novalidate>
+    {% csrf_token %}
+    {% for e in form.non_field_errors %}<p class="notice notice-danger font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ e }}</p>{% endfor %}
+    {% if can.clinical_edit %}{% include "partials/field.html" with field=form.summary %}{% endif %}
+    {% include "partials/field.html" with field=form.instructions %}
+    <div class="flex flex-wrap items-center gap-2">
+      <button type="submit" name="action" value="cancel" class="btn-ghost text-red-700 hover:bg-red-50 hover:text-red-800" onclick="return confirm('{% translate 'الإقامة دي اتسجلت بالغلط؟ هتتلغي من غير حساب.' %}')">{% translate "اتسجلت بالغلط" %}</button>
+      <span class="ms-auto"></span>
+      <a href="{% url 'theatre:admissions' %}" class="btn-ghost">{% translate "رجوع" %}</a>
+      <button type="submit" class="btn-primary min-h-10 px-6">{% translate "خروج المريضة" %}</button>
+    </div>
+  </form>
+  {% else %}
+  <p class="card px-4 py-6 text-center text-sm text-stone-600">{% translate "الإقامة دي مقفولة." %}</p>
+  {% endif %}
+</div>
+{% endblock %}

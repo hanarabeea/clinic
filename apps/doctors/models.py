@@ -1,4 +1,5 @@
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from simple_history.models import HistoricalRecords
@@ -29,6 +30,12 @@ class Doctor(TenantScopedModel):
     queue_avg_minutes = models.PositiveSmallIntegerField(_("متوسط مدة الكشف (دقيقة، للدور)"), default=15)
     near_turn_threshold = models.PositiveSmallIntegerField(_("دورك قرّب قبل N (0 = مقفول)"), default=0)
     allow_overbooking = models.BooleanField(_("يسمح بحجز استثنائي فوق الطاقة"), default=False)
+    # What the doctor earns from each visit fee (after discount). 0 = no share is recorded (the owner-doctor, or a
+    # doctor on a salary). Posted to "أتعاب أطباء مستحقة" when the visit is invoiced.
+    visit_share_percent = models.DecimalField(
+        _("نسبة الدكتور من الكشف %"), max_digits=5, decimal_places=2, default=0,
+        validators=[MinValueValidator(0), MaxValueValidator(100)],
+    )  # fmt: skip
     is_active = models.BooleanField(default=True)
 
     history = HistoricalRecords()
@@ -36,6 +43,12 @@ class Doctor(TenantScopedModel):
     class Meta:
         verbose_name = _("دكتور")
         verbose_name_plural = _("الدكاترة")
+        constraints = [
+            # one login is one doctor (the desk opens on "my" queue)
+            models.UniqueConstraint(
+                fields=["organization", "user"], condition=models.Q(user__isnull=False), name="uniq_doctor_per_user"
+            )
+        ]
 
     def __str__(self):
         return f"{self.title_ar} {self.name_ar}".strip()
@@ -120,6 +133,8 @@ class VisitType(TenantScopedModel):
     color = models.CharField(_("اللون"), max_length=7, default="#0E7C86")
     order = models.PositiveSmallIntegerField(default=0)
     is_active = models.BooleanField(default=True)
+    # Made by the system (the emergency arrival's visit type): never offered in booking, not listed in Settings.
+    is_system = models.BooleanField(default=False, editable=False)
 
     history = HistoricalRecords()
 

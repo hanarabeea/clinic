@@ -15,6 +15,7 @@ safety information is never collapsed or hidden.{% endcomment %}
       </p>
     </div>
     <div class="flex flex-wrap items-center gap-1.5">
+      {% if emergency %}<span class="badge bg-red-600 px-2 font-bold text-white">{% icon "siren" "size-3.5" %}{% translate "طوارئ" %}: {{ emergency.get_triage_display }}</span>{% endif %}
       {% if ob_patient %}{% include "obstetrics/partials/header_tag.html" %}{% endif %}
       {% for a in allergies %}<span class="badge bg-red-600 px-2 font-bold text-white">{% icon "warning" "size-3.5" %}{% translate "حساسية" %}: <bdi dir="auto">{{ a.name }}</bdi>{% if a.severity %} ({{ a.get_severity_display }}){% endif %}</span>{% endfor %}
       {% for c in conditions %}<span class="badge bg-orange-50 px-2 font-semibold text-orange-900 ring-1 ring-orange-200 ring-inset"><bdi dir="auto">{{ c.name }}</bdi></span>{% endfor %}

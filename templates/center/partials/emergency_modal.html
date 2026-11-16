@@ -1,0 +1,101 @@
+{% load i18n %}
+{% comment %}Emergency registration (center.views.emergency_register), opened by the red button on the reception board.
+Built for speed: a name and a phone are enough (typing either looks the patient up), then how urgent, why, and which
+doctor. Saving puts her on that doctor's queue ahead of everyone, already arrived.{% endcomment %}
+<div class="overlay" onclick="if (event.target === this) this.parentElement.innerHTML = ''">
+  <div class="dialog max-w-lg p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="em-title">
+    <div class="mb-4 flex items-center gap-2">
+      <span class="grid size-8 place-items-center rounded-md bg-red-600 text-white">{% icon "siren" "size-5" %}</span>
+      <h2 id="em-title" class="text-lg font-bold">{% translate "تسجيل طوارئ" %}</h2>
+      <button type="button" class="btn-icon ms-auto -me-1.5" onclick="document.getElementById('modal').innerHTML = ''" aria-label="{% translate 'قفل' %}">{% icon "x" %}</button>
+    </div>
+
+    <form hx-post="{% url 'center:emergency_register' %}" hx-target="#modal" class="space-y-4" novalidate>
+      {% for e in form.non_field_errors %}<p class="notice notice-danger font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ e }}</p>{% endfor %}
+
+      {% if patient %}
+      <input type="hidden" name="patient" value="{{ patient.pk }}">
+      <div class="flex flex-wrap items-center gap-2 rounded-lg border border-stone-200 bg-stone-50 px-3 py-2">
+        <span class="text-base font-bold">{{ patient.full_name }}</span>
+        <span class="num text-xs text-stone-600" dir="ltr">#{{ patient.file_number }}</span><span class="num text-xs text-stone-600" dir="ltr">{{ patient.phone }}</span>
+        {% if patient.allergies.exists %}<span class="badge bg-red-600 text-white">{% translate "حساسية" %}</span>{% endif %}
+        {% if ga %}{% include "obstetrics/partials/ga_badge.html" %}{% endif %}
+        <button type="button" class="link ms-auto text-xs" hx-get="{% url 'center:emergency_register' %}" hx-target="#modal">{% translate "مريضة تانية" %}</button>
+      </div>
+      {% else %}
+      <div>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <div class="form-field{% if form.full_name.errors %} has-error{% endif %}">
+            <label for="em-name">{{ form.full_name.label }}</label>
+            <input id="em-name" type="text" name="full_name" value="{{ form.full_name.value|default_if_none:'' }}" autocomplete="off" autofocus
+                   hx-get="{% url 'center:emergency_search' %}" hx-trigger="input changed delay:300ms" hx-target="#em-results" hx-swap="innerHTML" hx-vals="js:{q: event.target.value}" hx-params="q">
+            {{ form.full_name.errors }}
+          </div>
+          <div class="form-field{% if form.phone.errors %} has-error{% endif %}">
+            <label for="em-phone">{{ form.phone.label }}</label>
+            <input id="em-phone" type="tel" name="phone" value="{{ form.phone.value|default_if_none:'' }}" dir="ltr" autocomplete="off" inputmode="tel"
+                   hx-get="{% url 'center:emergency_search' %}" hx-trigger="input changed delay:300ms" hx-target="#em-results" hx-swap="innerHTML" hx-vals="js:{q: event.target.value}" hx-params="q">
+            {{ form.phone.errors }}
+          </div>
+        </div>
+        <div id="em-results" class="mt-2 empty:hidden"></div>
+        {% if obgyn %}
+        <input type="hidden" name="gender" value="{{ form.gender.value|default:'female' }}">
+        {% else %}
+        <div class="form-field mt-3 max-w-40{% if form.gender.errors %} has-error{% endif %}">
+          <label for="em-gender">{{ form.gender.label }}</label>
+          <select id="em-gender" name="gender">
+            <option value="">-</option>
+            {% for value, label in form.gender.field.choices %}<option value="{{ value }}" {% if value == form.gender.value %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          {{ form.gender.errors }}
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <fieldset>
+        <legend class="mb-1.5 text-[13px] font-semibold text-stone-700">{{ form.triage.label }}</legend>
+        <div class="grid grid-cols-3 gap-2">
+          {% for value, label in form.triage.field.choices %}
+          <label class="cursor-pointer rounded-lg border border-stone-300 px-2 py-2.5 text-center text-sm font-bold transition-colors has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand/30
+                        {% if value == 'critical' %}has-[:checked]:border-red-600 has-[:checked]:bg-red-600 has-[:checked]:text-white{% elif value == 'urgent' %}has-[:checked]:border-amber-500 has-[:checked]:bg-amber-100 has-[:checked]:text-amber-950{% else %}has-[:checked]:border-stone-500 has-[:checked]:bg-stone-200{% endif %}">
+            <input type="radio" name="triage" value="{{ value }}" class="sr-only" {% if value == form.triage.value %}checked{% endif %}>{{ label }}
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend class="mb-1.5 text-[13px] font-semibold text-stone-700">{{ form.reason.label }}</legend>
+        <div class="flex flex-wrap gap-1.5">
+          {% for value, label in form.reason.field.choices %}
+          <label class="chip cursor-pointer px-3 py-1.5 text-sm has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-white has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand/30">
+            <input type="radio" name="reason" value="{{ value }}" class="sr-only" {% if value == form.reason.value %}checked{% endif %}>{{ label }}
+          </label>
+          {% endfor %}
+        </div>
+        <input type="text" name="reason_text" value="{{ form.reason_text.value|default_if_none:'' }}" maxlength="200" class="input mt-2" placeholder="{{ form.reason_text.label }}" aria-label="{{ form.reason_text.label }}">
+      </fieldset>
+
+      {% if doctors|length > 1 %}
+      <div class="form-field{% if form.doctor.errors %} has-error{% endif %}">
+        <label for="em-doctor">{% translate "الدكتور" %}</label>
+        <select id="em-doctor" name="doctor" required>
+          <option value="">{% translate "اختار الدكتور" %}</option>
+          {% for d in doctors %}<option value="{{ d.pk }}" {% if d.pk|stringformat:"s" == form.doctor.value|stringformat:"s" %}selected{% endif %}>{{ d }}</option>{% endfor %}
+        </select>
+        {{ form.doctor.errors }}
+      </div>
+      {% else %}
+      <input type="hidden" name="doctor" value="{{ doctors.0.pk }}">
+      {% endif %}
+
+      <div class="flex flex-wrap items-center gap-2 pt-1">
+        <button class="btn min-h-10 bg-red-600 px-6 text-white hover:bg-red-700">{% icon "siren" "size-4" %}{% translate "سجّل الطوارئ" %}</button>
+        <button type="button" class="btn-ghost" onclick="document.getElementById('modal').innerHTML = ''">{% translate "إلغاء" %}</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>document.getElementById("em-name")?.focus();</script>

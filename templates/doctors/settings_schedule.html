@@ -5,17 +5,21 @@
 <div class="page-head"><h1>{% translate "الإعدادات" %}</h1></div>
 
 {% include "partials/settings_tabs.html" %}
+{% include "doctors/partials/doctor_switcher.html" with url_name="doctors:schedule" %}
 
-<form method="post" class="card space-y-4 p-4 sm:p-6" novalidate>
+<form method="post" action="{% url 'doctors:schedule' %}?doctor={{ doctor.pk }}" class="card space-y-4 p-4 sm:p-6" novalidate>
   {% csrf_token %}
-  <h2 class="text-[15px] font-bold">{% translate "بيانات الدكتور" %}</h2>
+  <h2 class="text-[15px] font-bold">{% translate "بيانات الدكتور" %}{% if not doctor.is_active %} <span class="badge bg-stone-200 text-stone-700">{% translate "متوقف" %}</span>{% endif %}</h2>
   <div class="grid gap-4 sm:grid-cols-2">
     {% include "partials/field.html" with field=form.name_ar %}
     {% include "partials/field.html" with field=form.name_en %}
     {% include "partials/field.html" with field=form.title_ar %}
     {% include "partials/field.html" with field=form.specialty_ar %}
   </div>
-  {% include "partials/field.html" with field=form.qualifications_text %}
+  <div class="grid gap-4 sm:grid-cols-2">
+    {% include "partials/field.html" with field=form.qualifications_text %}
+    {% include "partials/field.html" with field=form.user %}
+  </div>
 
   <h2 class="border-t border-stone-100 pt-4 text-[15px] font-bold">{% translate "طريقة الحجز" %}</h2>
   <div class="grid gap-4 sm:grid-cols-3">
@@ -23,6 +27,7 @@
     {% include "partials/field.html" with field=form.slot_minutes %}
     {% include "partials/field.html" with field=form.queue_avg_minutes %}
     {% include "partials/field.html" with field=form.near_turn_threshold %}
+    {% include "partials/field.html" with field=form.visit_share_percent %}
     {% include "partials/field.html" with field=form.booking_horizon_days %}
     {% include "partials/field.html" with field=form.min_notice_minutes %}
   </div>

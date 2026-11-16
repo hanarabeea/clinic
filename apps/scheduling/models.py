@@ -69,6 +69,15 @@ class BookingSource(models.TextChoices):
     AUTO_REBOOK = "auto_rebook", _("إعادة حجز تلقائي")
     WHATSAPP = "whatsapp", _("واتساب")
     ONLINE = "online", _("أونلاين")
+    EMERGENCY = "emergency", _("طوارئ")
+
+
+# Emergency arrivals jump every queue: order_by(URGENT_FIRST, ...) puts them ahead of the booked patients.
+URGENT_FIRST = models.Case(
+    models.When(source=BookingSource.EMERGENCY, then=models.Value(0)),
+    default=models.Value(1),
+    output_field=models.IntegerField(),
+)
 
 
 class Appointment(TenantScopedModel):
@@ -88,6 +97,7 @@ class Appointment(TenantScopedModel):
     is_overbooked = models.BooleanField(default=False)
     price = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     discount = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    discount_reason = models.CharField(max_length=200, blank=True)
     followup_of = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     rescheduled_to = models.OneToOneField("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
     auto_rebooked_from = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")

@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{{ voucher }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'treasury:vouchers' %}" class="btn-icon print:hidden" aria-label="{% translate 'رجوع للسندات' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{{ voucher.get_kind_display }} <span class="num" dir="ltr">{{ voucher.number }}</span></h1>
+    <p class="page-sub"><span class="num" dir="ltr">{{ voucher.date|date:"d/m/Y" }}</span>{% if voucher.created_by %} · {{ voucher.created_by.full_name|default:voucher.created_by.username }}{% endif %}</p>
+  </div>
+  <span class="ms-auto"></span>
+  <button type="button" class="btn-ghost print:hidden" onclick="window.print()">{% icon "printer" "size-4" %}{% translate "طباعة" %}</button>
+</div>
+
+{% if voucher.is_cancelled %}
+<p class="notice notice-warn mb-4">{% icon "warning" "size-5 shrink-0" %}<span>{% translate "السند ده ملغي" %}{% if voucher.cancel_reason %}: {{ voucher.cancel_reason }}{% endif %}{% if voucher.cancelled_by %} ({{ voucher.cancelled_by.full_name|default:voucher.cancelled_by.username }}){% endif %}</span></p>
+{% endif %}
+
+<dl class="card max-w-2xl divide-y divide-stone-100 text-sm">
+  <div class="flex items-baseline justify-between gap-4 px-4 py-3"><dt class="text-stone-600">{% translate "المبلغ" %}</dt><dd class="num text-xl font-bold" dir="ltr">{{ voucher.amount|money0 }}</dd></div>
+  <div class="flex justify-between gap-4 px-4 py-2.5"><dt class="text-stone-600">{% if voucher.kind == "receipt" %}{% translate "داخل لخزينة" %}{% else %}{% translate "خارج من خزينة" %}{% endif %}</dt><dd class="font-semibold">{{ voucher.treasury.name }}</dd></div>
+  {% if voucher.to_treasury %}<div class="flex justify-between gap-4 px-4 py-2.5"><dt class="text-stone-600">{% translate "إلى خزينة" %}</dt><dd class="font-semibold">{{ voucher.to_treasury.name }}</dd></div>{% endif %}
+  {% if voucher.counter_account %}<div class="flex justify-between gap-4 px-4 py-2.5"><dt class="text-stone-600">{% translate "الحساب" %}</dt><dd class="font-semibold">{{ voucher.counter_account.name_ar }}</dd></div>{% endif %}
+  <div class="flex justify-between gap-4 px-4 py-2.5"><dt class="text-stone-600">{% translate "البيان" %}</dt><dd class="text-end">{{ voucher.description }}</dd></div>
+  {% if voucher.party_name %}<div class="flex justify-between gap-4 px-4 py-2.5"><dt class="text-stone-600">{% translate "الطرف" %}</dt><dd>{{ voucher.party_name }}</dd></div>{% endif %}
+  {% if voucher.cost_center %}<div class="flex justify-between gap-4 px-4 py-2.5"><dt class="text-stone-600">{% translate "مركز التكلفة" %}</dt><dd>{{ voucher.cost_center }}</dd></div>{% endif %}
+  {% if entry and can.ledger_view %}<div class="flex justify-between gap-4 px-4 py-2.5 print:hidden"><dt class="text-stone-600">{% translate "القيد" %}</dt><dd><a class="link" href="{% url 'ledger:entry' entry.pk %}">{% blocktranslate with n=entry.number %}رقم {{ n }}{% endblocktranslate %}</a>{% if reversal %}، {% translate "واتعكس بـ" %}<a class="link" href="{% url 'ledger:entry' reversal.pk %}">{% blocktranslate with n=reversal.number %}رقم {{ n }}{% endblocktranslate %}</a>{% endif %}</dd></div>{% endif %}
+</dl>
+
+<div class="mt-10 hidden max-w-2xl grid-cols-2 gap-8 text-sm print:grid">
+  <p>{% translate "المستلم" %}: ........................</p>
+  <p>{% translate "أمين الخزينة" %}: ........................</p>
+</div>
+
+{% if can.treasury_operate and not voucher.is_cancelled %}
+<form method="post" action="{% url 'treasury:voucher_cancel' voucher.pk %}" class="mt-6 flex max-w-2xl flex-wrap items-end gap-2 print:hidden"
+      onsubmit="return confirm('{% translate 'تلغي السند ده؟ القيد بتاعه هيتعكس، والسند هيفضل متسجل كملغي.' %}')">
+  {% csrf_token %}
+  <div class="form-field w-full max-w-sm">
+    <label for="cancel-reason">{% translate "غلط في السند؟ الغيه واكتب السبب" %}</label>
+    <input id="cancel-reason" type="text" name="reason" maxlength="200">
+  </div>
+  <button class="btn-danger">{% translate "إلغاء السند" %}</button>
+</form>
+{% endif %}
+{% endblock %}

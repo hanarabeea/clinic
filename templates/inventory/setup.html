@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "المخازن" %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'inventory:items' %}" class="btn-icon" aria-label="{% translate 'رجوع للأصناف' %}">{% icon "arrow-right" %}</a>
+  <h1>{% translate "المخازن" %}</h1>
+  <span class="ms-auto"></span>
+  <a href="{% url 'inventory:warehouse_new' %}" class="btn-primary">{% icon "plus" "size-4" %}{% translate "مخزن جديد" %}</a>
+</div>
+<ul class="card mb-6 max-w-2xl divide-y divide-stone-100">
+  {% for s in stores %}
+  <li class="flex items-center gap-3 px-4 py-2.5 text-sm {% if not s.is_active %}text-stone-500{% endif %}">
+    <span class="font-semibold">{{ s.name }}</span>{% if not s.is_active %}<span class="badge bg-stone-200 text-stone-700">{% translate "متوقف" %}</span>{% endif %}
+    <a href="{% url 'inventory:warehouse_edit' s.pk %}" class="btn-icon ms-auto size-7" aria-label="{% translate 'تعديل المخزن' %}">{% icon "pencil-simple" "size-4" %}</a>
+  </li>
+  {% endfor %}
+</ul>
+<form method="post" class="card max-w-2xl space-y-4 p-4" novalidate>
+  {% csrf_token %}
+  {% for field in form.visible_fields %}{% include "partials/field.html" %}{% endfor %}
+  <div class="flex justify-end"><button class="btn-primary">{% translate "حفظ" %}</button></div>
+</form>
+{% endblock %}

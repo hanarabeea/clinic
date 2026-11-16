@@ -1,0 +1,23 @@
+{% load i18n clock %}
+{% comment %}Under the patient header of an emergency visit (doctor's workspace): how urgent, why, the times, and
+where she goes next. Re-reads itself after the disposition is saved (so the button inside states its own swap:
+it would inherit this element's outerHTML and replace the dialog container).{% endcomment %}
+<div id="emergency-band" class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm"
+     {% if can.emergency_register %}hx-get="{% url 'center:emergency_band' emergency.pk %}" hx-trigger="emergency-changed from:body" hx-swap="outerHTML"{% endif %}>
+  <span class="flex items-center gap-1.5 font-bold text-red-800">{% icon "siren" "size-5" %}{% translate "طوارئ" %}</span>
+  {% include "center/partials/triage_tag.html" with case=emergency %}
+  <span class="font-semibold text-ink">{{ emergency.reason_label }}</span>
+  <span class="text-stone-700">{% translate "وصلت" %} <span class="num" dir="ltr">{{ emergency.arrived_at|ampm }}</span></span>
+  {% if emergency.minutes_to_seen is not None %}<span class="text-stone-700">{% blocktranslate with m=emergency.minutes_to_seen %}دخلت بعد {{ m }} دقيقة{% endblocktranslate %}</span>{% endif %}
+  <span class="ms-auto flex flex-wrap items-center gap-2">
+    {% if emergency.disposition %}
+    <span class="badge bg-white font-semibold text-ink ring-1 ring-stone-300 ring-inset">{{ emergency.get_disposition_display }}</span>
+    {% if emergency.disposition_notes %}<span class="text-stone-700">{{ emergency.disposition_notes }}</span>{% endif %}
+    {% endif %}
+    {% if emergency.disposition == "theatre" and can.theatre_schedule %}<a href="{% url 'theatre:operation_new' %}?emergency_case={{ emergency.pk }}" class="btn-primary min-h-8 px-3 py-1 text-xs">{% translate "احجز العملية" %}</a>{% endif %}
+    {% if emergency.disposition == "admitted" and can.admission_manage %}<a href="{% url 'theatre:admit' %}?emergency_case={{ emergency.pk }}" class="btn-primary min-h-8 px-3 py-1 text-xs">{% translate "دخّلها غرفة" %}</a>{% endif %}
+    {% if can.emergency_register %}
+    <button type="button" class="btn-secondary min-h-8 px-3 py-1 text-xs" hx-get="{% url 'center:emergency_disposition' emergency.pk %}" hx-target="#modal" hx-swap="innerHTML">{% if emergency.disposition %}{% translate "تغيير التصرف" %}{% else %}{% translate "التصرف في الحالة" %}{% endif %}</button>
+    {% endif %}
+  </span>
+</div>

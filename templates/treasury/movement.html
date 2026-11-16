@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{{ treasury.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'treasury:home' %}" class="btn-icon print:hidden" aria-label="{% translate 'رجوع للخزن' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{{ treasury.name }}</h1>
+    <p class="page-sub">{% translate "حركة الخزينة" %}</p>
+  </div>
+</div>
+
+{% url 'treasury:movement' treasury.pk as action %}
+{% include "ledger/partials/range.html" %}
+
+{% include "ledger/partials/statement_table.html" with in_out=True %}
+{% endblock %}

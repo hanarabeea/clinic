@@ -44,6 +44,14 @@
   </div>
   {% endif %}
 
+  {% if can.service_order %}
+  {# Services done in this visit (ultrasound, a procedure, an injection): added here, paid at reception with the visit. #}
+  <div class="ws-section">
+    <p class="ws-label mb-2">{% translate "خدمات اتعملت في الزيارة" %}</p>
+    <div hx-get="{% url 'center:orders' visit.appointment_id %}?inline=1" hx-trigger="load" hx-swap="innerHTML"></div>
+  </div>
+  {% endif %}
+
   {# Follow-up: one tap; the number of days stays editable. Reception books it from "إعادات محتاجة حجز". #}
   <div id="followup" class="ws-section">
     <div class="flex flex-wrap items-center gap-2">

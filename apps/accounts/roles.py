@@ -13,7 +13,13 @@ from django.utils.translation import gettext as _
 
 from apps.organizations.models import ClinicRole, Membership, Role
 
-from .permissions import ALL_PERMISSIONS, ROLE_PERMISSIONS, effective_permissions, with_implied
+from .permissions import (
+    ALL_PERMISSIONS,
+    EXTRA_ROLE_PERMISSIONS,
+    ROLE_PERMISSIONS,
+    effective_permissions,
+    with_implied,
+)
 
 OWNER_CHOICE = "owner"
 
@@ -22,9 +28,28 @@ DEFAULT_ROLES = [
     (Role.DOCTOR, "دكتور", "الكشف والروشتة والملف الطبي والمواعيد والاستقبال والتقارير"),
     (Role.RECEPTION, "استقبال", "الحجز والاستقبال والخزنة وبيانات المرضى، من غير الملف الطبي"),
     (Role.VIEWER, "مشاهد", "يشوف المواعيد بس"),
+    (
+        "accountant",
+        "محاسب",
+        "الدفاتر والقوائم المالية، الخزن والشيكات، المشتريات والموردين، الفواتير ومستحقات الدكاترة",
+    ),
+    ("cashier", "كاشير", "الخزنة والتحصيل، سندات القبض والصرف، وفواتير المرضى"),
+    ("storekeeper", "أمين مخزن", "الأصناف والصرف والتحويل وجرد المخزن"),
+    ("theatre_nurse", "تمريض عمليات", "جدول العمليات وخطواتها، المستلزمات، ودخول وخروج الغرف"),
 ]
 # Roles that work in one screen open straight onto it, with no side menu (ClinicRole.start_screen).
-DEFAULT_START_SCREENS = {Role.RECEPTION: "reception"}
+DEFAULT_START_SCREENS = {
+    Role.RECEPTION: "reception",
+    "accountant": "books",
+    "cashier": "cashbox",
+    "storekeeper": "stock",
+    "theatre_nurse": "theatre",
+}
+
+
+def default_permissions(key) -> frozenset[str]:
+    """The permissions a default role starts with (closed over what each permission brings along)."""
+    return with_implied(ROLE_PERMISSIONS.get(key) or EXTRA_ROLE_PERMISSIONS[key])
 
 
 def ensure_defaults(org):
@@ -37,7 +62,7 @@ def ensure_defaults(org):
                 key=key,
                 name=name,
                 description=desc,
-                permissions=sorted(ROLE_PERMISSIONS[key]),
+                permissions=sorted(default_permissions(key)),
                 order=i,
                 start_screen=DEFAULT_START_SCREENS.get(key, ""),
             )

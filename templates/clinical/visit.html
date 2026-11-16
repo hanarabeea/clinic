@@ -6,6 +6,7 @@
 the visit and the prescription side by side → a sticky action bar. History, prescriptions, attachments and data open
 in a drawer over the page, so the visit being written is never left (or reloaded).{% endcomment %}
 {% include "clinical/partials/header.html" %}
+{% if emergency %}{% include "center/partials/emergency_band.html" %}{% endif %}
 {% if ob_patient %}{% include "obstetrics/partials/band.html" %}{% endif %}
 {% include "clinical/partials/snapshot.html" %}
 
@@ -41,6 +42,7 @@ in a drawer over the page, so the visit being written is never left (or reloaded
       {% if can.clinical_view %}<button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'prescriptions:patient_list' patient.pk %}">{% icon "pill" "size-4" %} {% translate "الروشتات" %}</button>{% endif %}
       <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:attachments' patient.pk %}?visit={{ visit.pk }}">{% icon "paperclip" "size-4" %} {% translate "المرفقات" %}</button>
       <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:data' patient.pk %}">{% icon "user" "size-4" %} {% translate "البيانات" %}</button>
+      {% if can.theatre_schedule %}<a class="btn-ghost whitespace-nowrap px-3" href="{% url 'theatre:operation_new' %}?patient={{ patient.pk }}">{% icon "first-aid-kit" "size-4" %} {% translate "حجز عملية" %}</a>{% endif %}
     </div>
     {% if can.clinical_edit and visit.status != "finished" %}
     <span class="ms-auto"></span>
@@ -69,6 +71,10 @@ in a drawer over the page, so the visit being written is never left (or reloaded
   </div>
   <div id="drawer-body" class="flex-1 overflow-y-auto bg-stone-50/50 p-4"></div>
 </aside>
+
+{# dialogs opened from the workspace (the emergency disposition) and their toasts #}
+<div id="modal"></div>
+{% include "partials/htmx_toast.html" %}
 
 {# --- finish summary (warnings never block) --- #}
 <dialog id="finish-dialog" class="m-auto w-full max-w-md rounded-xl p-0 shadow-xl backdrop:bg-ink-panel/45">

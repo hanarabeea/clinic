@@ -19,6 +19,7 @@ class DoctorForm(forms.ModelForm):
             "name_en",
             "title_ar",
             "specialty_ar",
+            "user",
             "booking_mode",
             "slot_minutes",
             "booking_horizon_days",
@@ -26,12 +27,38 @@ class DoctorForm(forms.ModelForm):
             "queue_avg_minutes",
             "near_turn_threshold",
             "allow_overbooking",
+            "visit_share_percent",
         ]
         widgets = {"name_en": forms.TextInput(attrs={"dir": "ltr"})}
+        help_texts = {
+            "visit_share_percent": _("اللي بياخده الدكتور من كل كشف. صفر = مفيش نسبة (صاحب العيادة أو دكتور بمرتب).")
+        }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["qualifications_text"].initial = "\n".join(self.instance.qualifications or [])
+        # The doctor's own login: their desk opens on their queue. Only this clinic's people, each linked once.
+        from apps.accounts.models import User
+
+        taken = Doctor.objects.filter(organization_id=self.instance.organization_id, user__isnull=False)
+        taken = taken.exclude(pk=self.instance.pk).values("user_id")
+        user = self.fields["user"]
+        user.queryset = (
+            User.objects.filter(memberships__organization_id=self.instance.organization_id, memberships__is_active=True)
+            .exclude(pk__in=taken)
+            .order_by("full_name")
+        )
+        user.label = _("حساب الدخول بتاعه")
+        user.required = False
+        user.empty_label = _("من غير حساب")
+        user.label_from_instance = lambda u: u.full_name or u.username
+        user.help_text = _("لما يدخل بالحساب ده، شاشة الدكتور بتفتح على مرضاه هو.")
+        share = self.fields["visit_share_percent"]
+        share.required = False  # left empty = no share
+        share.widget.attrs.update({"dir": "ltr", "inputmode": "decimal"})
+
+    def clean_visit_share_percent(self):
+        return self.cleaned_data.get("visit_share_percent") or 0
 
     def save(self, commit=True):
         self.instance.qualifications = [
@@ -86,3 +113,9 @@ class VisitTypeForm(forms.ModelForm):
         model = VisitType
         fields = ["name_ar", "duration_minutes", "price", "is_followup", "free_followup_days", "color", "is_active"]
         widgets = {"color": forms.TextInput(attrs={"type": "color"})}
+
+
+class NewDoctorForm(forms.ModelForm):
+    class Meta:
+        model = Doctor
+        fields = ["title_ar", "name_ar", "specialty_ar", "booking_mode"]

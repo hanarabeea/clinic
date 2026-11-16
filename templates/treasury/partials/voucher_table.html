@@ -1,0 +1,26 @@
+{% load i18n money %}
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th class="w-28">{% translate "التاريخ" %}</th>
+        <th>{% translate "السند" %}</th>
+        <th>{% translate "البيان" %}</th>
+        <th class="text-end!">{% translate "المبلغ" %}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for v in vouchers %}
+      <tr class="cursor-pointer hover:bg-stone-50 {% if v.is_cancelled %}text-stone-500 line-through{% endif %}" onclick="location.href='{% url 'treasury:voucher' v.pk %}'">
+        <td class="num text-stone-600" dir="ltr">{{ v.date|date:"d/m/Y" }}</td>
+        <td><a href="{% url 'treasury:voucher' v.pk %}" class="font-semibold hover:text-brand">{{ v.get_kind_display }} <span class="num" dir="ltr">{{ v.number }}</span></a>
+          <span class="block text-xs text-stone-600">{{ v.treasury.name }}{% if v.to_treasury %} {% icon "arrow-left" "size-3" %} {{ v.to_treasury.name }}{% endif %}</span></td>
+        <td>{{ v.description }}{% if v.party_name %} <span class="text-stone-600">({{ v.party_name }})</span>{% endif %}</td>
+        <td class="num text-end font-semibold" dir="ltr">{{ v.amount|money0 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="4" class="py-12! text-center text-stone-600">{% translate "مفيش سندات في الفترة دي." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

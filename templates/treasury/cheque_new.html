@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "شيك جديد" %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'treasury:cheques' %}?direction={{ direction }}" class="btn-icon" aria-label="{% translate 'رجوع للشيكات' %}">{% icon "arrow-right" %}</a>
+  <h1>{% translate "شيك جديد" %}</h1>
+</div>
+{% if error %}<p class="notice notice-danger mb-4 font-semibold" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}{{ error }}</p>{% endif %}
+<div class="segmented mb-4">
+  {% for v, l in directions %}<a href="{% url 'treasury:cheque_new' %}?direction={{ v }}" class="{% if v == direction %}is-active{% endif %}">{{ l }}</a>{% endfor %}
+</div>
+<form method="post" class="card max-w-3xl space-y-4 p-4 sm:p-6" novalidate>
+  {% csrf_token %}
+  <input type="hidden" name="direction" value="{{ direction }}">
+  <div class="grid gap-4 sm:grid-cols-3">
+    <div class="form-field"><label for="c-number">{% translate "رقم الشيك" %}</label><input id="c-number" name="number" class="input" dir="ltr" maxlength="40" value="{{ post.number }}" required></div>
+    <div class="form-field"><label for="c-amount">{% translate "المبلغ" %}</label><input id="c-amount" name="amount" class="input" dir="ltr" inputmode="decimal" value="{{ post.amount }}" required></div>
+    <div class="form-field"><label for="c-due">{% translate "تاريخ الاستحقاق" %}</label><input id="c-due" type="date" name="due_date" class="input" value="{{ post.due_date }}" required></div>
+    {% if direction == "received" %}
+    <div class="form-field"><label for="c-bank-name">{% translate "البنك المسحوب عليه" %}</label><input id="c-bank-name" name="bank_name" class="input" maxlength="120" value="{{ post.bank_name }}"></div>
+    {% if payers %}
+    <div class="form-field sm:col-span-2"><label for="c-payer">{% translate "من جهة تعاقد" %}</label>
+      <select id="c-payer" name="payer" class="input"><option value="">{% translate "مش من جهة تعاقد" %}</option>{% for p in payers %}<option value="{{ p.pk }}" {% if p.pk|stringformat:"s" == post.payer %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select>
+      <p class="help">{% translate "شيك من جهة تعاقد بيسدد المستحق عليها، ومش محتاج حساب." %}</p></div>
+    {% endif %}
+    {% else %}
+    <div class="form-field"><label for="c-bank">{% translate "مسحوب على حساب" %}</label>
+      <select id="c-bank" name="bank" class="input" required><option value="">{% translate "اختار الحساب البنكي" %}</option>{% for b in banks %}<option value="{{ b.pk }}" {% if b.pk|stringformat:"s" == post.bank %}selected{% endif %}>{{ b.name }}</option>{% endfor %}</select></div>
+    {% endif %}
+    <div class="form-field"><label for="c-party">{% translate "الطرف" %}</label><input id="c-party" name="party_name" class="input" maxlength="150" value="{{ post.party_name }}"></div>
+    <div class="form-field sm:col-span-2"><label for="c-account">{% if direction == "received" %}{% translate "الحساب اللي بيسدده" %}{% else %}{% translate "الحساب اللي بيتصرف عليه" %}{% endif %}</label>
+      <select id="c-account" name="account" class="input"><option value="">{% translate "اختار الحساب" %}</option>{% for a in accounts %}<option value="{{ a.pk }}" {% if a.pk|stringformat:"s" == post.account %}selected{% endif %}>{{ a.code }} {{ a.name_ar }}</option>{% endfor %}</select></div>
+    <div class="form-field"><label for="c-center">{% translate "مركز التكلفة" %}</label>
+      <select id="c-center" name="cost_center" class="input"><option value="">{% translate "من غير" %}</option>{% for c in centers %}<option value="{{ c.pk }}" {% if c.pk|stringformat:"s" == post.cost_center %}selected{% endif %}>{{ c.name_ar }}</option>{% endfor %}</select></div>
+    <div class="form-field sm:col-span-3"><label for="c-notes">{% translate "ملاحظات" %}</label><input id="c-notes" name="notes" class="input" maxlength="300" value="{{ post.notes }}"></div>
+  </div>
+  {% if direction == "issued" %}<p class="text-xs text-stone-600">{% translate "شيك لمورد بيتسجل من «سداد مورد» في المشتريات، عشان يتخصم من حسابه." %}</p>{% endif %}
+  <div class="flex justify-end gap-2">
+    <a href="{% url 'treasury:cheques' %}?direction={{ direction }}" class="btn-ghost">{% translate "إلغاء" %}</a>
+    <button type="submit" class="btn-primary">{% translate "تسجيل الشيك" %}</button>
+  </div>
+</form>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "reception/partials/modal.html" %}
+{% load i18n %}
+{% block title %}{% blocktranslate with p=case.patient.full_name %}التصرف في الحالة: {{ p }}{% endblocktranslate %}{% endblock %}
+{% block body %}
+<form hx-post="{% url 'center:emergency_disposition' case.pk %}" hx-target="#modal" class="space-y-4" novalidate>
+  <fieldset>
+    <legend class="sr-only">{{ form.disposition.label }}</legend>
+    <div class="grid grid-cols-2 gap-2">
+      {% for value, label in form.disposition.field.choices %}
+      <label class="flex cursor-pointer items-center gap-2 rounded-lg border border-stone-300 px-3 py-2.5 text-sm font-semibold transition-colors has-[:checked]:border-brand has-[:checked]:bg-brand-soft has-[:checked]:text-brand has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand/30">
+        <input type="radio" name="disposition" value="{{ value }}" class="sr-only" required {% if value == form.disposition.value %}checked{% endif %}>
+        {% if value == "discharged" %}{% icon "door-open" "size-4" %}{% elif value == "theatre" %}{% icon "first-aid-kit" "size-4" %}{% elif value == "admitted" %}{% icon "bed" "size-4" %}{% else %}{% icon "ambulance" "size-4" %}{% endif %}{{ label }}
+      </label>
+      {% endfor %}
+    </div>
+    {{ form.disposition.errors }}
+  </fieldset>
+  {% include "partials/field.html" with field=form.notes %}
+  <button class="btn-primary w-full">{% translate "حفظ التصرف" %}</button>
+</form>
+{% endblock %}

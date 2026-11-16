@@ -15,6 +15,13 @@ VIEWER = {
     "appointment.view",
 }
 RECEPTION = VIEWER | {
+    "invoice.view",
+    "invoice.issue",
+    "theatre.view",
+    "theatre.schedule",
+    "admission.manage",
+    "emergency.register",
+    "service.order",
     "pregnancy.view_basic",
     "attachment.upload",
     "reception.operate",
@@ -29,6 +36,14 @@ RECEPTION = VIEWER | {
     "messages.retry",
 }
 DOCTOR = VIEWER | {
+    "invoice.view",
+    "invoice.discount",
+    "theatre.view",
+    "theatre.schedule",
+    "theatre.operate",
+    "admission.manage",
+    "emergency.register",
+    "service.order",
     "pregnancy.view_basic",
     "prescription.write",
     "prescription.print",
@@ -71,7 +86,66 @@ ADMIN = VIEWER | {
     "messages.view",
     "messages.retry",
 }
-OWNER = ADMIN | DOCTOR | RECEPTION
+# The books and the treasury: nobody's by default except the owner. The accountant and cashier roles (phase 20) and
+# any role the clinic makes itself take them from here.
+FINANCE = {
+    "ledger.view",
+    "ledger.post",
+    "ledger.close_period",
+    "accounts.manage",
+    "treasury.view",
+    "treasury.operate",
+    "treasury.count",
+    "invoice.view",
+    "invoice.discount",
+    "invoice.discount_any",
+    "invoice.refund",
+    "doctor.payout",
+    "payer.manage",
+    "purchase.view",
+    "supplier.manage",
+    "purchase.manage",
+    "supplier.pay",
+    "cheque.manage",
+    "tax.manage",
+    "stock.view",
+    "stock.move",
+    "stock.count",
+    "stock.approve_count",
+    "report.statements",
+    "books.verify",
+}
+OWNER = ADMIN | DOCTOR | RECEPTION | FINANCE
+
+# The center's other default roles (accounts/roles.DEFAULT_ROLES). Starting points the clinic edits like any role.
+# The accountant keeps the books but does not give discounts: those stay with the doctors and the owner.
+ACCOUNTANT = (FINANCE - {"invoice.discount", "invoice.discount_any"}) | {"report.finance", "appointment.view"}
+CASHIER = {
+    "appointment.view",
+    "patient.view_basic",
+    "payment.record",
+    "invoice.view",
+    "invoice.issue",
+    "treasury.view",
+    "treasury.operate",
+}
+STOREKEEPER = {"stock.view", "stock.move", "stock.count", "purchase.view"}
+THEATRE_NURSE = {
+    "theatre.view",
+    "theatre.operate",
+    "admission.manage",
+    "patient.view_basic",
+    "pregnancy.view_basic",
+    "vitals.record",
+    "appointment.view",
+    "stock.view",
+}
+EXTRA_ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
+    "accountant": frozenset(ACCOUNTANT),
+    "cashier": frozenset(CASHIER),
+    "storekeeper": frozenset(STOREKEEPER),
+    "theatre_nurse": frozenset(THEATRE_NURSE),
+}
 
 ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     Role.VIEWER: frozenset(VIEWER),
@@ -80,7 +154,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
     Role.ADMIN: frozenset(ADMIN),
     Role.OWNER: frozenset(OWNER),
 }
-ALL_PERMISSIONS = frozenset(ADMIN | DOCTOR | RECEPTION)
+ALL_PERMISSIONS = frozenset(OWNER)
 
 # What each permission opens, grouped for the per-employee permissions screen (every permission must be listed here).
 PERMISSION_GROUPS = [
@@ -96,7 +170,49 @@ PERMISSION_GROUPS = [
         ("reception.operate", "شاشة الاستقبال", "وصول المريض، دخوله للدكتور، خلص، غياب"),
         ("vitals.record", "تسجيل القياسات", "الوزن والضغط والسكر عند الوصول"),
         ("payment.record", "الخزنة والدفع", "تسجيل الفلوس وشاشة الخزنة"),
+        ("service.order", "خدمات على الزيارة", "يضيف سونار أو إجراء أو حقنة على الزيارة، ويشيلها قبل الدفع"),
+        ("emergency.register", "تسجيل الطوارئ", "زرار الطوارئ في الاستقبال، سجل الحالات، والتصرف في الحالة"),
         ("report.finance", "التقارير والإيرادات", "صفحة التقارير وأرقام الشهر"),
+    ]),
+    ("العمليات والإقامة", [
+        ("theatre.view", "يشوف العمليات والإقامة", "جدول العمليات، صفحة العملية، مين مقيم في الغرف"),
+        ("theatre.schedule", "يحجز ويأجل العمليات", "حجز عملية، تغيير الميعاد أو الغرفة، تأجيل وإلغاء"),
+        ("theatre.operate", "شغل غرفة العمليات", "خطوات العملية، قايمة ما قبل العملية، الفريق، المولود، المستلزمات"),
+        ("admission.manage", "دخول وخروج الغرف", "دخول مريضة غرفة إقامة وخروجها"),
+    ]),
+    ("الفواتير", [
+        ("invoice.view", "يشوف الفواتير وحسابات المرضى", "قايمة الفواتير، حساب المريضة، طباعة الفاتورة والإيصال"),
+        ("invoice.issue", "يصدر فواتير", "فاتورة عملية أو إقامة، بنود إضافية على الحساب، جهة تعاقد المريضة"),
+        ("invoice.discount", "يعمل خصم", "خصم على الكشف أو على الفاتورة لحد النسبة المسموحة"),
+        ("invoice.discount_any", "خصم من غير حد", "خصم أكبر من النسبة المسموحة في الإعدادات"),
+        ("invoice.refund", "إشعار دائن", "يرجّع فاتورة أو بنود منها بإشعار دائن"),
+        ("doctor.payout", "مستحقات الدكاترة", "كشف حساب الدكتور وصرف مستحقاته"),
+        ("payer.manage", "جهات التعاقد", "إضافة الشركات والتأمين، كشف حسابها، وتحصيل منها"),
+    ]),
+    ("المشتريات والموردين", [
+        ("purchase.view", "يشوف المشتريات والموردين", "فواتير المشتريات، الموردين وكشوف حسابهم، السداد، الضرائب"),
+        ("supplier.manage", "يضيف ويعدّل الموردين", "بيانات المورد، رقمه الضريبي، مهلة السداد، رصيده الافتتاحي"),
+        ("purchase.manage", "يسجّل فواتير المشتريات", "فاتورة مشتريات، مرتجع، وإلغاء فاتورة"),
+        ("supplier.pay", "يسدد للموردين", "سداد نقدي أو تحويل أو شيك، وخصم تحت حساب الضريبة"),
+        ("cheque.manage", "الشيكات", "تسجيل شيك وارد أو صادر، صرفه وتحصيله وارتداده"),
+        ("tax.manage", "أنواع الضرائب", "نسب الضرائب، هل ض.ق.م بتتخصم، وحد الخصم"),
+    ]),
+    ("المخزن", [
+        ("stock.view", "يشوف المخزن", "الأصناف وأرصدتها، كارت الصنف، الصرف والتحويل، الجرد"),
+        ("stock.move", "يصرف ويحوّل ويضيف أصناف", "صرف من المخزن، تحويل بين مخزنين، رصيد افتتاحي، إضافة صنف أو مخزن"),
+        ("stock.count", "يجرد المخزن", "يبدأ جرد ويسجّل اللي عدّه (من غير ما يشوف رصيد الدفاتر)"),
+        ("stock.approve_count", "يعتمد فروق الجرد", "اعتماد جرد عدّه حد تاني، وتسوية الفروق"),
+    ]),
+    ("الحسابات والخزينة", [
+        ("ledger.view", "يشوف الدفاتر", "ميزان المراجعة، دفتر اليومية، شجرة الحسابات وكشوف الحسابات"),
+        ("ledger.post", "يسجّل قيود يدوية", "قيد جديد وعكس قيد يدوي"),
+        ("ledger.close_period", "يقفل ويفتح الشهور", "قفل الشهر المالي وفتحه تاني"),
+        ("accounts.manage", "يعدّل شجرة الحسابات والخزن", "إضافة وتعديل الحسابات، إضافة خزينة أو حساب بنكي"),
+        ("treasury.view", "يشوف الخزن وأرصدتها", "أرصدة الخزن والبنوك، حركتها، السندات والجرد"),
+        ("treasury.operate", "سندات القبض والصرف", "سند قبض، سند صرف، تحويل بين الخزن، وإلغاء سند"),
+        ("treasury.count", "جرد الخزينة واعتماد الفروق", "جرد مفاجئ، واعتماد عجز أو زيادة وردية حد تاني"),
+        ("report.statements", "القوائم المالية", "قائمة الدخل والمركز المالي، بالمقارنة وحسب القسم"),
+        ("books.verify", "فحص الدفاتر", "يشوف نتيجة فحص سلامة الدفاتر ويشغّله"),
     ]),
     ("المرضى", [
         ("patient.view_basic", "يشوف بيانات المرضى", "قائمة المرضى، البيانات، الحساسية"),
@@ -141,6 +257,30 @@ IMPLIES = {
     "appointment.cancel": {"appointment.view"},
     "appointment.overbook": {"appointment.book"},
     "reception.operate": {"appointment.view", "patient.view_basic"},
+    "emergency.register": {"appointment.view", "patient.view_basic"},
+    "service.order": {"appointment.view"},
+    "theatre.schedule": {"theatre.view", "patient.view_basic"},
+    "theatre.operate": {"theatre.view"},
+    "admission.manage": {"theatre.view", "patient.view_basic"},
+    "invoice.issue": {"invoice.view", "patient.view_basic"},
+    "invoice.discount": {"invoice.view"},
+    "invoice.discount_any": {"invoice.discount"},
+    "invoice.refund": {"invoice.view"},
+    "doctor.payout": {"invoice.view"},
+    "payer.manage": {"invoice.view"},
+    "supplier.manage": {"purchase.view"},
+    "purchase.manage": {"purchase.view"},
+    "supplier.pay": {"purchase.view", "treasury.view"},
+    "tax.manage": {"purchase.view"},
+    "cheque.manage": {"treasury.view"},
+    "stock.move": {"stock.view"},
+    "stock.count": {"stock.view"},
+    "stock.approve_count": {"stock.view"},
+    "ledger.post": {"ledger.view"},
+    "ledger.close_period": {"ledger.view"},
+    "accounts.manage": {"ledger.view", "treasury.view"},
+    "treasury.operate": {"treasury.view"},
+    "treasury.count": {"treasury.view"},
     "messages.retry": {"messages.view"},
 }
 

@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% load i18n money clock %}
+{% block title %}{% blocktranslate with p=patient.full_name %}حساب {{ p }}{% endblocktranslate %}{% endblock %}
+{% block content %}
+{% comment %}One patient's account: what she owes by the books, the deposit held for her, what waits for an invoice
+(operations, stays, extra charges), her invoices and her payments. One main action at a time: take money, or issue
+the invoice. Everything else is folded.{% endcomment %}
+<div x-data="{ panel: '' }">
+<div class="page-head">
+  <a href="{% url 'invoicing:accounts' %}" class="btn-icon" aria-label="{% translate 'رجوع لحسابات المرضى' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{{ patient.full_name }}</h1>
+    <p class="page-sub">{% translate "الحساب" %} <span class="num" dir="ltr">#{{ patient.file_number }}</span>{% if coverage %}، {{ coverage.payer.name }} <span class="num" dir="ltr">{{ coverage.percent|floatformat:"-2" }}%</span>{% endif %}</p>
+  </div>
+  <span class="ms-auto"></span>
+  {% if can.invoice_issue %}<button type="button" class="btn-ghost" @click="panel = panel === 'charge' ? '' : 'charge'">{% icon "plus" "size-4" %}{% translate "بند إضافي" %}</button>{% endif %}
+  {% if can.payment_record %}<button type="button" class="btn-primary" @click="panel = panel === 'pay' ? '' : 'pay'">{% icon "money" "size-4" %}{% translate "تسجيل فلوس" %}</button>{% endif %}
+</div>
+
+<div class="stat-strip mb-5">
+  <div class="stat">
+    <div class="stat-label">{% if owed < 0 %}{% translate "ليها عندنا" %}{% else %}{% translate "عليها" %}{% endif %}</div>
+    <div class="stat-value" dir="ltr">{% if owed < 0 %}{{ owed|cut:"-"|money0 }}{% else %}{{ owed|money0 }}{% endif %}</div>
+  </div>
+  <div class="stat"><div class="stat-label">{% translate "مقدم عندنا" %}</div><div class="stat-value" dir="ltr">{{ deposit|money0 }}</div></div>
+</div>
+
+{% if can.payment_record %}
+<form method="post" action="{% url 'invoicing:account_pay' patient.pk %}" class="card mb-5 space-y-3 p-4" x-show="panel === 'pay'" x-cloak>
+  {% csrf_token %}
+  <div class="grid gap-3 sm:grid-cols-4">
+    <div class="form-field"><label for="pay-move">{% translate "الحركة" %}</label>
+      <select id="pay-move" name="move" class="input">
+        <option value="pay">{% translate "تحصيل من المستحق" %}</option>
+        <option value="deposit">{% translate "مقدم (قبل الفاتورة)" %}</option>
+        <option value="deposit_refund">{% translate "رد مقدم" %}</option>
+        <option value="refund">{% translate "رد فلوس ليها" %}</option>
+      </select></div>
+    <div class="form-field"><label for="pay-amount">{% translate "المبلغ" %}</label><input id="pay-amount" name="amount" class="input" dir="ltr" inputmode="decimal" required {% if owed > 0 %}value="{{ owed|floatformat:'2u' }}"{% endif %}></div>
+    <div class="form-field"><label for="pay-method">{% translate "طريقة الدفع" %}</label>
+      <select id="pay-method" name="method" class="input">{% for v, l in methods %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+    <div class="form-field"><label for="pay-note">{% translate "ملاحظة" %}</label><input id="pay-note" name="note" class="input" maxlength="200"></div>
+  </div>
+  <div class="flex justify-end gap-2">
+    <button type="button" class="btn-ghost" @click="panel = ''">{% translate "إلغاء" %}</button>
+    <button class="btn-primary">{% translate "تسجيل" %}</button>
+  </div>
+</form>
+{% endif %}
+
+{% if can.invoice_issue %}
+<form method="post" action="{% url 'invoicing:charge_add' patient.pk %}" class="card mb-5 space-y-3 p-4" x-show="panel === 'charge'" x-cloak>
+  {% csrf_token %}
+  <div class="grid gap-3 sm:grid-cols-4">
+    <div class="form-field sm:col-span-2"><label for="ch-desc">{% translate "البند" %}</label><input id="ch-desc" name="description" class="input" maxlength="150" required></div>
+    <div class="form-field"><label for="ch-price">{% translate "السعر" %}</label><input id="ch-price" name="unit_price" class="input" dir="ltr" inputmode="decimal" required></div>
+    <div class="form-field"><label for="ch-qty">{% translate "العدد" %}</label><input id="ch-qty" name="quantity" class="input" dir="ltr" inputmode="numeric" value="1"></div>
+  </div>
+  <details class="text-sm">
+    <summary class="cursor-pointer text-stone-600">{% translate "نوع البند ونسبة دكتور" %}</summary>
+    <div class="mt-3 grid gap-3 sm:grid-cols-4">
+      <div class="form-field"><label for="ch-kind">{% translate "النوع" %}</label>
+        <select id="ch-kind" name="kind" class="input">{% for v, l in charge_kinds %}<option value="{{ v }}">{{ l }}</option>{% endfor %}</select></div>
+      <div class="form-field"><label for="ch-doctor">{% translate "الدكتور" %}</label>
+        <select id="ch-doctor" name="doctor" class="input"><option value="">{% translate "من غير" %}</option>{% for d in doctors %}<option value="{{ d.pk }}">{{ d }}</option>{% endfor %}</select></div>
+      <div class="form-field"><label for="ch-share">{% translate "نسبته %" %}</label><input id="ch-share" name="share_percent" class="input" dir="ltr" inputmode="decimal" value="0"></div>
+    </div>
+  </details>
+  <div class="flex justify-end gap-2">
+    <button type="button" class="btn-ghost" @click="panel = ''">{% translate "إلغاء" %}</button>
+    <button class="btn-primary">{% translate "إضافة على الحساب" %}</button>
+  </div>
+</form>
+{% endif %}
+
+{% if items %}
+<h2 class="section-title">{% translate "لسه ما اتفوترش" %}</h2>
+{% if can.invoice_issue %}<form method="post" action="{% url 'invoicing:account_issue' patient.pk %}" class="card mb-8">
+  {% csrf_token %}{% else %}<div class="card mb-8">{% endif %}
+  <ul class="divide-y divide-stone-100">
+    {% for item in items %}
+    <li class="flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
+      {% if can.invoice_issue %}<input type="checkbox" name="item" value="{{ item.key }}" id="item-{{ forloop.counter }}" {% if item.ready %}checked{% else %}disabled{% endif %}>{% endif %}
+      <label for="item-{{ forloop.counter }}" class="font-semibold">{{ item.spec.description }}{% if item.spec.quantity > 1 %} <span class="num font-normal text-stone-600" dir="ltr">x{{ item.spec.quantity }}</span>{% endif %}</label>
+      {% if item.waiting %}<span class="text-xs text-stone-600">{{ item.waiting }}</span>{% endif %}
+      <span class="ms-auto"><span class="num font-semibold" dir="ltr">{{ item.amount|money0 }}</span></span>
+      {% if can.invoice_issue and item.spec.kind == "charge" %}<button type="submit" form="cancel-charge-{{ item.obj.pk }}" class="btn-icon size-7" aria-label="{% translate 'شيل البند' %}">{% icon "x" "size-4" %}</button>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% if can.invoice_issue and any_ready %}
+  <div class="space-y-3 border-t border-stone-200 px-4 py-3">
+    <details class="text-sm">
+      <summary class="cursor-pointer text-stone-600">{% translate "خصم أو جهة تعاقد" %}</summary>
+      <div class="mt-3 grid gap-3 sm:grid-cols-4">
+        {% if can.invoice_discount %}
+        <div class="form-field"><label for="inv-discount">{% translate "خصم (مبلغ)" %}</label><input id="inv-discount" name="discount" class="input" dir="ltr" inputmode="decimal"></div>
+        <div class="form-field"><label for="inv-reason">{% translate "سبب الخصم" %}</label><input id="inv-reason" name="reason" class="input" maxlength="200"></div>
+        {% endif %}
+        {% if payers %}
+        <div class="form-field"><label for="inv-payer">{% translate "على جهة تعاقد" %}</label>
+          <select id="inv-payer" name="payer" class="input"><option value="">{% translate "على المريضة" %}</option>{% for p in payers %}<option value="{{ p.pk }}" {% if coverage and coverage.payer_id == p.pk %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
+        <div class="form-field"><label for="inv-percent">{% translate "تتحمل %" %}</label><input id="inv-percent" name="percent" class="input" dir="ltr" inputmode="decimal" value="{% if coverage %}{{ coverage.percent|floatformat:'-2u' }}{% endif %}"></div>
+        {% endif %}
+      </div>
+      {% if can.invoice_discount %}<p class="mt-2 text-xs text-stone-600">{% blocktranslate with l=limit|floatformat:"-2" %}خصم أكبر من {{ l }}% محتاج موافقة صاحب العيادة.{% endblocktranslate %}</p>{% endif %}
+    </details>
+    <div class="flex flex-wrap items-center gap-3">
+      {% if deposit > 0 %}<span class="text-sm text-stone-600">{% translate "المقدم هيتخصم من الفاتورة." %}</span>{% endif %}
+      <button class="btn-primary ms-auto">{% translate "إصدار الفاتورة" %}</button>
+    </div>
+  </div>
+  {% endif %}
+{% if can.invoice_issue %}</form>{% else %}</div>{% endif %}
+{% for item in items %}{% if can.invoice_issue and item.spec.kind == "charge" %}<form id="cancel-charge-{{ item.obj.pk }}" method="post" action="{% url 'invoicing:charge_cancel' item.obj.pk %}" onsubmit="return confirm('{% translate 'تشيل البند ده من الحساب؟' %}')">{% csrf_token %}</form>{% endif %}{% endfor %}
+{% endif %}
+
+<h2 class="section-title">{% translate "الفواتير" %}</h2>
+<div class="card mb-8 overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th class="w-36">{% translate "الرقم" %}</th><th class="w-28">{% translate "التاريخ" %}</th><th class="text-end!">{% translate "عليها" %}</th><th class="text-end!">{% translate "اتدفع" %}</th><th class="text-end!">{% translate "الباقي" %}</th></tr></thead>
+    <tbody>
+      {% for s in states %}
+      <tr>
+        <td><a href="{% url 'invoicing:invoice' s.invoice.pk %}" class="num font-semibold hover:text-brand" dir="ltr">{{ s.invoice.label }}</a></td>
+        <td class="num text-stone-600" dir="ltr">{{ s.invoice.date|date:"d/m/Y" }}</td>
+        <td class="num text-end" dir="ltr">{{ s.due|money0 }}</td>
+        <td class="num text-end" dir="ltr">{{ s.paid|money }}</td>
+        <td class="num text-end font-semibold {% if s.remaining > 0 %}text-brand{% endif %}" dir="ltr">{{ s.remaining|money }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="py-8! text-center text-stone-600">{% translate "مفيش فواتير لسه." %}</td></tr>
+      {% endfor %}
+      {% for n in credit_notes %}
+      <tr class="text-stone-600">
+        <td><a href="{% url 'invoicing:invoice' n.pk %}" class="num hover:text-brand" dir="ltr">{{ n.label }}</a></td>
+        <td class="num" dir="ltr">{{ n.date|date:"d/m/Y" }}</td>
+        <td colspan="3">{% translate "إشعار دائن على" %} <span class="num" dir="ltr">{{ n.credit_of.label }}</span>: <span class="num" dir="ltr">{{ n.total|money0 }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<h2 class="section-title">{% translate "الفلوس" %}</h2>
+<div class="card mb-8 overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th class="w-40">{% translate "الوقت" %}</th><th>{% translate "الحركة" %}</th><th>{% translate "الطريقة" %}</th><th class="text-end!">{% translate "المبلغ" %}</th><th></th></tr></thead>
+    <tbody>
+      {% for p in payments %}
+      <tr>
+        <td class="text-stone-600"><span class="num" dir="ltr">{{ p.received_at|date:"d/m/Y" }}</span> <span class="num" dir="ltr">{{ p.received_at|ampm }}</span></td>
+        <td>{% if p.kind == "deposit" %}{% if p.is_refund %}{% translate "رد مقدم" %}{% else %}{% translate "مقدم" %}{% endif %}{% elif p.is_refund %}{% translate "استرداد" %}{% else %}{% translate "تحصيل" %}{% endif %}{% if p.appointment %} <span class="text-xs text-stone-600">{{ p.appointment.visit_type.name_ar }}</span>{% endif %}</td>
+        <td class="text-stone-600">{{ p.get_method_display }}</td>
+        <td class="num text-end font-semibold {% if p.is_refund %}text-red-700{% endif %}" dir="ltr">{% if p.is_refund %}-{% endif %}{{ p.amount|money0 }}</td>
+        <td class="text-end"><a href="{% url 'invoicing:receipt_pdf' p.pk %}" target="_blank" rel="noopener" class="btn-icon size-7" aria-label="{% translate 'طباعة الإيصال' %}">{% icon "printer" "size-4" %}</a></td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="py-8! text-center text-stone-600">{% translate "مفيش فلوس اتسجلت." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if can.invoice_issue and payers %}
+<details class="mb-8 text-sm">
+  <summary class="cursor-pointer text-stone-600">{% translate "جهة تعاقد المريضة" %}</summary>
+  <form method="post" action="{% url 'invoicing:coverage' patient.pk %}" class="card mt-3 grid gap-3 p-4 sm:grid-cols-4">
+    {% csrf_token %}
+    <div class="form-field"><label for="cov-payer">{% translate "الجهة" %}</label>
+      <select id="cov-payer" name="payer" class="input"><option value="">{% translate "من غير جهة" %}</option>{% for p in payers %}<option value="{{ p.pk }}" {% if coverage and coverage.payer_id == p.pk %}selected{% endif %}>{{ p.name }}</option>{% endfor %}</select></div>
+    <div class="form-field"><label for="cov-percent">{% translate "تتحمل %" %}</label><input id="cov-percent" name="percent" class="input" dir="ltr" inputmode="decimal" value="{% if coverage %}{{ coverage.percent|floatformat:'-2u' }}{% endif %}"></div>
+    <div class="form-field"><label for="cov-member">{% translate "رقم الكارنيه" %}</label><input id="cov-member" name="member_no" class="input" dir="ltr" maxlength="60" value="{{ coverage.member_no }}"></div>
+    <div class="flex items-end"><button class="btn-secondary w-full">{% translate "حفظ" %}</button></div>
+    <p class="text-xs text-stone-600 sm:col-span-4">{% translate "أي فاتورة جديدة للمريضة (كشف أو عملية) هتتقسم بينها وبين الجهة بالنسبة دي." %}</p>
+  </form>
+</details>
+{% endif %}
+</div>
+{% endblock %}

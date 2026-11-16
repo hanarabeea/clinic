@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "السندات" %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{% translate "الخزن والسندات" %}</h1>
+  <span class="ms-auto"></span>
+  {% if can.treasury_operate %}<a href="{% url 'treasury:voucher_new' %}" class="btn-primary">{% icon "plus" "size-4" %}{% translate "سند جديد" %}</a>{% endif %}
+</div>
+{% include "treasury/partials/tabs.html" %}
+
+{% url 'treasury:vouchers' as action %}
+{% include "ledger/partials/range.html" %}
+
+<div class="segmented mb-3 print:hidden">
+  <a href="{{ action }}?from={{ start|date:'Y-m-d' }}&to={{ end|date:'Y-m-d' }}" class="{% if not kind %}is-active{% endif %}">{% translate "الكل" %}</a>
+  {% for value, label in kinds %}<a href="{{ action }}?from={{ start|date:'Y-m-d' }}&to={{ end|date:'Y-m-d' }}&kind={{ value }}" class="{% if kind == value %}is-active{% endif %}">{{ label }}</a>{% endfor %}
+</div>
+
+{% include "treasury/partials/voucher_table.html" %}
+{% endblock %}

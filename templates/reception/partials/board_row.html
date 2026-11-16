@@ -1,6 +1,6 @@
 {% load i18n clock %}
 {% with a=e.a %}
-<tr class="{% if a.status == 'arrived' %}bg-amber-50/60{% elif a.status == 'in_consultation' %}bg-sky-50/70{% elif a.status == 'completed' %}text-stone-500{% elif a.status == 'no_show' %}bg-red-50/40 text-stone-500{% endif %}">
+<tr class="{% if a.status == 'completed' or a.status == 'no_show' %}text-stone-500{% endif %}">
   <td class="whitespace-nowrap px-3 py-2 font-semibold" dir="ltr">
     {% if a.queue_number %}#{{ a.queue_number }} <span class="text-xs font-normal text-stone-500">~{{ a.start_at|ampm }}</span>{% elif first %}{{ time|ampm }}{% endif %}
   </td>
@@ -10,12 +10,13 @@
       {% if can.patient_view_basic %}<a href="{% url 'patients:detail' a.patient.pk %}" class="font-semibold hover:text-brand">{{ a.patient.full_name }}</a>{% else %}<span class="font-semibold">{{ a.patient.full_name }}</span>{% endif %}
     </span>
     {% if a.ga and can.pregnancy_view_basic %}{% include "obstetrics/partials/ga_badge.html" with ga=a.ga %}{% endif %}
+    {% if e.emergency %}<span class="badge bg-red-50 font-semibold text-red-800">{% icon "siren" "size-3.5" %}{% translate "طوارئ" %}</span>{% endif %}
     {% if a.source == "walk_in" %}<span class="badge bg-stone-100 text-stone-600">{% translate "فوري" %}</span>{% endif %}
     {% if a.is_overbooked %}<span class="badge bg-amber-50 text-amber-800">{% translate "استثنائي" %}</span>{% endif %}
   </td>
-  <td class="hidden px-3 py-2 text-stone-600 md:table-cell">{{ a.visit_type.name_ar }}</td>
+  <td class="hidden px-3 py-2 text-stone-600 md:table-cell">{{ a.visit_type.name_ar }}{% for o in e.services %}<span class="block text-xs text-stone-600">+ {{ o.name }}{% if o.quantity > 1 %} <span class="num" dir="ltr">x{{ o.quantity }}</span>{% endif %}</span>{% endfor %}</td>
   <td class="whitespace-nowrap px-3 py-2">
-    {% if a.status == "arrived" %}<span class="badge bg-amber-100 text-amber-900">{% translate "وصل" %} <span dir="ltr">{{ a.arrived_at|ampm }}</span></span> <span class="text-xs text-stone-600">{% blocktranslate with m=e.waiting %}مستني {{ m }} دقيقة{% endblocktranslate %}</span>
+    {% if a.status == "arrived" %}<span class="badge bg-amber-100 text-amber-900">{% translate "وصل" %}</span> <span class="num text-xs text-stone-600">{% blocktranslate with m=e.waiting %}مستني {{ m }} دقيقة{% endblocktranslate %}</span>
     {% elif e.late_minutes and day == today %}<span class="badge bg-red-50 font-semibold text-red-800">{% icon "warning" "size-3.5" %}{% blocktranslate with m=e.late_minutes %}متأخر {{ m }} دقيقة{% endblocktranslate %}</span>
     {% elif a.status == "confirmed" %}<span class="badge bg-green-50 text-green-800">{% icon "check" "size-3.5" %}{{ a.get_status_display }}</span>
     {% elif a.status == "in_consultation" %}<span class="badge bg-sky-100 text-sky-900">{{ a.get_status_display }}</span>

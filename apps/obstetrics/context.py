@@ -61,7 +61,10 @@ def antenatal_ctx(request, visit) -> dict:
         ("fetal_heart_rate", "bpm", "1"),
         ("hemoglobin", "g/dL", "0.1"),
     ]
-    scan_numbers = [("efw_g", "g", "1"), ("afi_cm", "cm", "0.1")]
+    scan_numbers = [
+        ("bpd_mm", "mm", "1"), ("hc_mm", "mm", "1"), ("ac_mm", "mm", "1"), ("fl_mm", "mm", "1"),
+        ("efw_g", "g", "1"), ("afi_cm", "cm", "0.1"),
+    ]  # fmt: skip
     selects = ["fetal_movement", "presentation", "edema", "urine_albumin", "urine_sugar"]
     return {
         "visit": visit,
@@ -72,8 +75,36 @@ def antenatal_ctx(request, visit) -> dict:
         "an_numbers": [(n, field(n).verbose_name, value(n), unit, step) for n, unit, step in numbers],
         "an_scan_numbers": [(n, field(n).verbose_name, value(n), unit, step) for n, unit, step in scan_numbers],
         "an_selects": [(n, field(n).verbose_name, value(n), field(n).choices) for n in selects],
+        "an_scan_filled": any(value(n) != "" for n, _unit, _step in scan_numbers),
         "an_placenta": value("placenta"),
         "an_scan_notes": value("ultrasound_notes"),
         "an_next_days": ga.next_visit_weeks * 7,
         "an_next_weeks": ga.next_visit_weeks,
+    }
+
+
+def export_ctx(org, patient) -> dict:
+    """The pregnancy file for the patient's exported record: counts, the pregnancy being followed, her history and
+    the antenatal visits. Empty for clinics without the layer and for men."""
+    if not services.enabled(org) or not services.applies_to(patient):
+        return {}
+    history = list(services.history_rows(patient))
+    pregnancy = services.active_pregnancy(patient)
+    profile = ObstetricProfile.objects.filter(patient=patient).first()
+    sheets = list(
+        AntenatalVisit.objects.filter(pregnancy__patient=patient)
+        .select_related("visit", "pregnancy")
+        .order_by("visit__created_at")
+    )
+    if not (history or pregnancy or profile or sheets):
+        return {}
+    return {
+        "ob": {
+            "gpal": services.gpal(patient, history, pregnant=pregnancy is not None),
+            "pregnancy": pregnancy,
+            "ga": pregnancy.ga(services.today()) if pregnancy else None,
+            "profile": profile,
+            "history": history,
+            "sheets": sheets,
+        }
     }

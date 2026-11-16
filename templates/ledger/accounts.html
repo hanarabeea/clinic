@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "شجرة الحسابات" %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{% translate "الحسابات" %}</h1>
+  <span class="ms-auto"></span>
+  {% if can.accounts_manage %}<a href="{% url 'ledger:account_add' %}" class="btn-primary">{% icon "plus" "size-4" %}{% translate "حساب جديد" %}</a>{% endif %}
+</div>
+{% include "ledger/partials/tabs.html" %}
+
+<div class="card overflow-x-auto">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>{% translate "الحساب" %}</th>
+        <th class="text-end!">{% translate "الرصيد النهارده" %}</th>
+        <th class="w-10"></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}{% with a=r.account %}
+      <tr class="{% if a.is_group %}font-semibold{% endif %} {% if not a.is_active %}text-stone-500{% endif %}">
+        <td style="padding-inline-start: calc(0.75rem + {{ r.depth|add:'-1' }} * 1.1rem)">
+          <span class="num text-xs text-stone-500" dir="ltr">{{ a.code }}</span>
+          {% if a.is_group %}{{ a.name_ar }}{% else %}<a href="{% url 'ledger:statement' a.pk %}" class="hover:text-brand">{{ a.name_ar }}</a>{% endif %}
+          {% if not a.is_active %}<span class="badge bg-stone-200 text-stone-700">{% translate "موقوف" %}</span>{% endif %}
+        </td>
+        <td class="num text-end {% if r.balance < 0 %}text-red-700{% endif %}" dir="ltr">{{ r.balance|money }}</td>
+        <td class="text-end">{% if can.accounts_manage %}<a href="{% url 'ledger:account_edit' a.pk %}" class="btn-icon size-7" aria-label="{% translate 'تعديل الحساب' %}">{% icon "pencil-simple" "size-4" %}</a>{% endif %}</td>
+      </tr>
+      {% endwith %}{% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="mt-3 text-xs text-stone-600">{% translate "الرصيد بالسالب معناه إن الحساب عكس طبيعته (مثلًا مريض دافع أكتر من اللي عليه)." %}</p>
+{% endblock %}

@@ -18,6 +18,13 @@ urlpatterns = [
     path("", include("apps.clinical.urls")),
     path("", include("apps.prescriptions.urls")),
     path("", include("apps.obstetrics.urls")),
+    path("", include("apps.center.urls")),
+    path("", include("apps.ledger.urls")),
+    path("", include("apps.treasury.urls")),
+    path("", include("apps.theatre.urls")),
+    path("", include("apps.invoicing.urls")),
+    path("", include("apps.purchasing.urls")),
+    path("", include("apps.inventory.urls")),
     path("activity/", include("apps.audit.urls")),
     path("django-admin/", admin.site.urls),
 ]

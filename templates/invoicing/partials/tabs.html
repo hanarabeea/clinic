@@ -1,0 +1,7 @@
+{% load i18n %}
+<nav class="tabs">
+  <a href="{% url 'invoicing:list' %}" class="tab {% if tab == 'invoices' %}is-active{% endif %}">{% translate "الفواتير" %}</a>
+  <a href="{% url 'invoicing:accounts' %}" class="tab {% if tab == 'accounts' %}is-active{% endif %}">{% translate "حسابات المرضى" %}</a>
+  {% if can.doctor_payout %}<a href="{% url 'invoicing:doctors' %}" class="tab {% if tab == 'doctors' %}is-active{% endif %}">{% translate "مستحقات الدكاترة" %}</a>{% endif %}
+  {% if can.payer_manage %}<a href="{% url 'invoicing:payers' %}" class="tab {% if tab == 'payers' %}is-active{% endif %}">{% translate "جهات التعاقد" %}</a>{% endif %}
+</nav>

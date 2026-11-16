@@ -1,7 +1,18 @@
 {% load i18n %}
+{% comment %}The polled part of the reception board: the emergency cases in the building, then one board per doctor
+shown (the picked doctor, or every doctor one under the other).{% endcomment %}
 <input type="hidden" id="rows-sig" value="{{ sig }}">
-{% if view == "week" %}
-  {% include "reception/partials/board_week.html" %}
-{% else %}
-  {% include "reception/partials/board_day.html" %}
-{% endif %}
+{% include "center/partials/emergency_strip.html" %}
+{% for b in boards %}
+  {% if boards|length > 1 %}
+  <h2 class="mb-2 flex items-baseline gap-3 {% if not forloop.first %}mt-10{% endif %} text-base font-bold">
+    {{ b.doctor }}
+    <a href="{% url 'reception:today' %}?view={{ view }}&date={{ day|date:'Y-m-d' }}&doctor={{ b.doctor.pk }}" class="link ms-auto text-xs font-semibold">{% translate "كل مواعيده" %}</a>
+  </h2>
+  {% endif %}
+  {% if view == "week" %}
+    {% include "reception/partials/board_week.html" with board=b doctor=b.doctor slots_mode=b.slots_mode %}
+  {% else %}
+    {% include "reception/partials/board_day.html" with board=b doctor=b.doctor slots_mode=b.slots_mode compact=selected_doctor|yesno:",1" %}
+  {% endif %}
+{% endfor %}

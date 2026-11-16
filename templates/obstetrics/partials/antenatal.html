@@ -35,7 +35,7 @@ reception). Each field saves itself. Re-read when the pregnancy file changes (a 
       {% endfor %}
     </div>
 
-    <details class="group mt-3" {% if an_placenta or an_scan_notes or an_scan_numbers.0.2 != "" or an_scan_numbers.1.2 != "" %}open{% endif %}>
+    <details class="group mt-3" {% if an_placenta or an_scan_notes or an_scan_filled %}open{% endif %}>
       <summary class="flex cursor-pointer list-none items-center gap-1 text-xs font-semibold text-stone-600 hover:text-brand [&::-webkit-details-marker]:hidden">{% icon "scan" "size-3.5" %}{% translate "السونار" %}{% icon "caret-down" "size-3.5 transition-transform group-open:rotate-180" %}</summary>
       <div class="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-4">
         {% for name, label, value, unit, step in an_scan_numbers %}

@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "الخدمات" %}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{% translate "الإعدادات" %}</h1></div>
+
+{% include "partials/settings_tabs.html" %}
+
+{% comment %}What the center charges for on top of the doctor's visit. Reception or the doctor adds them to a visit and
+they are paid with it. A service is switched off, never deleted (old visits keep their lines).{% endcomment %}
+<section class="card mb-6 overflow-x-auto">
+  <div class="flex flex-wrap items-baseline gap-x-3 border-b border-stone-200 px-4 py-3">
+    <h2 class="text-[15px] font-bold">{% translate "خدمات المركز" %}</h2>
+    <p class="text-sm text-stone-600">{% translate "سونار، رسم قلب الجنين، كي، تركيب لولب، حقن... بتتضاف على الزيارة وتتحاسب معاها." %}</p>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>{% translate "الخدمة" %}</th>
+        <th>{% translate "النوع" %}</th>
+        <th class="text-end!">{% translate "السعر" %}</th>
+        <th class="text-end!">{% translate "نسبة الدكتور" %}</th>
+        <th>{% translate "الحالة" %}</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in services %}
+      <tr class="{% if not s.is_active %}text-stone-500{% endif %}">
+        <td><span class="font-semibold">{{ s.name_ar }}</span>{% if s.name_en %} <span class="text-xs text-stone-500" dir="ltr">{{ s.name_en }}</span>{% endif %}</td>
+        <td class="text-stone-600">{{ s.get_category_display }}</td>
+        <td class="text-end font-semibold" dir="ltr">{{ s.price|floatformat:"-2" }}</td>
+        <td class="text-end text-stone-600" dir="ltr">{% if s.doctor_share_percent %}{{ s.doctor_share_percent|floatformat:"-2" }}%{% else %}-{% endif %}</td>
+        <td>{% if s.is_active %}<span class="badge bg-green-50 text-green-800">{% translate "مفعّلة" %}</span>{% else %}<span class="badge bg-stone-200 text-stone-700">{% translate "متوقفة" %}</span>{% endif %}</td>
+        <td>
+          <div class="flex items-center justify-end gap-1">
+            <a href="{% url 'center:service_edit' s.pk %}" class="btn-ghost min-h-8 px-2.5 py-1 text-xs">{% icon "pencil-simple" "size-4" %}{% translate "تعديل" %}</a>
+            <form method="post" action="{% url 'center:service_toggle' s.pk %}">{% csrf_token %}
+              <button class="btn-ghost min-h-8 px-2.5 py-1 text-xs">{% if s.is_active %}{% translate "إيقاف" %}{% else %}{% translate "تفعيل" %}{% endif %}</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="6" class="py-10! text-center text-stone-600">{% translate "مفيش خدمات لسه. ضيف أول خدمة من تحت." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+
+<div class="grid gap-6 lg:grid-cols-3">
+  <section class="card p-4 sm:p-6 lg:col-span-2">
+    <h2 class="mb-4 text-[15px] font-bold">{% translate "إضافة خدمة" %}</h2>
+    <form method="post" class="space-y-4" novalidate>
+      {% csrf_token %}
+      <div class="grid gap-4 sm:grid-cols-2">
+        {% include "partials/field.html" with field=form.name_ar %}
+        {% include "partials/field.html" with field=form.name_en %}
+      </div>
+      <div class="grid gap-4 sm:grid-cols-3">
+        {% include "partials/field.html" with field=form.category %}
+        {% include "partials/field.html" with field=form.price %}
+        {% include "partials/field.html" with field=form.doctor_share_percent %}
+      </div>
+      <input type="hidden" name="is_active" value="on">
+      <div class="flex justify-end"><button type="submit" class="btn-primary">{% icon "plus" "size-4" %}{% translate "إضافة الخدمة" %}</button></div>
+    </form>
+  </section>
+
+  <section class="card p-4 sm:p-6">
+    <h2 class="mb-4 flex items-center gap-2 text-[15px] font-bold">{% icon "siren" "size-5 text-red-700" %}{% translate "الطوارئ" %}</h2>
+    <form method="post" class="space-y-4" novalidate>
+      {% csrf_token %}<input type="hidden" name="action" value="fee">
+      {% include "partials/field.html" with field=fee_form.emergency_fee %}
+      <div class="flex justify-end"><button type="submit" class="btn-secondary">{% translate "حفظ" %}</button></div>
+    </form>
+  </section>
+</div>
+{% endblock %}

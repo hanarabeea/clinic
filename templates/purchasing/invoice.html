@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{{ invoice.label }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'purchasing:invoices' %}" class="btn-icon" aria-label="{% translate 'رجوع لفواتير المشتريات' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1><span class="num" dir="ltr">{{ invoice.label }}</span></h1>
+    <p class="page-sub"><a href="{% url 'purchasing:supplier' invoice.supplier.pk %}" class="font-semibold text-ink hover:text-brand">{{ invoice.supplier.name }}</a>{% if invoice.supplier_ref %}، {% translate "فاتورته رقم" %} <span class="num" dir="ltr">{{ invoice.supplier_ref }}</span>{% endif %}، <span class="num" dir="ltr">{{ invoice.date|date:"d/m/Y" }}</span></p>
+  </div>
+  <span class="ms-auto"></span>
+  {% if invoice.scan %}<a href="{% url 'purchasing:invoice_scan' invoice.pk %}" target="_blank" rel="noopener" class="btn-ghost">{% icon "paperclip" "size-4" %}{% translate "صورة الفاتورة" %}</a>{% endif %}
+  {% if can.supplier_pay and open > 0 %}<a href="{% url 'purchasing:payment_new' %}?supplier={{ invoice.supplier.pk }}" class="btn-primary">{% translate "سداد" %}</a>{% endif %}
+</div>
+
+{% if invoice.is_cancelled %}<p class="notice notice-warn mb-4">{% icon "warning" "size-5 shrink-0" %}<span>{% translate "الفاتورة دي ملغية" %}{% if invoice.cancel_reason %}: {{ invoice.cancel_reason }}{% endif %}</span></p>{% endif %}
+
+<div x-data="{ back: false }">
+<form method="post" action="{% url 'purchasing:return_new' invoice.pk %}">
+  {% csrf_token %}
+  <div class="card mb-4 overflow-x-auto">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>{% translate "البيان" %}</th>
+          <th>{% translate "الحساب" %}</th>
+          <th class="text-end!">{% translate "الكمية" %}</th>
+          <th class="text-end!">{% translate "السعر" %}</th>
+          <th class="text-end!">{% translate "الضريبة" %}</th>
+          <th class="text-end!">{% translate "الإجمالي" %}</th>
+          {% if can_return and can.purchase_manage %}<th class="w-28 text-end!" x-show="back" x-cloak>{% translate "راجع" %}</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for line in lines %}
+        <tr>
+          <td>{{ line.description }}{% if line.returned_qty %} <span class="text-xs text-stone-600">{% translate "رجع منه" %} <span class="num" dir="ltr">{{ line.returned_qty|floatformat:"-3" }}</span></span>{% endif %}</td>
+          <td class="text-stone-600">{% if line.item_id %}{% if can.stock_view %}<a class="link" href="{% url 'inventory:item' line.item_id %}">{{ line.warehouse.name }}</a>{% else %}{{ line.warehouse.name }}{% endif %}{% else %}{{ line.account.name_ar }}{% endif %}{% if line.cost_center %} <span class="text-xs">({{ line.cost_center.name_ar }})</span>{% endif %}</td>
+          <td class="num text-end" dir="ltr">{{ line.quantity|floatformat:"-3" }}</td>
+          <td class="num text-end" dir="ltr">{{ line.unit_price|floatformat:"-4g" }}</td>
+          <td class="num text-end" dir="ltr">{{ line.vat_amount|money }}</td>
+          <td class="num text-end font-semibold" dir="ltr">{{ line.total|money0 }}</td>
+          {% if can_return and can.purchase_manage %}<td x-show="back" x-cloak>{% if line.left_qty > 0 %}<input name="qty_{{ line.pk }}" class="input py-1 text-end" dir="ltr" inputmode="decimal" placeholder="{{ line.left_qty|floatformat:'-3' }}" aria-label="{% translate 'الكمية الراجعة' %}">{% endif %}</td>{% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if can_return and can.purchase_manage %}
+  <div class="mb-4 flex flex-wrap items-end justify-end gap-2" x-show="back" x-cloak>
+    <div class="form-field w-72"><label for="ret-reason">{% translate "سبب المرتجع" %}</label><input id="ret-reason" name="reason" class="input" maxlength="200"></div>
+    <button type="button" class="btn-ghost" @click="back = false">{% translate "إلغاء" %}</button>
+    <button class="btn-primary">{% translate "تسجيل المرتجع" %}</button>
+  </div>
+  {% endif %}
+</form>
+
+<dl class="card mb-5 ms-auto max-w-sm divide-y divide-stone-100 text-sm">
+  <div class="flex px-4 py-2"><dt class="text-stone-600">{% translate "قبل الضريبة" %}</dt><dd class="ms-auto"><span class="num" dir="ltr">{{ invoice.subtotal|money0 }}</span></dd></div>
+  <div class="flex px-4 py-2"><dt class="text-stone-600">{% translate "الضريبة" %}</dt><dd class="ms-auto"><span class="num" dir="ltr">{{ invoice.vat_total|money0 }}</span></dd></div>
+  <div class="flex px-4 py-2 font-bold"><dt>{% translate "الإجمالي" %}</dt><dd class="ms-auto"><span class="num" dir="ltr">{{ invoice.total|money0 }}</span></dd></div>
+  {% for r in returns %}<div class="flex px-4 py-2"><dt class="text-stone-600">{% translate "مرتجع" %} <span class="num" dir="ltr">{{ r.label }}</span> <span class="text-xs">{{ r.reason }}</span></dt><dd class="ms-auto"><span class="num" dir="ltr">-{{ r.total|money0 }}</span></dd></div>{% endfor %}
+  {% for a in allocations %}<div class="flex px-4 py-2"><dt class="text-stone-600">{% translate "سداد" %} <a class="link num" dir="ltr" href="{% url 'purchasing:payment' a.payment.pk %}">{{ a.payment.label }}</a></dt><dd class="ms-auto"><span class="num" dir="ltr">-{{ a.amount|money0 }}</span></dd></div>{% endfor %}
+  {% if not invoice.is_cancelled %}<div class="flex px-4 py-2 font-bold"><dt>{% translate "الباقي" %}</dt><dd class="ms-auto {% if open > 0 %}text-brand{% endif %}"><span class="num" dir="ltr">{{ open|money0 }}</span></dd></div>
+  <div class="flex px-4 py-2"><dt class="text-stone-600">{% translate "يستحق" %}</dt><dd class="ms-auto"><span class="num" dir="ltr">{{ invoice.due_date|date:"d/m/Y" }}</span></dd></div>{% endif %}
+</dl>
+
+{% if can.purchase_manage and not invoice.is_cancelled %}
+<div class="flex flex-wrap items-end justify-end gap-2" x-show="!back">
+  {% if can_return %}<button type="button" class="btn-ghost" @click="back = true">{% translate "مرتجع" %}</button>{% endif %}
+  {% if not allocations and not returns %}
+  <form method="post" action="{% url 'purchasing:invoice_cancel' invoice.pk %}" class="flex items-end gap-2" onsubmit="return confirm('{% translate 'تلغي الفاتورة دي؟ قيدها هيتعكس.' %}')">
+    {% csrf_token %}
+    <input name="reason" class="input h-9 w-56 py-0" maxlength="200" placeholder="{% translate 'سبب الإلغاء' %}" aria-label="{% translate 'سبب الإلغاء' %}">
+    <button class="btn-danger min-h-9 px-3 py-0">{% translate "إلغاء الفاتورة" %}</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+</div>
+{% if invoice.notes %}<p class="mt-4 text-sm text-stone-700">{{ invoice.notes }}</p>{% endif %}
+{% if entry %}<p class="mt-2 text-xs text-stone-600">{% translate "القيد" %} <a class="link num" dir="ltr" href="{% url 'ledger:entry' entry.pk %}">{{ entry.number }}</a></p>{% endif %}
+{% endblock %}

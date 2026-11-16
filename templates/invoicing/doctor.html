@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{{ doctor }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'invoicing:doctors' %}" class="btn-icon print:hidden" aria-label="{% translate 'رجوع لمستحقات الدكاترة' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{{ doctor }}</h1>
+    <p class="page-sub">{% translate "مستحق له دلوقتي" %} <b class="num text-ink" dir="ltr">{{ owed|money0 }}</b></p>
+  </div>
+</div>
+
+{% if owed > 0 %}
+<form method="post" action="{% url 'invoicing:doctor_pay' doctor.pk %}" class="card mb-5 grid gap-3 p-4 sm:grid-cols-4 print:hidden">
+  {% csrf_token %}
+  <div class="form-field"><label for="pay-amount">{% translate "المبلغ" %}</label><input id="pay-amount" name="amount" class="input" dir="ltr" inputmode="decimal" value="{{ owed|floatformat:'2u' }}" required></div>
+  <div class="form-field"><label for="pay-treasury">{% translate "من خزينة" %}</label>
+    <select id="pay-treasury" name="treasury" class="input" required>{% for t in treasuries %}<option value="{{ t.pk }}">{{ t.name }}</option>{% endfor %}</select></div>
+  <div class="form-field"><label for="pay-note">{% translate "البيان (اختياري)" %}</label><input id="pay-note" name="note" class="input" maxlength="200"></div>
+  <div class="flex items-end"><button class="btn-primary w-full">{% translate "صرف المستحقات" %}</button></div>
+</form>
+{% endif %}
+
+{% url 'invoicing:doctor' doctor.pk as action %}
+{% include "ledger/partials/range.html" %}
+{% include "ledger/partials/statement_table.html" %}
+{% endblock %}

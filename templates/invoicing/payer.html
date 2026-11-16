@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{{ payer.name }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <a href="{% url 'invoicing:payers' %}" class="btn-icon print:hidden" aria-label="{% translate 'رجوع لجهات التعاقد' %}">{% icon "arrow-right" %}</a>
+  <div>
+    <h1>{{ payer.name }}</h1>
+    <p class="page-sub">{% translate "مستحق عليها" %} <b class="num text-ink" dir="ltr">{{ owed|money0 }}</b>، {% blocktranslate count n=covered %}مريضة واحدة مسجلة عليها{% plural %}{{ n }} مريضة مسجلة عليها{% endblocktranslate %}</p>
+  </div>
+  <span class="ms-auto"></span>
+  <a href="{% url 'invoicing:payer_edit' payer.pk %}" class="btn-ghost print:hidden">{% icon "pencil-simple" "size-4" %}{% translate "تعديل" %}</a>
+</div>
+
+{% if owed > 0 %}
+<form method="post" action="{% url 'invoicing:payer_receive' payer.pk %}" class="card mb-5 grid gap-3 p-4 sm:grid-cols-4 print:hidden">
+  {% csrf_token %}
+  <div class="form-field"><label for="rc-amount">{% translate "المبلغ" %}</label><input id="rc-amount" name="amount" class="input" dir="ltr" inputmode="decimal" required></div>
+  <div class="form-field"><label for="rc-treasury">{% translate "إلى خزينة" %}</label>
+    <select id="rc-treasury" name="treasury" class="input" required>{% for t in treasuries %}<option value="{{ t.pk }}">{{ t.name }}</option>{% endfor %}</select></div>
+  <div class="form-field"><label for="rc-note">{% translate "البيان (اختياري)" %}</label><input id="rc-note" name="note" class="input" maxlength="200"></div>
+  <div class="flex items-end"><button class="btn-primary w-full">{% translate "تحصيل من الجهة" %}</button></div>
+</form>
+{% endif %}
+
+{% url 'invoicing:payer' payer.pk as action %}
+{% include "ledger/partials/range.html" %}
+{% include "ledger/partials/statement_table.html" %}
+{% endblock %}

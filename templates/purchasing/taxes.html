@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% load i18n money %}
+{% block title %}{% translate "الضرائب" %}{% endblock %}
+{% block content %}
+{% comment %}What was withheld from suppliers (owed to the tax authority, the lines of form 41) and the VAT paid on
+purchases, for a quarter. Under them, folded, the tax codes themselves.{% endcomment %}
+<div class="page-head">
+  <h1>{% translate "المشتريات والموردين" %}</h1>
+</div>
+{% include "purchasing/partials/tabs.html" %}
+
+<div class="mb-4 flex flex-wrap items-center gap-2 print:hidden">
+  <div class="segmented">
+    {% for p in presets %}<a href="{% url 'purchasing:taxes' %}?from={{ p.from|date:'Y-m-d' }}&to={{ p.to|date:'Y-m-d' }}" class="{% if p.active %}is-active{% endif %}">{{ p.label }}</a>{% endfor %}
+  </div>
+  <span class="text-sm text-stone-600"><span class="num" dir="ltr">{{ start|date:"d/m/Y" }}</span> - <span class="num" dir="ltr">{{ end|date:"d/m/Y" }}</span></span>
+</div>
+
+<h2 class="section-title flex items-baseline">{% translate "الخصم تحت حساب الضريبة" %}
+  <a href="{% url 'purchasing:taxes' %}?from={{ start|date:'Y-m-d' }}&to={{ end|date:'Y-m-d' }}&report=wht&format=xlsx" class="link ms-auto text-xs font-semibold print:hidden">Excel</a></h2>
+<div class="card mb-2 overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th class="w-28">{% translate "التاريخ" %}</th><th>{% translate "المورد" %}</th><th class="text-end!">{% translate "القيمة الخاضعة" %}</th><th class="text-end!">%</th><th class="text-end!">{% translate "المخصوم" %}</th></tr></thead>
+    <tbody>
+      {% for p in withheld %}
+      <tr>
+        <td class="num text-stone-600" dir="ltr">{{ p.date|date:"d/m/Y" }}</td>
+        <td><a href="{% url 'purchasing:payment' p.pk %}" class="hover:text-brand">{{ p.supplier.name }}</a>{% if p.supplier.tax_registration_number %} <span class="num text-xs text-stone-600" dir="ltr">{{ p.supplier.tax_registration_number }}</span>{% endif %}</td>
+        <td class="num text-end" dir="ltr">{{ p.wht_base|money0 }}</td>
+        <td class="num text-end" dir="ltr">{{ p.wht_rate|floatformat:"-2" }}</td>
+        <td class="num text-end font-semibold" dir="ltr">{{ p.wht_amount|money0 }}</td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="5" class="py-8! text-center text-stone-600">{% translate "مفيش خصم في الفترة دي." %}</td></tr>
+      {% endfor %}
+    </tbody>
+    {% if withheld %}<tfoot><tr class="border-t border-stone-300 bg-stone-50 font-bold"><td class="px-3 py-2" colspan="4">{% translate "الإجمالي" %}</td><td class="num px-3 py-2 text-end" dir="ltr">{{ wht_total|money0 }}</td></tr></tfoot>{% endif %}
+  </table>
+</div>
+<p class="mb-8 text-sm text-stone-600">{% translate "المستحق للضرائب دلوقتي (كل اللي اتخصم ولسه ما اتورّدش):" %} <b class="num text-ink" dir="ltr">{{ wht_due|money0 }}</b>. {% translate "التوريد بسند صرف على حساب «ضرائب خصم تحت حساب الضريبة»." %}</p>
+
+<h2 class="section-title flex items-baseline">{% translate "ضريبة القيمة المضافة على المشتريات" %}
+  <a href="{% url 'purchasing:taxes' %}?from={{ start|date:'Y-m-d' }}&to={{ end|date:'Y-m-d' }}&report=vat&format=xlsx" class="link ms-auto text-xs font-semibold print:hidden">Excel</a></h2>
+<div class="card mb-8 overflow-x-auto">
+  <table class="data-table">
+    <thead><tr><th>{% translate "الضريبة" %}</th><th class="text-end!">{% translate "قيمة المشتريات" %}</th><th class="text-end!">{% translate "ضريبة تتخصم" %}</th><th class="text-end!">{% translate "ضريبة على التكلفة" %}</th></tr></thead>
+    <tbody>
+      {% for r in vat %}
+      <tr><td>{{ r.name }}</td><td class="num text-end" dir="ltr">{{ r.net|money0 }}</td><td class="num text-end" dir="ltr">{{ r.recoverable|money }}</td><td class="num text-end" dir="ltr">{{ r.in_cost|money }}</td></tr>
+      {% empty %}
+      <tr><td colspan="4" class="py-8! text-center text-stone-600">{% translate "مفيش مشتريات عليها ضريبة في الفترة دي." %}</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<details class="text-sm print:hidden">
+  <summary class="cursor-pointer text-stone-600">{% translate "أنواع الضرائب والإعدادات" %}</summary>
+  <div class="card mt-3 overflow-x-auto">
+    <table class="data-table">
+      <thead><tr><th>{% translate "الضريبة" %}</th><th>{% translate "النوع" %}</th><th class="text-end!">%</th><th></th></tr></thead>
+      <tbody>
+        {% for c in codes %}
+        <tr class="{% if not c.is_active %}text-stone-500{% endif %}">
+          <td class="font-semibold">{{ c.name }}{% if c.kind == "vat" and c.rate %} <span class="text-xs font-normal text-stone-600">{% if c.recoverable %}{% translate "تتخصم" %}{% else %}{% translate "على التكلفة" %}{% endif %}</span>{% endif %}</td>
+          <td class="text-stone-600">{{ c.get_kind_display }}</td>
+          <td class="num text-end" dir="ltr">{{ c.rate|floatformat:"-2" }}</td>
+          <td class="text-end">{% if can.tax_manage %}<a href="{% url 'purchasing:tax_edit' c.pk %}" class="btn-icon size-7" aria-label="{% translate 'تعديل الضريبة' %}">{% icon "pencil-simple" "size-4" %}</a>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if can.tax_manage %}<p class="mt-3 flex gap-4"><a href="{% url 'purchasing:tax_new' %}" class="link">{% translate "ضريبة جديدة" %}</a><a href="{% url 'purchasing:settings' %}" class="link">{% translate "حد الخصم وتنبيه الشيكات" %}</a></p>{% endif %}
+</details>
+{% endblock %}
