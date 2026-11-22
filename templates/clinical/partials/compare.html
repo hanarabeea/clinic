@@ -6,7 +6,7 @@ current visit (empty fields are filled, written ones get the old text appended).
   {% csrf_token %}
   <input type="hidden" name="source" value="{{ other.pk }}">
   <div class="flex flex-wrap items-center gap-2 text-xs text-stone-500">
-    <span>{% translate "الزيارة" %} <span dir="ltr">{{ other.created_at|date:"j/n/Y" }}</span>{% if other.appointment.visit_type %}، {{ other.appointment.visit_type.name_ar }}{% endif %}</span>
+    <span>{% translate "الزيارة" %} <span dir="ltr">{{ other.created_at|day }}</span>{% if other.appointment.visit_type %}، {{ other.appointment.visit_type.name_ar }}{% endif %}</span>
     <a href="{% url 'clinical:visit' other.pk %}" class="link ms-auto inline-flex items-center gap-1">{% translate "افتح الزيارة كاملة" %}{% icon "arrow-square-out" "size-3.5" %}</a>
   </div>
 
@@ -15,7 +15,7 @@ current visit (empty fields are filled, written ones get the old text appended).
       <tr class="text-xs text-stone-500">
         {% if can_edit %}<th class="w-8"></th>{% endif %}
         <th class="w-20 text-start font-semibold"></th>
-        <th class="text-start font-semibold">{% translate "الزيارة دي" %} <span dir="ltr">{{ other.created_at|date:"j/n" }}</span></th>
+        <th class="text-start font-semibold">{% translate "الزيارة دي" %} <span dir="ltr">{{ other.created_at|day:"short" }}</span></th>
         <th class="text-start font-semibold text-stone-500">{% translate "النهارده" %}</th>
       </tr>
     </thead>

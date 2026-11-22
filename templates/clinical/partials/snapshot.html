@@ -4,7 +4,7 @@ Only recorded values are shown; a missing value simply leaves its item out.{% en
 {% if prev or prev_rx or latest_vitals or changes %}
 <section id="snapshot" class="ws-panel mb-4 grid gap-x-6 gap-y-3 py-3 text-sm sm:py-3 lg:grid-cols-[1.2fr_1.4fr_1fr] lg:divide-x lg:divide-x-reverse lg:divide-stone-200 [&>div]:lg:px-4 [&>div:first-child]:lg:ps-0">
   <div class="min-w-0">
-    <p class="ws-label flex justify-between gap-2">{% translate "الزيارة اللي فاتت" %}{% if prev %}<span dir="ltr" class="num font-normal">{{ prev.finished_at|date:"j/n/Y" }}</span>{% endif %}</p>
+    <p class="ws-label flex justify-between gap-2">{% translate "الزيارة اللي فاتت" %}{% if prev %}<span dir="ltr" class="num font-normal">{{ prev.finished_at|day }}</span>{% endif %}</p>
     {% if prev %}
     <p class="truncate font-semibold" title="{{ prev.diagnosis }}"><bdi dir="auto">{{ prev.diagnosis|default:"-" }}</bdi></p>
     {% if prev.chief_complaint %}<p class="truncate text-xs text-stone-500" title="{{ prev.chief_complaint }}"><bdi dir="auto">{{ prev.chief_complaint }}</bdi></p>{% endif %}
@@ -20,7 +20,7 @@ Only recorded values are shown; a missing value simply leaves its item out.{% en
   </div>
 
   <div class="min-w-0">
-    <p class="ws-label flex justify-between gap-2">{% translate "آخر روشتة" %}{% if prev_rx %}<span dir="ltr" class="num font-normal">{{ prev_rx.issued_at|date:"j/n/Y" }}</span>{% endif %}</p>
+    <p class="ws-label flex justify-between gap-2">{% translate "آخر روشتة" %}{% if prev_rx %}<span dir="ltr" class="num font-normal">{{ prev_rx.issued_at|day }}</span>{% endif %}</p>
     {% if prev_rx %}
     <ul class="space-y-0.5">
       {% for it in prev_rx.items.all|slice:":4" %}
@@ -33,7 +33,7 @@ Only recorded values are shown; a missing value simply leaves its item out.{% en
 
   <div class="min-w-0">
     {% if latest_vitals and not latest_vitals.is_empty %}
-    <p class="ws-label flex justify-between gap-2">{% if latest_is_today %}{% translate "قياسات النهارده" %}{% else %}{% translate "آخر قياسات" %}<span dir="ltr" class="num font-normal">{{ latest_vitals.recorded_at|date:"j/n/Y" }}</span>{% endif %}</p>
+    <p class="ws-label flex justify-between gap-2">{% if latest_is_today %}{% translate "قياسات النهارده" %}{% else %}{% translate "آخر قياسات" %}<span dir="ltr" class="num font-normal">{{ latest_vitals.recorded_at|day }}</span>{% endif %}</p>
     <p class="flex flex-wrap gap-x-3" dir="ltr">
       {% if latest_vitals.bp_systolic %}<span>BP <b>{{ latest_vitals.bp_systolic }}/{{ latest_vitals.bp_diastolic }}</b></span>{% endif %}
       {% if latest_vitals.weight_kg %}<span><b>{{ latest_vitals.weight_kg }}</b> kg</span>{% endif %}
@@ -51,7 +51,7 @@ Only recorded values are shown; a missing value simply leaves its item out.{% en
       {% endfor %}
     </ul>
     {% endif %}
-    {% if followup_due and not changes %}<p class="mt-1 text-xs text-stone-500">{% translate "الإعادة كانت مطلوبة" %} <span dir="ltr">{{ followup_due|date:"j/n/Y" }}</span></p>{% endif %}
+    {% if followup_due and not changes %}<p class="mt-1 text-xs text-stone-500">{% translate "الإعادة كانت مطلوبة" %} <span dir="ltr">{{ followup_due|day }}</span></p>{% endif %}
   </div>
 </section>
 {% endif %}

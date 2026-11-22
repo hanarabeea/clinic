@@ -2,6 +2,7 @@
 immutable: editing it creates a new revision (`RX-2026-00042-R1`). Nothing here is ever hard-deleted."""
 
 from django.conf import settings as dj_settings
+from django.core.validators import MaxValueValidator
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from simple_history.models import HistoricalRecords
@@ -131,6 +132,12 @@ class PrescriptionSettings(TenantScopedModel):
         help_text=_("على الجهاز: من غير إنترنت (لازم يتسطب مرة واحدة). المتصفح: Chrome / Edge ومحتاج إنترنت."),
     )
     reception_can_reprint = models.BooleanField(_("الاستقبال تقدر تعيد طباعة الروشتات"), default=False)
+    lactation_months = models.PositiveSmallIntegerField(
+        _("تحذيرات الرضاعة لحد كام شهر بعد الولادة"),
+        default=6,
+        validators=[MaxValueValidator(36)],
+        help_text=_("بعد ولادة طفل عايش، الأدوية بتتراجع على الرضاعة المدة دي. 0 = مقفول."),
+    )
 
     history = HistoricalRecords()
 

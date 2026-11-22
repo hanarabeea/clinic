@@ -7,7 +7,7 @@ what happened next). The live cases also sit on top of the reception board.{% en
 <div class="page-head">
   <div>
     <h1>{% translate "الطوارئ" %}</h1>
-    <p class="page-sub">{% if day == today %}{% translate "حالات النهارده" %}{% else %}<span class="num" dir="ltr">{{ day|date:"j/n/Y" }}</span>{% endif %}</p>
+    <p class="page-sub">{% if day == today %}{% translate "حالات النهارده" %}{% else %}<span class="num" dir="ltr">{{ day|day }}</span>{% endif %}</p>
   </div>
   <span class="ms-auto"></span>
   <form method="get" class="flex items-center gap-2">

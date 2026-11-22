@@ -2,7 +2,7 @@
 <div class="card p-4 sm:p-6">
   <dl class="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
     <div><dt class="text-xs text-stone-500">{% translate "الموبايل" %}</dt><dd dir="ltr" class="text-end">{{ patient.phone }}</dd></div>
-    <div><dt class="text-xs text-stone-500">{% translate "تاريخ الميلاد" %}</dt><dd>{{ patient.date_of_birth|date:"Y-m-d"|default:"-" }}</dd></div>
+    <div><dt class="text-xs text-stone-500">{% translate "تاريخ الميلاد" %}</dt><dd>{{ patient.date_of_birth|day|default:"-" }}</dd></div>
     <div><dt class="text-xs text-stone-500">{% translate "المهنة" %}</dt><dd>{{ patient.occupation|default:"-" }}</dd></div>
     <div><dt class="text-xs text-stone-500">{% translate "العنوان" %}</dt><dd>{{ patient.address|default:"-" }}</dd></div>
     {% if patient.guardian_name %}<div><dt class="text-xs text-stone-500">{% translate "ولي الأمر" %}</dt><dd>{{ patient.guardian_name }}</dd></div>{% endif %}

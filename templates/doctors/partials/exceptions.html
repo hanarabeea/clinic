@@ -3,7 +3,7 @@
   <ul class="divide-y divide-stone-100">
     {% for e in exceptions %}
     <li class="flex flex-wrap items-center gap-3 py-2 text-sm">
-      <span class="num" dir="ltr">{{ e.date|date:"Y/m/d" }}</span>
+      <span class="num" dir="ltr">{{ e.date|day }}</span>
       <span class="badge bg-stone-100 text-stone-700">{{ e.get_kind_display }}</span>
       {% if e.start_time %}<span dir="ltr" class="text-xs text-stone-500">{{ e.start_time|time:"H:i" }} - {{ e.end_time|time:"H:i" }}</span>{% endif %}
       {% if e.reason %}<span class="flex-1 truncate text-stone-500">{{ e.reason }}</span>{% endif %}

@@ -20,6 +20,7 @@ class PrescriptionSettingsForm(forms.ModelForm):
             "voice_dictation_enabled",
             "voice_engine",
             "reception_can_reprint",
+            "lactation_months",
         ]
 
     def clean(self):

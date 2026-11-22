@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Allergy, ChronicCondition, Patient, PatientFieldDefinition, PatientSequence
+from .models import Allergy, ChronicCondition, CurrentMedication, Patient, PatientFieldDefinition, PatientSequence
 
 
 @admin.register(Patient)
@@ -31,3 +31,11 @@ class PatientFieldDefinitionAdmin(admin.ModelAdmin):
 @admin.register(PatientSequence)
 class PatientSequenceAdmin(admin.ModelAdmin):
     list_display = ("organization", "last_value")
+
+
+@admin.register(CurrentMedication)
+class CurrentMedicationAdmin(admin.ModelAdmin):
+    list_display = ("patient", "name", "dose", "stopped_on")
+    list_filter = ("organization",)
+    search_fields = ("name",)
+    raw_id_fields = ("patient", "drug")

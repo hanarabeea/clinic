@@ -12,7 +12,7 @@ date), her counts, what needs care and what is due. Re-reads itself when the pre
     </div>
     <div>
       <p class="ws-label">{% translate "الولادة المتوقعة" %}</p>
-      <p class="num text-base leading-7 font-semibold" dir="ltr">{{ ga.edd|date:"j/n/Y" }}</p>
+      <p class="num text-base leading-7 font-semibold" dir="ltr">{{ ga.edd|day }}</p>
       <p class="text-xs {% if ga.overdue %}font-semibold text-red-700{% else %}text-stone-600{% endif %}">{{ ga.left_label }} <span class="text-stone-500">({{ ob_pregnancy.get_edd_method_display }})</span></p>
     </div>
     <div>

@@ -378,8 +378,9 @@ def _snapshots(rx):
 
 @transaction.atomic
 def finalize(rx, *, by, acknowledged=()):
-    """draft → final: number, snapshots, immutable items. Every allergy/duplicate warning must be acknowledged and
-    every dictated line confirmed. The PDF is rendered right after (outside the lock)."""
+    """draft → final: number, snapshots, immutable items. Every safety warning that needs it (allergy, duplicate,
+    pregnancy, breastfeeding, interaction; not the `info` advice) must be acknowledged and every dictated line
+    confirmed. The PDF is rendered right after (outside the lock)."""
     rx = Prescription.objects.select_for_update().get(pk=rx.pk)
     _require_draft(rx)
     items = list(rx.items.all())
@@ -387,7 +388,7 @@ def finalize(rx, *, by, acknowledged=()):
         raise PrescriptionError(_("الروشتة فاضية."))
     if any(i.needs_review for i in items):
         raise PrescriptionError(_("فيه سطور متملية بالصوت لسه محتاجة مراجعة."))
-    pending = [w for w in safety.warnings_for(rx) if w["key"] not in set(acknowledged)]
+    pending = safety.pending(safety.warnings_for(rx), acknowledged)
     if pending:
         raise PrescriptionError(_("لازم تأكد التحذيرات الأول: ") + " · ".join(w["text"] for w in pending))
     now = timezone.now()

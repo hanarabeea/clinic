@@ -1,0 +1,8 @@
+{% load i18n %}
+{% comment %}The visit header's "بتاخد" line; re-read after a change in the medications drawer (meds-changed).{% endcomment %}
+<span id="header-meds" class="flex flex-wrap items-center gap-1.5" hx-get="{% url 'patients:medications' patient.pk %}?view=badges" hx-trigger="meds-changed from:body" hx-swap="outerHTML">
+  {% if medications %}
+  <span class="text-xs text-stone-500">{% translate "بتاخد:" %}</span>
+  {% for m in medications %}<span class="badge bg-sky-50 px-2 text-sky-900 ring-1 ring-sky-200 ring-inset"><bdi dir="auto">{{ m.name }}</bdi></span>{% endfor %}
+  {% endif %}
+</span>

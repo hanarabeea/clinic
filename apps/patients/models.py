@@ -143,6 +143,44 @@ class ChronicCondition(TenantScopedModel):
         return self.name
 
 
+class CurrentMedicationQuerySet(OrgQuerySet):
+    def active(self):
+        return self.filter(stopped_on__isnull=True)
+
+
+class CurrentMedication(TenantScopedModel):
+    """A medicine the patient takes regularly, whoever prescribed it (plan 15 §2.5). It is carried from visit to visit
+    and checked against every new prescription for interactions. A medicine that is stopped keeps its row with
+    `stopped_on` (medical records are never deleted)."""
+
+    patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name="medications")
+    name = models.CharField(_("الدوا"), max_length=150)
+    drug = models.ForeignKey(
+        "prescriptions.Drug", null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+        verbose_name=_("من الكتالوج"),
+    )  # fmt: skip
+    dose = models.CharField(_("الجرعة"), max_length=150, blank=True)
+    notes = models.CharField(_("ملاحظات"), max_length=300, blank=True)
+    stopped_on = models.DateField(_("اتوقف يوم"), null=True, blank=True)
+    recorded_by = models.ForeignKey(dj_settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    stopped_by = models.ForeignKey(dj_settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+
+    history = HistoricalRecords()
+    objects = CurrentMedicationQuerySet.as_manager()
+
+    class Meta:
+        verbose_name = _("دوا مستمر")
+        verbose_name_plural = _("الأدوية المستمرة")
+        ordering = ["stopped_on", "-created_at"]
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def is_active(self) -> bool:
+        return self.stopped_on is None
+
+
 class FieldType(models.TextChoices):
     TEXT = "text", _("نص")
     NUMBER = "number", _("رقم")

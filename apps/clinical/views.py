@@ -78,6 +78,7 @@ def _header_ctx(patient, current=None):
         "age": _age(patient),
         "allergies": list(patient.allergies.all()),
         "conditions": list(patient.chronic_conditions.all()),
+        "medications": list(patient.medications.active()),
         "last_visit": previous.order_by("-finished_at").first(),
         "visit_number": (visits.filter(created_at__lte=current.created_at).count() if current else None),
         "vitals": Vitals.objects.filter(visit=current).first() if current else None,

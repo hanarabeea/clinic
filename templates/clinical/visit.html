@@ -10,16 +10,29 @@ in a drawer over the page, so the visit being written is never left (or reloaded
 {% if ob_patient %}{% include "obstetrics/partials/band.html" %}{% endif %}
 {% include "clinical/partials/snapshot.html" %}
 
-<div id="workspace" class="pb-24">
+<style>
+  :root { --action-bar-h: 3.75rem; } /* the emergency alert sits just above the action bar */
+  /* "جنب بعض" (plan 15 §2.4): from 1280 px the doctor can keep the visit and the prescription side by side */
+  @media (min-width: 80rem) {
+    #workspace.is-split #panes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+    #workspace.is-split #panes > section.hidden { display: block; }
+    #workspace.is-split #pane-switch [data-pane] { pointer-events: none; }
+    #workspace.is-split #pane-switch [data-pane][aria-selected="false"] { color: inherit; }
+  }
+</style>
+<div id="workspace" class="pb-40">
   {% if can.prescription_write %}
-  {# Two full-width tabs: the visit, and the prescription on its own (room for the categories and the lines). #}
+  {% comment %}Two tabs: the visit, and the prescription on its own (room for the categories and the lines); on wide
+  screens "جنب بعض" shows both at once (remembered on this computer).{% endcomment %}
   <div id="pane-switch" class="mb-4 flex items-end gap-1 border-b border-stone-200" role="tablist">
     <button type="button" role="tab" data-pane="visit" aria-selected="true" class="pane-tab">{% icon "note-pencil" "size-5" %}{% translate "الكشف" %}</button>
     <button type="button" role="tab" data-pane="rx" aria-selected="false" class="pane-tab">{% icon "pill" "size-5" %}{% translate "الروشتة" %}<span id="rx-count" class="num rounded-sm bg-stone-200 px-1.5 text-xs leading-5 text-stone-700 empty:hidden"></span></button>
     <span class="ms-auto hidden self-center pb-2 text-xs text-stone-500 lg:inline"><kbd class="rounded-sm border border-stone-300 bg-white px-1.5 py-0.5 text-[11px]">/</kbd> {% translate "للروشتة" %}</span>
+    <button type="button" id="split-toggle" class="btn-ghost mb-1 hidden self-center px-2.5 py-1 text-xs xl:inline-flex" aria-pressed="false"
+            title="{% translate 'الكشف والروشتة جنب بعض' %}">{% icon "columns" "size-4" %}{% translate "جنب بعض" %}</button>
   </div>
   {% endif %}
-  <div>
+  <div id="panes">
     <section id="pane-visit" class="ws-panel min-w-0 scroll-mt-28">
       {% include "clinical/partials/tab_visit.html" %}
     </section>
@@ -40,6 +53,7 @@ in a drawer over the page, so the visit being written is never left (or reloaded
       {% if ob_patient %}<button type="button" id="ob-open" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'obstetrics:panel' patient.pk %}">{% icon "baby" "size-4" %} {% translate "ملف الحمل" %}</button>{% endif %}
       <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:history' patient.pk %}?visit={{ visit.pk }}">{% icon "folders" "size-4" %} {% translate "التاريخ" %}</button>
       {% if can.clinical_view %}<button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'prescriptions:patient_list' patient.pk %}">{% icon "pill" "size-4" %} {% translate "الروشتات" %}</button>{% endif %}
+      {% if can.patient_view_medical %}<button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'patients:medications' patient.pk %}">{% icon "pill" "size-4" %} {% translate "الأدوية المستمرة" %}</button>{% endif %}
       <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:attachments' patient.pk %}?visit={{ visit.pk }}">{% icon "paperclip" "size-4" %} {% translate "المرفقات" %}</button>
       <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:data' patient.pk %}">{% icon "user" "size-4" %} {% translate "البيانات" %}</button>
       {% if can.theatre_schedule %}<a class="btn-ghost whitespace-nowrap px-3" href="{% url 'theatre:operation_new' %}?patient={{ patient.pk }}">{% icon "first-aid-kit" "size-4" %} {% translate "حجز عملية" %}</a>{% endif %}
@@ -65,6 +79,7 @@ in a drawer over the page, so the visit being written is never left (or reloaded
       {% if ob_patient %}<button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'obstetrics:panel' patient.pk %}">{% translate "ملف الحمل" %}</button>{% endif %}
       <button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'clinical:history' patient.pk %}?visit={{ visit.pk }}">{% translate "التاريخ" %}</button>
       {% if can.clinical_view %}<button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'prescriptions:patient_list' patient.pk %}">{% translate "الروشتات" %}</button>{% endif %}
+      {% if can.patient_view_medical %}<button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'patients:medications' patient.pk %}">{% translate "الأدوية المستمرة" %}</button>{% endif %}
       <button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'clinical:attachments' patient.pk %}?visit={{ visit.pk }}">{% translate "المرفقات" %}</button>
       <button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'clinical:data' patient.pk %}">{% translate "البيانات" %}</button>
     </nav>
@@ -142,6 +157,24 @@ in a drawer over the page, so the visit being written is never left (or reloaded
     if (btn) showPane(btn.dataset.pane);
   });
   try { if (sessionStorage.getItem(paneKey) === "rx") showPane("rx"); } catch (e) { /* ignore */ }
+  // "جنب بعض": both panes at once on wide screens (CSS above); the choice is kept on this computer
+  const splitToggle = document.getElementById("split-toggle");
+  const setSplit = (on) => {
+    document.getElementById("workspace").classList.toggle("is-split", on);
+    splitToggle?.setAttribute("aria-pressed", on);
+    splitToggle?.classList.toggle("text-brand", on);
+    try { localStorage.setItem("visit-split", on ? "1" : "0"); } catch (e) { /* ignore */ }
+  };
+  splitToggle?.addEventListener("click", () => setSplit(splitToggle.getAttribute("aria-pressed") !== "true"));
+  try { if (localStorage.getItem("visit-split") === "1") setSplit(true); } catch (e) { /* ignore */ }
+  {% if can.prescription_write %}
+  // a current medication added / stopped in the drawer: the prescription's interaction warnings are worked out again
+  document.body.addEventListener("meds-changed", () => {
+    if (document.getElementById("rx-builder")) {
+      htmx.ajax("GET", "{% url 'prescriptions:builder' visit.pk %}", {target: "#rx-builder", swap: "outerHTML"});
+    }
+  });
+  {% endif %}
   // number of medicines on the "الروشتة" tab
   document.body.addEventListener("htmx:afterSettle", () => {
     const n = parseInt(document.getElementById("rx-builder")?.dataset.items || "0", 10);

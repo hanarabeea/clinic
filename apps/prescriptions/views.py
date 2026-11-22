@@ -75,10 +75,12 @@ _current_for_visit = services.current_for_visit
 def _builder_ctx(request, rx, **extra):
     org = request.organization
     ns = NotificationSettings.for_org(org)
+    state = safety.patient_state(rx.patient) if rx.is_editable else safety.NONE
     ctx = {
         "rx": rx,
         "items": list(rx.items.select_related("drug")),
-        "warnings": safety.warnings_for(rx) if rx.is_editable else [],
+        "rx_state": state,
+        "warnings": safety.warnings_for(rx, state=state) if rx.is_editable else [],
         "phrases": DosePhrase.objects.filter(organization=org),
         "templates": PrescriptionTemplate.objects.filter(organization=org, doctor=rx.doctor)[:30],
         "has_previous": Prescription.objects.filter(patient=rx.patient, status=RxStatus.FINAL)
@@ -149,7 +151,8 @@ def drug_search(request, pk):
     q = (request.GET.get("q") or request.GET.get("drug_name") or "").strip()
     category = _category(request)
     drugs = services.search_drugs(request.organization, q, limit=12, category=category) if q or category else []
-    ctx = {"rx": rx, "drugs": drugs, "q": q, "category": category}
+    state = safety.patient_state(rx.patient) if drugs else safety.NONE
+    ctx = {"rx": rx, "drugs": [(d, safety.drug_flags(d, state)) for d in drugs], "q": q, "category": category}
     return render(request, "prescriptions/partials/drug_results.html", ctx)
 
 

@@ -1,9 +1,11 @@
 """Business logic for patients: file numbers, duplicate warnings, merging."""
 
 from django.db import transaction
+from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from apps.core.phones import to_e164
+from apps.core.timeutils import CAIRO
 
 from .models import Patient, PatientSequence
 
@@ -58,6 +60,7 @@ MERGE_MOVES = [
     ("invoicing", "Charge"),
     ("invoicing", "Invoice"),
     ("billing", "Payment"),
+    ("patients", "CurrentMedication"),
 ]
 
 
@@ -119,3 +122,42 @@ def merge_patients(primary: Patient, duplicate: Patient, *, by=None) -> Patient:
     duplicate.is_active = False
     duplicate.save(update_fields=["merged_into", "is_active", "updated_at"])
     return primary
+
+
+# --- current medications (plan 15 §2.5) -------------------------------------------------------------------------
+
+
+class MedicationError(Exception):
+    pass
+
+
+def _catalog_drug(org, name: str):
+    """The catalog drug with exactly this name (case-insensitive), so interaction checks know its ingredients."""
+    from apps.prescriptions.models import Drug
+
+    return Drug.objects.filter(organization=org, name__iexact=name.strip(), is_active=True).first()
+
+
+def add_medication(patient: Patient, *, name: str, dose: str = "", notes: str = "", by=None, drug=None):
+    from .models import CurrentMedication
+
+    name = (name or "").strip()
+    if not name and drug is None:
+        raise MedicationError(_("اكتب اسم الدوا."))
+    drug = drug or _catalog_drug(patient.organization, name)
+    name = name or drug.name
+    if CurrentMedication.objects.active().filter(patient=patient, name__iexact=name).exists():
+        raise MedicationError(_("الدوا ده مكتوب في الأدوية المستمرة."))
+    return CurrentMedication.objects.create(
+        organization=patient.organization, patient=patient, name=name[:150], drug=drug, dose=dose.strip()[:150],
+        notes=notes.strip()[:300], recorded_by=by,
+    )  # fmt: skip
+
+
+def stop_medication(med, *, by=None, on=None):
+    """The medicine is no longer taken: the row stays, with the day it stopped."""
+    if med.stopped_on is None:
+        med.stopped_on = on or timezone.localtime(timezone.now(), CAIRO).date()
+        med.stopped_by = by
+        med.save(update_fields=["stopped_on", "stopped_by", "updated_at"])
+    return med

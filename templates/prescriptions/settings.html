@@ -35,6 +35,12 @@
     <p class="text-xs text-stone-500">{% translate "النسخة اللي بتتبعت للمريض دايمًا بالتصميم الكامل، حتى لو الطباعة على ورق مطبوع." %}</p>
   </section>
 
+  <section class="card space-y-4 p-4 sm:p-6" id="safety-settings">
+    <h2 class="flex items-center gap-1.5 text-[15px] font-bold">{% icon "shield-check" "size-4 text-stone-500" %}{% translate "تحذيرات الأمان" %}</h2>
+    <p class="text-sm text-stone-600">{% translate "كل روشتة بتتراجع على حساسية المريض، والأدوية المكررة، والتداخلات بين الأدوية (مع بعض ومع الأدوية اللي المريض بياخدها)، والحمل لو فيه حمل متابَع." %}</p>
+    <div class="max-w-xs">{% include "partials/field.html" with field=form.lactation_months %}</div>
+  </section>
+
   <section class="card space-y-4 p-4 sm:p-6" id="voice-settings">
     <h2 class="flex items-center gap-1.5 text-[15px] font-bold">{% icon "microphone" "size-4 text-stone-500" %}{% translate "الإملاء الصوتي" %}</h2>
     <label class="flex items-center gap-2 text-sm font-semibold">{{ form.voice_dictation_enabled }} {{ form.voice_dictation_enabled.label }}</label>

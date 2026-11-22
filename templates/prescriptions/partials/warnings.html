@@ -1,7 +1,15 @@
 {% load i18n %}
+{% comment %}Safety warnings of a draft (prescriptions/safety.py). avoid = red, caution = amber: both need "متأكد"
+before the prescription can be finalized. info = advice (e.g. spacing two medicines), nothing to tick.{% endcomment %}
 {% for w in warnings %}
-<label class="mb-1 flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm {% if w.kind == 'allergy' %}border-red-300 bg-red-50 text-red-900{% else %}border-amber-200 bg-amber-50 text-amber-900{% endif %}">
+{% if w.needs_ack %}
+<label class="mb-1 flex cursor-pointer items-start gap-2 rounded-lg border px-3 py-2 text-sm {% if w.level == 'avoid' %}border-red-300 bg-red-50 text-red-900{% else %}border-amber-200 bg-amber-50 text-amber-900{% endif %}" data-warning="{{ w.kind }}">
   <input type="checkbox" name="ack" value="{{ w.key }}" class="mt-1">
   <span>{% icon "warning" "size-4" %} {{ w.text }} <b class="ms-1 underline underline-offset-4">{% translate "متأكد" %}</b></span>
 </label>
+{% else %}
+<p class="mb-1 flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-900" data-warning="{{ w.kind }}">
+  {% icon "info" "size-4 mt-0.5 shrink-0" %}<span>{{ w.text }}</span>
+</p>
+{% endif %}
 {% endfor %}

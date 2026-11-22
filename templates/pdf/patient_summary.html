@@ -24,19 +24,19 @@ h1 { font-size: 15pt; margin: 0; } h2 { font-size: 11.5pt; border-bottom: 1px so
 {% if ob %}
 <h2>ملف الحمل</h2>
 <p>G<span class="ltr">{{ ob.gpal.gravida }}</span> P<span class="ltr">{{ ob.gpal.para }}</span> A<span class="ltr">{{ ob.gpal.abortus }}</span> L<span class="ltr">{{ ob.gpal.living }}</span>{% if ob.profile.blood_group %} · فصيلة الدم <span class="ltr">{{ ob.profile.blood_group }}</span>{% endif %}</p>
-{% if ob.pregnancy %}<p>حمل متابَع: الأسبوع <span class="ltr">{{ ob.ga.weeks }}+{{ ob.ga.extra_days }}</span>، ميعاد الولادة المتوقع <span class="ltr">{{ ob.pregnancy.edd|date:"Y-m-d" }}</span></p>{% endif %}
+{% if ob.pregnancy %}<p>حمل متابَع: الأسبوع <span class="ltr">{{ ob.ga.weeks }}+{{ ob.ga.extra_days }}</span>، ميعاد الولادة المتوقع <span class="ltr">{{ ob.pregnancy.edd|day }}</span></p>{% endif %}
 {% if ob.history %}<table><tr><th>السنة</th><th>انتهى بـ</th><th>الأسابيع</th><th>ملاحظات</th></tr>
 {% for h in ob.history %}<tr><td class="ltr">{{ h.year|default:"" }}</td><td>{{ h.get_outcome_display }}</td><td class="ltr">{{ h.weeks|default:"" }}</td><td><span class="iso" dir="auto">{{ h.complications }}</span></td></tr>{% endfor %}
 </table>{% endif %}
 {% if ob.sheets %}<table><tr><th>التاريخ</th><th>عمر الحمل</th><th>ارتفاع الرحم</th><th>نبض الجنين</th><th>وزن الجنين</th><th>BPD / HC / AC / FL</th></tr>
-{% for s in ob.sheets %}<tr><td class="ltr">{{ s.visit.created_at|date:"Y-m-d" }}</td><td class="ltr">{{ s.ga_label }}</td><td class="ltr">{{ s.fundal_height_cm|default:"" }}</td><td class="ltr">{{ s.fetal_heart_rate|default:"" }}</td><td class="ltr">{{ s.efw_g|default:"" }}</td><td class="ltr">{{ s.bpd_mm|default:"-" }} / {{ s.hc_mm|default:"-" }} / {{ s.ac_mm|default:"-" }} / {{ s.fl_mm|default:"-" }}</td></tr>{% endfor %}
+{% for s in ob.sheets %}<tr><td class="ltr">{{ s.visit.created_at|day }}</td><td class="ltr">{{ s.ga_label }}</td><td class="ltr">{{ s.fundal_height_cm|default:"" }}</td><td class="ltr">{{ s.fetal_heart_rate|default:"" }}</td><td class="ltr">{{ s.efw_g|default:"" }}</td><td class="ltr">{{ s.bpd_mm|default:"-" }} / {{ s.hc_mm|default:"-" }} / {{ s.ac_mm|default:"-" }} / {{ s.fl_mm|default:"-" }}</td></tr>{% endfor %}
 </table>{% endif %}
 {% endif %}
 
 <h2>الزيارات</h2>
 {% for v in visits %}
 <div class="visit">
-  <b class="ltr">{{ v.created_at|date:"Y-m-d" }}</b>
+  <b class="ltr">{{ v.created_at|day }}</b>
   {% if v.chief_complaint %}<div>الشكوى: <span class="iso" dir="auto">{{ v.chief_complaint }}</span></div>{% endif %}
   {% if v.examination %}<div>الفحص: <span class="iso" dir="auto">{{ v.examination }}</span></div>{% endif %}
   {% if v.diagnosis %}<div>التشخيص: <span class="iso" dir="auto">{{ v.diagnosis }}</span></div>{% endif %}
@@ -48,13 +48,13 @@ h1 { font-size: 15pt; margin: 0; } h2 { font-size: 11.5pt; border-bottom: 1px so
 <h2>الروشتات</h2>
 <table>
 {% for rx in prescriptions %}
-<tr><td class="ltr" style="white-space:nowrap">{{ rx.display_number }}<br>{{ rx.issued_at|date:"Y-m-d" }}</td>
+<tr><td class="ltr" style="white-space:nowrap">{{ rx.display_number }}<br>{{ rx.issued_at|day }}</td>
 <td>{% for it in rx.items.all %}<div><span class="ltr">{{ it.drug_name }}</span> — <span class="iso" dir="auto">{{ it.instructions }}{% if it.duration %} {{ it.duration }}{% endif %}</span></div>{% endfor %}</td></tr>
 {% empty %}<tr><td>مفيش روشتات.</td></tr>{% endfor %}
 </table>
 
 <h2>المرفقات</h2>
-<p>{% for a in attachments %}{{ a.get_kind_display }}: <span class="iso" dir="auto">{{ a }}</span> (<span class="ltr">{{ a.taken_on|date:"Y-m-d" }}</span>){% if not forloop.last %} · {% endif %}{% empty %}مفيش.{% endfor %}<br>
+<p>{% for a in attachments %}{{ a.get_kind_display }}: <span class="iso" dir="auto">{{ a }}</span> (<span class="ltr">{{ a.taken_on|day }}</span>){% if not forloop.last %} · {% endif %}{% empty %}مفيش.{% endfor %}<br>
 <span class="muted">الملفات نفسها بتتسلم منفصلة لو المريض طلبها.</span></p>
 </body>
 </html>

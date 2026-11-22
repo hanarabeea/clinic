@@ -1047,3 +1047,33 @@ gotchas and conventions introduced in that phase.
   already cover every URL of phases 13-19.
 - `docs/user-guide.md`: the staff guide in Arabic, one section per screen.
 - The whole suite takes about 20 minutes now. Phases 13 to 20 were committed together as one commit (see HANDOFF.md).
+
+## Safety and doctor's screen notes (Phase 21, 2026-11-22)
+- Plan: `docs/plan/15-enhancements.md` (the review after phase 20; phases 21-26). Phase 21 = §0.1-0.4, §2.4, §2.5.
+- **Prescription safety** (`prescriptions/safety.py` + the tables in `prescriptions/drug_rules.py`): besides allergies and
+  duplicates, every draft is checked for **pregnancy** (a followed `Pregnancy`, by its week: NSAIDs amber before 20
+  weeks and red from 20, antithyroid drugs only before 16, low-dose aspirin is never flagged), **breastfeeding** (a live
+  birth with its date in the last `PrescriptionSettings.lactation_months`, default 6, 0 = off; Settings → الروشتة →
+  تحذيرات الأمان) and **interactions** between lines and between a line and the patient's current medications (two
+  current medications alone never warn). Rules match the **generic name** at the start of a word
+  (`(?<![a-z])term`), so terms must be specific; `LOCAL_FORMS` (creams, eye/ear drops...) use `local_level`
+  (None = the rule does not apply). Levels: `avoid` red, `caution` amber (both need "متأكد" before finalize),
+  `info` blue (spacing advice, no tick). A warning is `{key, kind, level, text, needs_ack}`; `safety.pending()` is
+  what blocks `finalize`. The tables were written from standard references, not by a clinic doctor: **have a doctor
+  review `drug_rules.py` before go-live, and extend the tables there rather than adding checks elsewhere.**
+- The drug search shows a red / amber "ممنوع / حذر في الحمل (الرضاعة)" tag per result (`safety.drug_flags`), and the
+  builder says when the checks are on (`#rx-state`).
+- **Current medications** (`patients.CurrentMedication`, history, in `MERGE_MOVES`): what the patient takes regularly,
+  whoever prescribed it. `patients.services.add_medication` (links the catalog drug by exact name, refuses the same
+  name twice) / `stop_medication` (sets `stopped_on`, never deletes). Screens: patient page (medical section),
+  drawer tab + action-bar button "الأدوية المستمرة" on the visit page, "بتاخد:" line in the visit header
+  (`#header-meds`). Any change answers with `HX-Trigger: meds-changed`; the header re-reads itself and the visit page
+  reloads the prescription builder (warnings recomputed). Permissions: `patient.view_medical` / `edit_medical`.
+- **Dates**: `{{ d|day }}` → "4 أكتوبر 2026" (`|day:"short"` without the year), wrapped in an RTL isolate so it reads
+  right inside `dir="ltr"` spans. The `clock` filters (`day`, `ampm`) are template builtins now. Clinical screens use it;
+  `d/m/Y` stays in the money tables, `Y-m-d` stays only in attributes / exports.
+- **Emergency alert** on the desk sits at the bottom (above the visit page's action bar, `--action-bar-h`), never over
+  the patient header. **"جنب بعض"** on the visit page (≥ 1280 px): the visit and the prescription side by side,
+  remembered per computer (`localStorage visit-split`); the tabs stay the default.
+- Not done here (found during the review, small): allergies and chronic conditions are still hard-deleted by their
+  "مسح" buttons (`patients.views.allergy_delete` / `condition_delete`), against "medical records are never deleted".

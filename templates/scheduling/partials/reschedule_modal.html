@@ -9,7 +9,7 @@
     <p class="text-sm font-semibold text-red-700">{{ error }}</p>
     {% else %}
     <p class="mb-3 text-sm text-stone-500">
-      {% translate "دلوقتي" %}: <bdi dir="ltr">{{ a.start_at|date:"Y-m-d" }} {{ a.start_at|ampm }}</bdi>{% if a.queue_number %} <bdi dir="ltr">#{{ a.queue_number }}</bdi>{% endif %}
+      {% translate "دلوقتي" %}: <bdi dir="ltr">{{ a.start_at|day }} {{ a.start_at|ampm }}</bdi>{% if a.queue_number %} <bdi dir="ltr">#{{ a.queue_number }}</bdi>{% endif %}
     </p>
     <div class="form-field mb-3">
       <label for="rs-day">{% translate "اليوم الجديد" %}</label>

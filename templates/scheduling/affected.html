@@ -3,7 +3,7 @@
 {% block title %}{% translate "الحجوزات المتأثرة" %}{% endblock %}
 {% block content %}
 <div class="page-head mb-2"><h1>{% translate "الحجوزات المتأثرة" %}</h1></div>
-<p class="mb-6 max-w-3xl text-sm text-stone-600">{% blocktranslate with d=day|date:"Y/m/d" %}يوم {{ d }} اتقفل وفيه حجوزات هتتأثر. اختاري ميعاد مقترح لكل حجز، أو أجّليه يدوي من شاشة المواعيد.{% endblocktranslate %}</p>
+<p class="mb-6 max-w-3xl text-sm text-stone-600">{% blocktranslate with d=day|day %}يوم {{ d }} اتقفل وفيه حجوزات هتتأثر. اختاري ميعاد مقترح لكل حجز، أو أجّليه يدوي من شاشة المواعيد.{% endblocktranslate %}</p>
 
 <div class="card overflow-hidden">
   <ul class="divide-y divide-stone-100">
@@ -14,7 +14,7 @@
       <span class="text-stone-600">{{ appt.visit_type.name_ar }}</span>
       {% if several %}<span class="text-stone-600">{{ appt.doctor }}</span>{% endif %}
       {% if suggestion %}
-      <span class="flex items-center gap-1 text-brand">{% icon "caret-left" "size-4" %}{% translate "مقترح" %}: <b dir="ltr">{{ suggestion.day|date:"Y/m/d" }} {{ suggestion.start_at|date:"H:i" }}</b></span>
+      <span class="flex items-center gap-1 text-brand">{% icon "caret-left" "size-4" %}{% translate "مقترح" %}: <b dir="ltr">{{ suggestion.day|day }} {{ suggestion.start_at|date:"H:i" }}</b></span>
       <form method="post" action="{% url 'scheduling:affected_reschedule' appt.pk %}" class="ms-auto">
         {% csrf_token %}
         <button type="submit" class="btn-primary min-h-8 px-3 py-1 text-xs">{% translate "أجّل للمقترح" %}</button>

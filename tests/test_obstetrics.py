@@ -352,7 +352,7 @@ def test_the_week_shows_everywhere_and_follows_a_new_dating(client, ob):
         "booking": reverse("scheduling:booking_panel") + f"?patient={patient.pk}",
     }
     for html in pages(ob["doc"], doctor_pages).values():
-        assert "24 أسبوع و3 أيام" in html and "الشهر السادس" in html and "27/9/2026" in html
+        assert "24 أسبوع و3 أيام" in html and "الشهر السادس" in html and "27 سبتمبر 2026" in html
     seen = pages(ob["doc"], doctor_pages)
     assert "G2 P1 A0 L1" in seen["visit"] and "قيصرية سابقة" in seen["visit"] and "الثلث الثاني" in seen["visit"]
     assert "منحنى السكر (GTT)" in seen["visit"]  # due now: named on the band
@@ -361,7 +361,7 @@ def test_the_week_shows_everywhere_and_follows_a_new_dating(client, ob):
     # reception: the month and the week next to her name (the patient page spells the week out, with the date)
     for name, html in pages(ob["reception"], reception_pages).items():
         assert "الشهر السادس" in html, name
-        assert ("24 أسبوع و3 أيام" in html and "27/9/2026" in html) if name == "patient" else "24+3" in html, name
+        assert ("24 أسبوع و3 أيام" in html and "27 سبتمبر 2026" in html) if name == "patient" else "24+3" in html, name
 
     # the first scan disagrees with the period: the doctor re-dates from the pregnancy file
     client.force_login(ob["doc"])
@@ -372,10 +372,10 @@ def test_the_week_shows_everywhere_and_follows_a_new_dating(client, ob):
     )
     assert resp.status_code == 200 and "ob-changed" in resp["HX-Trigger"]
     for html in pages(ob["doc"], doctor_pages).values():
-        assert "23 أسبوع" in html and "24 أسبوع و3 أيام" not in html and "7/10/2026" in html
+        assert "23 أسبوع" in html and "24 أسبوع و3 أيام" not in html and "7 أكتوبر 2026" in html
     for name, html in pages(ob["reception"], reception_pages).items():
         assert "24+3" not in html and "24 أسبوع و3 أيام" not in html, name
-        assert ("23 أسبوع" in html and "7/10/2026" in html) if name == "patient" else "23+0" in html, name
+        assert ("23 أسبوع" in html and "7 أكتوبر 2026" in html) if name == "patient" else "23+0" in html, name
     client.force_login(ob["doc"])
     for name in ("tag", "band"):  # what the open visit page re-reads on ob-changed
         assert "23 أسبوع" in client.get(reverse(f"obstetrics:{name}", args=[patient.pk])).content.decode()
@@ -424,7 +424,7 @@ def test_reception_sees_the_week_but_nothing_of_the_file(client, ob):
         client.get(url).content.decode()
         for url in (reverse("reception:today"), reverse("patients:detail", args=[patient.pk]), reverse("patients:list"))
     )
-    assert "الشهر السادس" in seen and "27/9/2026" in seen
+    assert "الشهر السادس" in seen and "27 سبتمبر 2026" in seen
     seen = re.sub(r"[A-Za-z0-9]{32,}", "", seen)  # security tokens are random letters: they can spell anything
     for secret in ("إجهاض", "نزيف", "ضغط مرتفع", "سر طبي", "AB-", "G2", "Rh"):
         assert secret not in seen, secret

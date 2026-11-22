@@ -1,6 +1,7 @@
 from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.translation import gettext as _
+from django.views.decorators.http import require_POST
 
 from apps.accounts.permissions import has_perm, require_perm
 from apps.audit import services as audit
@@ -67,6 +68,7 @@ def patient_detail(request, pk):
     }
     if can_view_medical:
         ctx["chronic_conditions"] = patient.chronic_conditions.all()
+        ctx.update(_medications_ctx(request, patient))
     if has_perm(request.membership, "pregnancy.view_basic"):
         ctx["ga"] = obstetrics.badge_for(patient)  # the week / month and the expected date; nothing else of the file
     # 03 §3.7: bookings (upcoming + past), messages (sent + received, 06 §6.7) and payments.
@@ -189,3 +191,80 @@ def merge_confirm(request, pk, duplicate_pk):
     audit.log("patient.merged", request=request, target=primary, summary=f"{duplicate.full_name} → {primary.full_name}")
     messages.success(request, _("اتدمج %(d)s في %(p)s.") % {"d": duplicate.full_name, "p": primary.full_name})
     return redirect("patients:detail", pk=primary.pk)
+
+
+# --- current medications (plan 15 §2.5) -------------------------------------------------------------------------
+
+
+def _medications_ctx(request, patient, **extra):
+    from apps.prescriptions import services as rx_services
+
+    meds = list(patient.medications.select_related("drug"))
+    active = [m for m in meds if m.is_active]
+    ctx = {
+        "patient": patient,
+        "medications": active,
+        "stopped_medications": [m for m in meds if not m.is_active][:10],
+        "can_edit_meds": has_perm(request.membership, "patient.edit_medical"),
+    }
+    if ctx["can_edit_meds"]:
+        taking = {m.name.lower() for m in active}
+        recent = rx_services.recent_for_patient(patient, limit=12)
+        ctx["med_suggestions"] = [it for it in recent if it.drug_name.lower() not in taking][:8]
+    ctx.update(extra)
+    return ctx
+
+
+def _medications_response(request, patient, changed=False, **extra):
+    response = render(request, "patients/partials/medications.html", _medications_ctx(request, patient, **extra))
+    if changed:
+        response["HX-Trigger"] = "meds-changed"  # the visit page refreshes its header and the prescription warnings
+    return response
+
+
+@require_perm("patient.view_medical")
+def medications(request, pk):
+    patient = _patient(request, pk)
+    if request.GET.get("view") == "badges":
+        return render(request, "patients/partials/medication_badges.html",
+                      {"patient": patient, "medications": patient.medications.active()})  # fmt: skip
+    return _medications_response(request, patient)
+
+
+@require_POST
+@require_perm("patient.edit_medical")
+def medication_add(request, pk):
+    patient = _patient(request, pk)
+    drug = None
+    if request.POST.get("drug", "").isdigit():
+        from apps.prescriptions.models import Drug
+
+        drug = Drug.objects.filter(organization=request.organization, pk=request.POST["drug"]).first()
+    try:
+        med = services.add_medication(patient, name=request.POST.get("name", ""), dose=request.POST.get("dose", ""),
+                                      notes=request.POST.get("notes", ""), by=request.user, drug=drug)  # fmt: skip
+    except services.MedicationError as e:
+        return _medications_response(request, patient, error=str(e))
+    audit.log("patient.medication_added", request=request, target=patient, summary=med.name)
+    return _medications_response(request, patient, changed=True)
+
+
+@require_POST
+@require_perm("patient.edit_medical")
+def medication_stop(request, pk, med_pk):
+    patient = _patient(request, pk)
+    med = get_object_or_404(patient.medications.for_org(request.organization), pk=med_pk)
+    services.stop_medication(med, by=request.user)
+    audit.log("patient.medication_stopped", request=request, target=patient, summary=med.name)
+    return _medications_response(request, patient, changed=True)
+
+
+@require_perm("patient.edit_medical")
+def medication_drugs(request, pk):
+    """<option>s for the medicine name box: catalog names starting with / containing what was typed."""
+    from apps.prescriptions import services as rx_services
+
+    _patient(request, pk)
+    q = request.GET.get("name", "").strip()
+    drugs = rx_services.search_drugs(request.organization, q, limit=8) if len(q) >= 2 else []
+    return render(request, "patients/partials/medication_options.html", {"drugs": drugs})

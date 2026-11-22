@@ -11,7 +11,7 @@ safety information is never collapsed or hidden.{% endcomment %}
         <span>{{ patient.get_gender_display }}</span>
         <span>{% translate "ملف" %} <span class="num" dir="ltr">#{{ patient.file_number }}</span></span>
         {% if visit_number %}<span>{% blocktranslate with n=visit_number %}الزيارة رقم {{ n }}{% endblocktranslate %}</span>{% endif %}
-        {% if last_visit %}<span>{% translate "آخر زيارة" %} <span dir="ltr" class="num">{{ last_visit.finished_at|date:"j/n/Y" }}</span></span>{% endif %}
+        {% if last_visit %}<span>{% translate "آخر زيارة" %} <span dir="ltr" class="num">{{ last_visit.finished_at|day }}</span></span>{% endif %}
       </p>
     </div>
     <div class="flex flex-wrap items-center gap-1.5">
@@ -20,6 +20,8 @@ safety information is never collapsed or hidden.{% endcomment %}
       {% for a in allergies %}<span class="badge bg-red-600 px-2 font-bold text-white">{% icon "warning" "size-3.5" %}{% translate "حساسية" %}: <bdi dir="auto">{{ a.name }}</bdi>{% if a.severity %} ({{ a.get_severity_display }}){% endif %}</span>{% endfor %}
       {% for c in conditions %}<span class="badge bg-orange-50 px-2 font-semibold text-orange-900 ring-1 ring-orange-200 ring-inset"><bdi dir="auto">{{ c.name }}</bdi></span>{% endfor %}
     </div>
+    {% if can.patient_view_medical %}{% include "patients/partials/medication_badges.html" %}
+    {% elif medications %}<span class="flex flex-wrap items-center gap-1.5"><span class="text-xs text-stone-500">{% translate "بتاخد:" %}</span>{% for m in medications %}<span class="badge bg-sky-50 px-2 text-sky-900 ring-1 ring-sky-200 ring-inset"><bdi dir="auto">{{ m.name }}</bdi></span>{% endfor %}</span>{% endif %}
     {% if vitals and not vitals.is_empty %}
     <dl class="num ms-auto flex flex-wrap gap-x-4 text-xs text-stone-600" title="{% translate 'العلامات اليوم' %}">
       {% if vitals.bp_systolic %}<div class="flex gap-1"><dt>BP</dt><dd class="font-semibold text-ink" dir="ltr">{{ vitals.bp_systolic }}/{{ vitals.bp_diastolic }}</dd></div>{% endif %}

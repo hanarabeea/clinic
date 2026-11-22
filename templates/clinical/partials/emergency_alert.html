@@ -1,9 +1,10 @@
 {% load i18n %}
 {% comment %}On every page of the doctor's desk, polled every 10 s: an emergency patient is waiting for this doctor.
-Fixed at the top so it is seen whatever is open; it goes away once she is called in.{% endcomment %}
+Fixed at the bottom so it is seen whatever is open, without ever covering the patient header (name, allergies);
+it sits above the visit page's action bar (`--action-bar-h`) and goes away once she is called in.{% endcomment %}
 <div id="emergency-alert" hx-get="{% url 'clinical:emergency_alert' %}" hx-trigger="every 10s" hx-swap="outerHTML">
   {% if alerts %}
-  <div class="pointer-events-none fixed end-0 start-0 top-16 z-40 flex justify-center px-3 lg:start-(--side-w)" role="alert">
+  <div class="pointer-events-none fixed end-0 start-0 bottom-[calc(var(--action-bar-h,0px)+0.75rem)] z-40 flex justify-center px-3 lg:start-(--side-w)" role="alert">
     <div class="pointer-events-auto flex max-w-full flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg bg-red-600 px-4 py-2.5 text-sm text-white shadow-lg">
       {% with case=alerts.0 %}
       <span class="flex items-center gap-1.5 font-bold">{% icon "siren" "size-5" %}{% translate "طوارئ مستنية" %}</span>

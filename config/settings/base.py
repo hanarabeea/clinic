@@ -75,7 +75,8 @@ TEMPLATES = [
         "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
-            "builtins": ["apps.core.templatetags.icons"],  # {% icon "name" %} everywhere, no {% load %}
+            # {% icon "name" %} and the clock filters ({{ d|day }}, {{ t|ampm }}) everywhere, no {% load %}
+            "builtins": ["apps.core.templatetags.icons", "apps.core.templatetags.clock"],
             "context_processors": [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",

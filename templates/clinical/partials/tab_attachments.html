@@ -29,7 +29,7 @@
       {% endif %}
       <div class="p-3">
         <div class="font-semibold">{{ a }}</div>
-        <div class="flex justify-between text-xs text-stone-600"><span>{{ a.get_kind_display }}</span><span dir="ltr" class="num">{{ a.taken_on|date:"Y-m-d" }}</span></div>
+        <div class="flex justify-between text-xs text-stone-600"><span>{{ a.get_kind_display }}</span><span dir="ltr" class="num">{{ a.taken_on|day }}</span></div>
       </div>
     </div>
     {% empty %}

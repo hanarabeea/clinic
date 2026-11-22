@@ -3,7 +3,7 @@
   {% for rx in prescriptions %}
   <li class="card flex flex-wrap items-start gap-3 p-3 text-sm">
     <span class="num font-semibold" dir="ltr">{{ rx.display_number }}</span>
-    <span class="num text-stone-600" dir="ltr">{{ rx.issued_at|date:"Y-m-d" }}</span>
+    <span class="num text-stone-600" dir="ltr">{{ rx.issued_at|day }}</span>
     {% if rx.status == "voided" %}<span class="badge bg-red-50 text-red-800">{% translate "ملغية" %}</span>{% endif %}
     {% if show_items %}
     <span class="basis-full text-stone-600" dir="ltr">{% for it in rx.items.all %}{{ it.drug_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</span>

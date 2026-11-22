@@ -56,7 +56,7 @@ new bookings (a panel opened by "+ حجز جديد" or a free cell). apps/recept
     {% for v, suggested in followups %}
     <li class="flex flex-wrap items-center gap-3 py-1.5">
       <span class="font-semibold">{{ v.patient.full_name }}</span>
-      <span class="text-stone-600">{% translate "إعادة حوالي" %} <span dir="ltr" class="num">{{ suggested|date:"Y-m-d" }}</span></span>
+      <span class="text-stone-600">{% translate "إعادة حوالي" %} <span dir="ltr" class="num">{{ suggested|day }}</span></span>
       {% if can.appointment_book %}<button type="button" class="ms-auto btn-secondary min-h-8 px-3 py-1 text-xs" hx-get="{% url 'scheduling:booking_panel' %}?patient={{ v.patient.pk }}&day={{ suggested|date:'Y-m-d' }}" hx-target="#modal">{% translate "احجز" %}</button>{% endif %}
       <form method="post" action="{% url 'reception:followup_dismiss' v.pk %}">{% csrf_token %}<button class="btn-ghost min-h-8 px-2.5 py-1 text-xs">{% translate "تجاهل" %}</button></form>
     </li>
