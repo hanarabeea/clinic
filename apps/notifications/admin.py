@@ -29,5 +29,6 @@ class SchedulerHeartbeatAdmin(admin.ModelAdmin):
 
 @admin.register(InboundMessage)
 class InboundMessageAdmin(admin.ModelAdmin):
-    list_display = ("from_number", "organization", "patient", "received_at")
-    raw_id_fields = ("patient",)
+    list_display = ("from_number", "organization", "patient", "received_at", "action", "handled_at")
+    list_filter = ("organization", "action")
+    raw_id_fields = ("patient", "appointment")

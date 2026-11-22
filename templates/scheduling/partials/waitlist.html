@@ -1,0 +1,41 @@
+{% load i18n %}
+{% comment %}The waiting list (plan 15 §1.3), opened from the board. When a booking is cancelled the freed time is
+offered on WhatsApp to the first matching patient here, one at a time; patients without WhatsApp are called.{% endcomment %}
+<div class="overlay" onclick="if (event.target === this) this.parentElement.innerHTML = ''">
+  <div class="dialog max-w-2xl p-5" role="dialog" aria-modal="true">
+    <div class="mb-3 flex items-center justify-between">
+      <h2 class="flex items-center gap-1.5 text-base font-bold">{% icon "hourglass-medium" "size-5" %}{% translate "قايمة الانتظار" %}</h2>
+      <button type="button" class="btn-icon -me-1.5" onclick="document.getElementById('modal').innerHTML = ''" aria-label="{% translate 'قفل' %}">{% icon "x" %}</button>
+    </div>
+    <p class="mb-3 text-xs text-stone-500">{% translate "لما حد يلغي، الميعاد بيتعرض على أول واحد مناسب هنا على الواتساب، وبيستنى رده قبل ما يعرضه على اللي بعده. اللي مش موافق على الرسايل اتصلي بيه." %}</p>
+    {% if notice %}<p class="notice notice-info mb-3 text-sm">{% icon "check-circle" "size-5 shrink-0" %}<span>{{ notice }}</span></p>{% endif %}
+    {% if error %}<p class="notice notice-danger mb-3 text-sm">{% icon "warning-circle" "size-5 shrink-0" %}<span>{{ error }}</span></p>{% endif %}
+    <div class="max-h-[60vh] divide-y divide-stone-100 overflow-y-auto rounded-lg border border-stone-200">
+      {% for e in entries %}
+      {% ifchanged e.doctor_id %}<p class="bg-stone-50 px-3 py-1.5 text-xs font-semibold text-stone-600">{{ e.doctor }}</p>{% endifchanged %}
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
+        <span class="min-w-0 flex-1">
+          <span class="font-semibold">{{ e.patient.full_name }}</span>
+          <span class="num text-xs text-stone-500" dir="ltr">{{ e.patient.phone }}</span>
+          <span class="block text-xs text-stone-600">
+            {{ e.visit_type.name_ar }} · {% translate "من" %} {{ e.earliest|day:"short" }} {% translate "لحد" %} {{ e.latest|day:"short" }} · {{ e.get_time_pref_display }}
+            {% if e.notes %} · {{ e.notes }}{% endif %}
+          </span>
+          {% if e.status == "offered" %}
+          <span class="mt-0.5 block text-xs font-semibold text-sky-800">{% icon "chat-circle-text" "size-3.5" %} {% translate "اتعرض عليه" %} {{ e.offered_start|day:"short" }} {{ e.offered_start|ampm }}، {% translate "مستني رده لحد" %} {{ e.offer_expires_at|ampm }}</span>
+          {% elif not e.patient.messaging_consent %}
+          <span class="mt-0.5 block text-xs text-amber-800">{% translate "مش موافق على الرسايل: لازم مكالمة" %}</span>
+          {% endif %}
+        </span>
+        {% if can.appointment_book %}
+        <a class="btn-secondary min-h-8 px-3 py-1 text-xs" href="{% url 'reception:today' %}?book={{ e.patient.pk }}&doctor={{ e.doctor_id }}&date={{ e.earliest|date:'Y-m-d' }}">{% translate "احجز" %}</a>
+        <button type="button" class="btn-ghost min-h-8 px-2 py-1 text-xs text-red-700" hx-post="{% url 'scheduling:waitlist_remove' e.pk %}" hx-target="#modal" hx-swap="innerHTML"
+                hx-confirm="{% translate 'تشيله من قايمة الانتظار؟' %}">{% translate "شيل" %}</button>
+        {% endif %}
+      </div>
+      {% empty %}
+      <p class="px-3 py-8 text-center text-sm text-stone-500">{% translate "مفيش حد في قايمة الانتظار. من شاشة الحجز: \"مفيش ميعاد مناسب؟ قايمة الانتظار\"." %}</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>

@@ -2,6 +2,7 @@
 `select_for_update()` on that day's `DayLedger` — this is the only place conflicts are prevented.
 """
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
@@ -14,6 +15,7 @@ from apps.core.timeutils import CAIRO
 from apps.doctors.models import BookingMode
 from apps.notifications import services as notifications
 
+from . import waitlist
 from .availability import periods_for
 from .models import (
     ACTIVE_STATUSES,
@@ -24,6 +26,8 @@ from .models import (
     BookingSource,
     DayLedger,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class BookingError(Exception):
@@ -231,6 +235,7 @@ def book(
     AppointmentEvent.objects.create(
         organization=doctor.organization, appointment=appt, from_status="", to_status=appt.status, by=by
     )
+    waitlist.after_booking(appt)  # a date inside the days she was waiting for takes her off the waiting list
     if notify:
         transaction.on_commit(lambda: notifications.schedule_for(appt, by=by))
     return appt
@@ -270,6 +275,7 @@ def reschedule(appt, *, by, new_start_at=None, new_day=None, new_period_key=None
         notes=reason,
     )
     transaction.on_commit(lambda: notifications.on_rescheduled(appt, new_appt, by=by))
+    transaction.on_commit(lambda: _offer_freed(appt))
     return new_appt
 
 
@@ -296,8 +302,17 @@ def cancel(appt, *, by, reason="", notify=True):
         transaction.on_commit(lambda: notifications.on_cancelled(appt, by=by))
     else:
         transaction.on_commit(lambda: notifications.cancel_pending(appt, _("الحجز اتلغى")))
+    transaction.on_commit(lambda: _offer_freed(appt))
     _sync_invoice(appt, by)
     return appt
+
+
+def _offer_freed(appt) -> None:
+    """The place a cancelled / moved booking leaves goes to the waiting list. Never stops the cancellation."""
+    try:
+        waitlist.on_slot_freed(appt)
+    except Exception:
+        logger.exception("waitlist offer failed for appointment %s", appt.pk)
 
 
 def _sync_invoice(appt, by) -> None:

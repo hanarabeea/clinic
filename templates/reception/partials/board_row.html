@@ -10,6 +10,7 @@
       {% if can.patient_view_basic %}<a href="{% url 'patients:detail' a.patient.pk %}" class="font-semibold hover:text-brand">{{ a.patient.full_name }}</a>{% else %}<span class="font-semibold">{{ a.patient.full_name }}</span>{% endif %}
     </span>
     {% if a.ga and can.pregnancy_view_basic %}{% include "obstetrics/partials/ga_badge.html" with ga=a.ga %}{% endif %}
+    {% if a.no_show_risk and a.status == "booked" or a.no_show_risk and a.status == "confirmed" %}<span class="badge bg-amber-50 text-amber-900" title="{% translate 'بيغيب كتير: اتبعتله تذكير زيادة' %}">{% icon "warning" "size-3.5" %}{% blocktranslate count n=a.patient.no_show_count %}غاب مرة{% plural %}غاب {{ n }} مرات{% endblocktranslate %}</span>{% endif %}
     {% if e.emergency %}<span class="badge bg-red-50 font-semibold text-red-800">{% icon "siren" "size-3.5" %}{% translate "طوارئ" %}</span>{% endif %}
     {% if a.source == "walk_in" %}<span class="badge bg-stone-100 text-stone-600">{% translate "فوري" %}</span>{% endif %}
     {% if a.is_overbooked %}<span class="badge bg-amber-50 text-amber-800">{% translate "استثنائي" %}</span>{% endif %}

@@ -1,0 +1,33 @@
+{% load i18n %}
+<div class="overlay" onclick="if (event.target === this) this.parentElement.innerHTML = ''">
+  <div class="dialog max-w-md p-5" role="dialog" aria-modal="true">
+    <div class="mb-3 flex items-center justify-between">
+      <h2 class="text-base font-bold">{% blocktranslate with p=patient.full_name %}{{ p }} في قايمة الانتظار{% endblocktranslate %}</h2>
+      <button type="button" class="btn-icon -me-1.5" onclick="document.getElementById('modal').innerHTML = ''" aria-label="{% translate 'قفل' %}">{% icon "x" %}</button>
+    </div>
+    <p class="mb-3 text-sm text-stone-600">{% blocktranslate with d=doctor %}أول ما ميعاد مع {{ d }} يفضى في الأيام دي، هيتعرض عليها على الواتساب.{% endblocktranslate %}</p>
+    {% if error %}<p class="notice notice-danger mb-3 text-sm">{% icon "warning-circle" "size-5 shrink-0" %}<span>{{ error }}</span></p>{% endif %}
+    {% if not patient.messaging_consent %}<p class="notice notice-warn mb-3 text-xs">{% icon "warning" "size-4 shrink-0" %}<span>{% translate "المريض مش موافق على الرسايل: هيظهر في القايمة بس محدش هيبعتله، لازم مكالمة." %}</span></p>{% endif %}
+    <form hx-post="{% url 'scheduling:waitlist_add' %}" hx-target="#modal" class="space-y-3">
+      {% csrf_token %}
+      <input type="hidden" name="patient" value="{{ patient.pk }}">
+      <div class="form-field">
+        <label for="wl-vt">{% translate "نوع الكشف" %}</label>
+        <select id="wl-vt" name="visit_type">{% for vt in visit_types %}<option value="{{ vt.pk }}" {% if vt.pk == visit_type.pk %}selected{% endif %}>{{ vt.name_ar }}</option>{% endfor %}</select>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div class="form-field"><label for="wl-from">{% translate "من يوم" %}</label><input id="wl-from" type="date" name="earliest" value="{{ earliest|date:'Y-m-d' }}" required></div>
+        <div class="form-field"><label for="wl-to">{% translate "لحد يوم" %}</label><input id="wl-to" type="date" name="latest" value="{{ latest|date:'Y-m-d' }}" required></div>
+      </div>
+      <div class="form-field">
+        <label for="wl-time">{% translate "الوقت" %}</label>
+        <select id="wl-time" name="time_pref">{% for value, label in time_prefs %}<option value="{{ value }}" {% if value == time_pref %}selected{% endif %}>{{ label }}</option>{% endfor %}</select>
+      </div>
+      <div class="form-field"><label for="wl-notes">{% translate "ملاحظات" %}</label><input id="wl-notes" type="text" name="notes" value="{{ notes }}" maxlength="300"></div>
+      <div class="flex items-center gap-2 pt-1">
+        <button class="btn-primary">{% icon "hourglass-medium" "size-4" %}{% translate "ضيف للقايمة" %}</button>
+        <button type="button" class="btn-ghost" onclick="document.getElementById('modal').innerHTML = ''">{% translate "إلغاء" %}</button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -32,6 +32,8 @@ Every step swaps this panel in #modal; a booking empties #modal and the board re
       <span class="num text-xs text-stone-600" dir="ltr">#{{ patient.file_number }}</span><span class="num text-xs text-stone-600" dir="ltr">{{ patient.phone }}</span>
       {% if patient.allergies.exists %}<span class="badge bg-red-600 text-white">{% translate "حساسية" %}</span>{% endif %}
       {% if ga %}{% include "obstetrics/partials/ga_badge.html" %}{% endif %}
+      {% if no_show_risk %}<span class="badge bg-amber-50 text-amber-900" title="{% translate 'هيتبعتله تذكير زيادة' %}">{% icon "warning" "size-3.5" %}{% blocktranslate count n=patient.no_show_count %}غاب مرة{% plural %}غاب {{ n }} مرات{% endblocktranslate %}</span>{% endif %}
+      {% if on_waitlist %}<span class="badge bg-sky-50 text-sky-900">{% icon "hourglass-medium" "size-3.5" %}{% translate "في قايمة الانتظار" %}</span>{% endif %}
       <button type="button" class="link ms-auto text-xs"
               hx-get="{% url 'scheduling:booking_panel' %}?day={{ day|date:'Y-m-d' }}&at={{ at|urlencode }}&hour={{ hour }}&doctor={{ doctor.pk }}" hx-target="#modal">{% translate "مريض تاني" %}</button>
     </div>
@@ -108,6 +110,9 @@ Every step swaps this panel in #modal; a booking empties #modal and the board re
       <div class="flex flex-wrap items-center gap-2 pt-1">
         <button class="btn-primary min-h-10 px-7" {% if slots_mode and not slots %}disabled{% elif not slots_mode and not periods %}disabled{% endif %}>{% translate "احجز" %}</button>
         <button type="button" class="btn-ghost" onclick="document.getElementById('modal').innerHTML = ''">{% translate "إلغاء" %}</button>
+        {% if not on_waitlist %}
+        <button type="button" class="btn-ghost ms-auto text-sm" hx-get="{% url 'scheduling:waitlist_add' %}?patient={{ patient.pk }}&visit_type={{ visit_type.pk }}&day={{ day|date:'Y-m-d' }}" hx-target="#modal">{% icon "hourglass-medium" "size-4" %}{% translate "مفيش ميعاد مناسب؟ قايمة الانتظار" %}</button>
+        {% endif %}
       </div>
     </form>
     {% if is_today and can.reception_operate %}

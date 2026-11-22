@@ -16,6 +16,8 @@ from apps.billing import services as billing
 from apps.billing.models import Payment
 from apps.core.timeutils import CAIRO, WEEKDAY_LABELS, local_dt, weekday_egypt
 from apps.doctors.models import BookingMode, ScheduleException
+from apps.notifications.models import NotificationSettings
+from apps.notifications.services import is_no_show_risk
 from apps.notifications.templating import fmt_date
 from apps.obstetrics import calc
 from apps.obstetrics import services as obstetrics
@@ -71,10 +73,12 @@ def appointments(org, doctor, start: date, end: date) -> list[Appointment]:
     # OB/GYN clinics: the pregnancy week next to the name, as of each booking's own day (one query for the board)
     pregnant = obstetrics.badges_for(org, [a.patient_id for a in rows])
     covered = billing.coverage_map({a.patient_id for a in rows})  # who has a company / insurer paying part
+    ns = NotificationSettings.for_org(org)
     for a in rows:
         ga = pregnant.get(a.patient_id)
         a.ga = calc.gestational_age(ga.edd, a.date) if ga else None
         a.coverage_percent = covered.get(a.patient_id, 0)
+        a.no_show_risk = is_no_show_risk(a.patient, ns)  # "غاب N مرات" next to the name (plan 15 §1.6)
     return rows
 
 

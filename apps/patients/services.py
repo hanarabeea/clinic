@@ -61,6 +61,7 @@ MERGE_MOVES = [
     ("invoicing", "Invoice"),
     ("billing", "Payment"),
     ("patients", "CurrentMedication"),
+    ("scheduling", "WaitlistEntry"),
 ]
 
 
@@ -106,6 +107,13 @@ def merge_patients(primary: Patient, duplicate: Patient, *, by=None) -> Patient:
 
     duplicate.allergies.update(patient=primary)
     duplicate.chronic_conditions.update(patient=primary)
+    # one open waiting-list request per doctor: the kept file's own stays, the duplicate's is closed
+    open_wl = ("waiting", "offered")
+    WaitlistEntry = apps.get_model("scheduling", "WaitlistEntry")
+    kept_doctors = WaitlistEntry.objects.filter(patient=primary, status__in=open_wl).values("doctor_id")
+    WaitlistEntry.objects.filter(patient=duplicate, status__in=open_wl, doctor_id__in=kept_doctors).update(
+        status="cancelled"
+    )
     for app_label, model_name in MERGE_MOVES:
         apps.get_model(app_label, model_name)._base_manager.filter(patient=duplicate).update(patient=primary)
     # one-per-patient records: the kept file's own wins; otherwise the duplicate's comes along

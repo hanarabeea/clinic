@@ -20,6 +20,7 @@
     {% for link in group.links %}
     <a href="{{ link.url }}" class="nav-link {% if link.active %}active{% endif %}" {% if link.active %}aria-current="page"{% endif %}>
       {% icon link.icon %}{{ link.label }}
+      {% if link.badge %}<span class="num ms-auto rounded-sm bg-white/15 px-1.5 text-xs leading-5 font-semibold text-white">{{ link.badge }}</span>{% endif %}
     </a>
     {% endfor %}
     {% endfor %}

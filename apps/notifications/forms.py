@@ -22,8 +22,27 @@ class NotificationSettingsForm(forms.ModelForm):
             "quiet_policy",
             "urgent_until",
             "wa_min_gap_seconds",
+            "replies_enabled",
+            "reply_hint",
+            "reply_window_hours",
+            "waitlist_enabled",
+            "waitlist_hold_minutes",
+            "no_show_risk_count",
+            "risk_extra_reminder_hours",
         ]
         widgets = {"quiet_start": TIME_WIDGET, "quiet_end": TIME_WIDGET, "urgent_until": TIME_WIDGET}
+
+    def clean_waitlist_hold_minutes(self):
+        value = self.cleaned_data["waitlist_hold_minutes"]
+        if not 5 <= value <= 24 * 60:
+            raise ValidationError(_("المهلة لازم تكون من 5 دقايق لحد يوم."))
+        return value
+
+    def clean_reply_window_hours(self):
+        value = self.cleaned_data["reply_window_hours"]
+        if not 1 <= value <= 168:
+            raise ValidationError(_("من ساعة لحد أسبوع."))
+        return value
 
     def clean_wa_min_gap_seconds(self):
         value = self.cleaned_data["wa_min_gap_seconds"]

@@ -53,7 +53,15 @@ JOBS = [
     ("verify_books", timedelta(days=1), lambda now: _verify_books()),
     # OB/GYN clinics: a pregnancy that entered a milestone's window gets its message (once per milestone)
     ("pregnancy_milestones", timedelta(hours=6), lambda now: _pregnancy_milestones(now)),
+    # a waiting-list offer nobody answered passes to the next patient; past waiting-list requests close
+    ("waitlist", timedelta(minutes=1), lambda now: _waitlist(now)),
 ]
+
+
+def _waitlist(now):
+    from apps.scheduling import waitlist
+
+    waitlist.run(now)
 
 
 def _pregnancy_milestones(now):

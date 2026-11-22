@@ -21,10 +21,12 @@ from apps.core.ratelimit import search_limit
 from apps.core.timeutils import CAIRO
 from apps.doctors import services as doctor_services
 from apps.doctors.models import VisitType
+from apps.notifications import replies
 from apps.notifications.templating import fmt_date, fmt_time
 from apps.obstetrics import services as obstetrics
 from apps.patients.models import Patient
 from apps.scheduling import services as booking
+from apps.scheduling import waitlist
 from apps.scheduling.models import Appointment, AppointmentStatus, BookingSource
 from apps.scheduling.views import week_start
 
@@ -124,6 +126,9 @@ def today(request):
     ctx = _board_ctx(request, view, day)
     if has_perm(request.membership, "reception.operate"):
         ctx["followups"] = clinical.followups_due(request.organization)
+    ctx["waitlist_count"] = waitlist.open_entries(request.organization).count()
+    if has_perm(request.membership, "messages.view"):  # patients' messages nobody handled yet (plan 15 §1.2)
+        ctx["inbox_count"] = replies.unhandled(request.organization).count()
     ctx["book"] = request.GET.get("book", "")  # ?book=<patient> opens the booking panel (follow-ups, old links)
     return render(request, "reception/today.html", ctx)
 

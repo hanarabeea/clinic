@@ -66,6 +66,27 @@ class NotificationSettings(TenantScopedModel):
     auto_rebook_window_days = models.PositiveIntegerField(_("يدوّر على ميعاد خلال (يوم)"), default=14)
     wa_min_gap_seconds = models.PositiveIntegerField(_("أقل فاصل بين رسايل الواتساب (ثانية)"), default=15)
 
+    # --- replies, waiting list, no-show risk (plan 15 §1.1, §1.3, §1.6) ---
+    replies_enabled = models.BooleanField(
+        _("المريض يرد بـ1 للتأكيد و2 للإلغاء"),
+        default=True,
+        help_text=_("بيتضاف سطر للتأكيد والتذكير على الواتساب، والرد بيأكد أو يلغي الحجز لوحده."),
+    )
+    reply_hint = models.CharField(_("سطر الرد"), max_length=200, default="للتأكيد ابعت 1، وللإلغاء ابعت 2")
+    reply_window_hours = models.PositiveSmallIntegerField(_("الرد بيتحسب لحد كام ساعة بعد الرسالة"), default=48)
+    waitlist_enabled = models.BooleanField(
+        _("لما ميعاد يفضى يتعرض على قايمة الانتظار"),
+        default=True,
+        help_text=_("بيتعرض على أول واحد مناسب في القايمة على الواتساب، ولو رد بـ1 يتحجزله."),
+    )
+    waitlist_hold_minutes = models.PositiveSmallIntegerField(_("مهلة الرد على عرض الميعاد (دقيقة)"), default=60)
+    no_show_risk_count = models.PositiveSmallIntegerField(
+        _('علامة "بيغيب" بعد كام غياب'), default=2, help_text=_("0 = مقفولة.")
+    )
+    risk_extra_reminder_hours = models.PositiveSmallIntegerField(
+        _("تذكير زيادة للي بيغيب قبلها بكام ساعة"), default=3, help_text=_("0 = مفيش تذكير زيادة.")
+    )
+
     history = HistoricalRecords()
 
     class Meta:
@@ -96,6 +117,8 @@ class Event(models.TextChoices):
     OPERATION_CHANGED = "operation_changed", _("تغيير ميعاد عملية")
     MILESTONE_DUE = "milestone_due", _("محطة متابعة حمل")
     POSTPARTUM = "postpartum", _("متابعة بعد الولادة")
+    WAITLIST_OFFER = "waitlist_offer", _("ميعاد فضي (قايمة الانتظار)")
+    REPLY_CONFIRMED = "reply_confirmed", _("رد: الميعاد اتأكد")
     TEST = "test", _("تجربة")
 
 
@@ -233,8 +256,19 @@ class SchedulerHeartbeat(BaseModel):
         return f"{self.name} @ {self.beat_at}"
 
 
+class ReplyAction(models.TextChoices):
+    NONE = "", _("رسالة")
+    CONFIRMED = "confirmed", _("أكد الميعاد")
+    CANCELLED = "cancelled", _("لغى الميعاد")
+    WAITLIST_BOOKED = "waitlist_booked", _("قبل الميعاد الفاضي واتحجز")
+    WAITLIST_DECLINED = "waitlist_declined", _("رفض الميعاد الفاضي")
+    TOO_LATE = "too_late", _("رد متأخر")
+
+
 class InboundMessage(TenantScopedModel):
-    """Messages patients send to the clinic's WhatsApp (06 §6.7). Stored as plain text only — never acted on in v1."""
+    """Messages patients send to the clinic's WhatsApp (06 §6.7). A "1" / "2" answering one of our messages is acted on
+    by `replies.handle` (plan 15 §1.1: confirm / cancel / take a freed slot), and `action` says what it did; anything
+    else waits in the reception inbox until someone marks it handled."""
 
     patient = models.ForeignKey(
         "patients.Patient", null=True, blank=True, on_delete=models.SET_NULL, related_name="inbound_messages"
@@ -243,6 +277,15 @@ class InboundMessage(TenantScopedModel):
     body = models.TextField(blank=True)
     provider_message_id = models.CharField(max_length=250, unique=True)
     received_at = models.DateTimeField(default=timezone.now)
+    appointment = models.ForeignKey(
+        "scheduling.Appointment", null=True, blank=True, on_delete=models.SET_NULL, related_name="replies"
+    )
+    action = models.CharField(max_length=20, choices=ReplyAction.choices, blank=True, default="")
+    action_note = models.CharField(max_length=300, blank=True)
+    handled_at = models.DateTimeField(null=True, blank=True)
+    handled_by = models.ForeignKey(
+        dj_settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
 
     class Meta:
         verbose_name = _("رسالة واردة")

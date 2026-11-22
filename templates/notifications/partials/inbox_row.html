@@ -1,0 +1,32 @@
+{% load i18n %}
+<article id="inbox-{{ m.pk }}" class="flex flex-wrap items-start gap-x-4 gap-y-2 px-4 py-3 {% if not m.handled_at %}bg-brand-soft/30{% endif %}">
+  <div class="min-w-0 flex-1">
+    <p class="flex flex-wrap items-center gap-2 text-sm">
+      {% if m.patient %}
+        {% if can.patient_view_basic %}<a class="font-semibold link" href="{% url 'patients:detail' m.patient.pk %}">{{ m.patient.full_name }}</a>{% else %}<span class="font-semibold">{{ m.patient.full_name }}</span>{% endif %}
+      {% else %}<span class="font-semibold text-stone-600">{% translate "رقم مش متسجل" %}</span>{% endif %}
+      <span class="num text-xs text-stone-500" dir="ltr">{{ m.from_number }}</span>
+      <span class="text-xs text-stone-500">{{ m.received_at|day:"short" }} {{ m.received_at|ampm }}</span>
+      {% if m.action %}
+      <span class="badge {% if m.action == 'confirmed' or m.action == 'waitlist_booked' %}bg-green-50 text-green-800{% elif m.action == 'cancelled' %}bg-red-50 text-red-800{% else %}bg-amber-50 text-amber-900{% endif %}">{{ m.get_action_display }}</span>
+      {% endif %}
+    </p>
+    <p class="mt-1 text-sm whitespace-pre-line"><bdi dir="auto">{{ m.body }}</bdi></p>
+    {% if m.action_note or m.appointment %}
+    <p class="mt-1 text-xs text-stone-600">
+      {% if m.appointment %}{% translate "الحجز:" %} {{ m.appointment.start_at|day:"short" }} {{ m.appointment.start_at|ampm }} · {{ m.appointment.doctor }} · {{ m.appointment.get_status_display }}{% endif %}
+      {% if m.action_note %}{% if m.appointment %} · {% endif %}{{ m.action_note }}{% endif %}
+    </p>
+    {% endif %}
+  </div>
+  <div class="flex shrink-0 items-center gap-2">
+    {% if m.patient and can.appointment_book %}
+    <a class="btn-secondary min-h-8 px-3 py-1 text-xs" href="{% url 'reception:today' %}?book={{ m.patient.pk }}">{% translate "احجز" %}</a>
+    {% endif %}
+    {% if m.handled_at %}
+    <span class="text-xs text-stone-500">{% icon "check" "size-3.5" %} {% if m.handled_by %}{{ m.handled_by.full_name }}{% else %}{% translate "اتنفذ لوحده" %}{% endif %}</span>
+    {% elif can.messages_retry %}
+    <button type="button" class="btn-ghost min-h-8 px-3 py-1 text-xs" hx-post="{% url 'notifications:inbox_handle' m.pk %}" hx-target="#inbox-{{ m.pk }}" hx-swap="outerHTML">{% icon "check" "size-3.5" %}{% translate "اتعاملت معاها" %}</button>
+    {% endif %}
+  </div>
+</article>

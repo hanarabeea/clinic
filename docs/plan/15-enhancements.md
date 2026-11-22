@@ -113,6 +113,17 @@ results so the doctor sees it before adding.
   from 1280 px.
 - Quality gates green; `tests/test_rx_safety.py`.
 
+### Phase 22: Definition of Done
+
+- A WhatsApp "1" / "2" answering a confirmation or reminder (within the reply window) confirms / cancels the booking;
+  anything else, and every cancellation, waits in the inbox until marked handled; a message delivered twice acts once.
+- A cancelled or moved booking offers its place to the first matching patient on the waiting list (dates, time of day,
+  consent, still free), one at a time; "1" books it, "2" or silence passes it on; nobody is offered the same place
+  twice; a booking inside the wanted days closes the request; past requests expire.
+- Patients who often miss show a tag and get one more reminder.
+- Settings for all of it; screens gated (reception 200, viewer 403, another clinic 404); quality gates green;
+  `tests/test_replies_waitlist.py`.
+
 ## Open questions for the owner
 
 1. Which clinics / centers will use it first: only this OB/GYN center, or general clinics too? (Changes the weight of

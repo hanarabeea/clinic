@@ -27,6 +27,24 @@
     <div class="grid gap-4 sm:grid-cols-3">
       {% include "partials/field.html" with field=form.wa_min_gap_seconds %}
     </div>
+  </section>
+
+  <section class="card space-y-4 p-4 sm:p-6" id="replies-settings">
+    <h2 class="text-[15px] font-bold">{% translate "ردود المرضى وقايمة الانتظار" %}</h2>
+    <div class="grid gap-4 sm:grid-cols-3">
+      <label class="flex items-start gap-2 text-sm font-semibold">{{ form.replies_enabled }} <span>{{ form.replies_enabled.label }}<span class="block text-xs font-normal text-stone-500">{{ form.replies_enabled.help_text }}</span></span></label>
+      {% include "partials/field.html" with field=form.reply_hint %}
+      {% include "partials/field.html" with field=form.reply_window_hours %}
+    </div>
+    <div class="grid gap-4 sm:grid-cols-3">
+      <label class="flex items-start gap-2 text-sm font-semibold">{{ form.waitlist_enabled }} <span>{{ form.waitlist_enabled.label }}<span class="block text-xs font-normal text-stone-500">{{ form.waitlist_enabled.help_text }}</span></span></label>
+      {% include "partials/field.html" with field=form.waitlist_hold_minutes %}
+    </div>
+    <h3 class="pt-2 text-sm font-bold text-stone-600">{% translate "اللي بيغيب كتير" %}</h3>
+    <div class="grid gap-4 sm:grid-cols-3">
+      {% include "partials/field.html" with field=form.no_show_risk_count %}
+      {% include "partials/field.html" with field=form.risk_extra_reminder_hours %}
+    </div>
     <div class="flex justify-end">
       <button type="submit" class="btn-primary">{% translate "حفظ" %}</button>
     </div>

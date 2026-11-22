@@ -50,6 +50,8 @@ ITEMS = (
          prefixes=("theatre:",), work_screen=True),
     Item("emergencies", _("الطوارئ"), "siren", "center:emergencies", ("emergency.register",), CLINIC,
          exact=("center:emergencies",)),
+    Item("inbox", _("رسايل المرضى"), "chat-circle-text", "notifications:inbox", ("messages.view",), FOLLOW_UP,
+         exact=("notifications:inbox",)),
     Item("messages", _("الرسايل"), "chats", "notifications:log", ("messages.view",), FOLLOW_UP,
          exact=("notifications:log",)),
     Item("cashbox", _("الخزنة"), "cash-register", "billing:cashbox", ("payment.record",), FOLLOW_UP,
@@ -125,10 +127,16 @@ def for_request(request) -> dict:
             "url": i.url(perms),
             "active": i.key == current,
             "group": i.group,
+            "badge": 0,
         }
         for i in ITEMS
         if i.allowed(perms)
     ]
+    for link in links:
+        if link["key"] == "inbox":  # patients' messages nobody handled yet
+            from apps.notifications.replies import unhandled
+
+            link["badge"] = unhandled(membership.organization).count()
     screen = work_screen(membership)
     if screen is not None:
         home = next(link for link in links if link["key"] == screen.key)

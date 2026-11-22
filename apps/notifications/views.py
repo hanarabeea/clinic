@@ -217,3 +217,39 @@ def message_cancel(request, pk):
     if services.cancel_message(row, by=request.user):
         audit.log("message.cancel", request=request, target=row)
     return _row_response(request, row)
+
+
+# --- the reception inbox: what patients wrote (plan 15 §1.2) --------------------------------------------------------
+
+
+@require_perm("messages.view")
+def inbox(request):
+    from . import replies
+    from .models import InboundMessage
+
+    org = request.organization
+    show = request.GET.get("show", "open")
+    qs = (
+        InboundMessage.objects.for_org(org)
+        .select_related("patient", "appointment", "appointment__doctor", "handled_by")
+        .order_by("-received_at", "-id")
+    )
+    if show == "open":
+        qs = qs.filter(handled_at__isnull=True)
+    page = Paginator(qs, 40).get_page(request.GET.get("page"))
+    ctx = {"page": page, "show": show, "open_count": replies.unhandled(org).count()}
+    return render(request, "notifications/inbox.html", ctx)
+
+
+@require_POST
+@require_perm("messages.retry")
+def inbox_handle(request, pk):
+    from . import replies
+    from .models import InboundMessage
+
+    msg = get_object_or_404(InboundMessage.objects.for_org(request.organization), pk=pk)
+    replies.mark_handled(msg, by=request.user)
+    audit.log("inbox.handled", request=request, target=msg)
+    if request.htmx:
+        return render(request, "notifications/partials/inbox_row.html", {"m": msg})
+    return redirect("notifications:inbox")

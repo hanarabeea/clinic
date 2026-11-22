@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Appointment, AppointmentEvent, DayLedger
+from .models import Appointment, AppointmentEvent, DayLedger, WaitlistEntry
 
 
 @admin.register(DayLedger)
@@ -20,3 +20,10 @@ class AppointmentAdmin(admin.ModelAdmin):
 class AppointmentEventAdmin(admin.ModelAdmin):
     list_display = ("appointment", "from_status", "to_status", "by", "at")
     list_filter = ("organization",)
+
+
+@admin.register(WaitlistEntry)
+class WaitlistEntryAdmin(admin.ModelAdmin):
+    list_display = ("patient", "doctor", "earliest", "latest", "time_pref", "status", "offer_expires_at")
+    list_filter = ("organization", "status", "doctor")
+    raw_id_fields = ("patient", "appointment")

@@ -1077,3 +1077,40 @@ gotchas and conventions introduced in that phase.
   remembered per computer (`localStorage visit-split`); the tabs stay the default.
 - Not done here (found during the review, small): allergies and chronic conditions are still hard-deleted by their
   "مسح" buttons (`patients.views.allergy_delete` / `condition_delete`), against "medical records are never deleted".
+
+## Replies, inbox and waiting list notes (Phase 22, 2026-11-23)
+- Plan 15 §1.1, §1.2, §1.3, §1.6. **Replies** (`notifications/replies.py`): every new `InboundMessage` (only when the
+  webhook creates it, so a re-delivered message is acted on once) goes through `replies.handle`. `intent()` accepts
+  **whole answers only** ("1", "١", "تأكيد", "تمام"... / "2", "إلغاء", "لا"...): a sentence containing "1" is a message
+  for reception. It answers the last booking confirmation / reminder / waiting-list offer **sent** on WhatsApp to that
+  patient within `NotificationSettings.reply_window_hours` (48). "1" → `transition(CONFIRMED)` (no version bump, so
+  reminders stay) + a `reply_confirmed` message; "2" → `scheduling.cancel` (the usual cancellation message, and the
+  place goes to the waiting list). Errors are logged, never raised (the webhook must always store the message).
+- `InboundMessage.action / action_note / appointment / handled_at / handled_by`. A confirmation or an accepted /
+  declined offer is handled by itself; a cancellation, a late answer and any free text wait in the **inbox**
+  (`notifications:inbox`, side menu "رسايل المرضى" with the unhandled count; `inbox_handle` = messages.retry). Messages
+  received before this phase were marked handled by the migration. The board shows "N رسايل من مرضى محتاجة رد".
+- The reply line (`NotificationSettings.reply_hint`, on when `replies_enabled`) is appended by the dispatcher at render
+  time to WhatsApp confirmations / reminders of active bookings only: templates were not touched.
+- **Waiting list** (`scheduling/waitlist.py`, model `WaitlistEntry`, one open entry per patient and doctor by a partial
+  unique constraint): `add` / `remove` / `after_booking` (any booking inside the wanted days closes the request, called
+  by `services.book`). `scheduling.cancel` and `reschedule` call `waitlist.on_slot_freed` on commit (`_offer_freed`,
+  never raises): the freed place (`Slot`: an exact time, or a queue period with a limit; not emergencies / walk-ins /
+  less than an hour ahead) is offered **to one patient at a time**, first come first served, matching dates and
+  morning / evening (before / after 2 PM Cairo), with WhatsApp consent, and still free for her visit type. The offer is
+  a `waitlist_offer` outbox row (key `wl:<entry>:<n>`, context `entry` + `offer`) and the entry holds it
+  (`offered_*`, `offer_expires_at` = sent time + `waitlist_hold_minutes`); `Slot.key` (UTC) goes into `passed` so
+  nobody is offered the same place twice. "1" books through `services.book` (source whatsapp; a place taken meanwhile
+  → `too_late`), "2" or silence (scheduler job `waitlist`, every minute) passes it to the next. When she accepts while
+  booked later with the same doctor, the old booking is **not** cancelled: the inbox shows it for reception.
+  The dispatcher cancels an offer message whose offer is no longer open. `MERGE_MOVES` includes `WaitlistEntry`.
+- Screens: board button "قايمة الانتظار" (`scheduling:waitlist`, appointment.view) and "مفيش ميعاد مناسب؟ قايمة
+  الانتظار" in the booking panel (`waitlist_add` / `waitlist_remove`, appointment.book).
+- **No-show risk**: `notifications.services.is_no_show_risk(patient, ns)` (`no_show_count >= no_show_risk_count`, 0 =
+  off) → "غاب N مرات" on board rows and the booking panel, and one more reminder `risk_extra_reminder_hours` before
+  (dedupe key ends in `:risk:<channel>`, the wording of the clinic's last reminder).
+- Settings: Settings → الرسايل → "ردود المرضى وقايمة الانتظار". New events `waitlist_offer` / `reply_confirmed` are in
+  `LATER_EVENTS` (run `seed_notifications` on existing clinics; run.bat does). New template variable `{hold_minutes}`.
+- Tests: `tests/test_replies_waitlist.py`.
+- Gotcha met here: in the Bash tool a `"\n"` inside a Python heredoc can reach the file as a real line break; write such
+  edits with the Edit tool or check the result.

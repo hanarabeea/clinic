@@ -20,5 +20,8 @@ urlpatterns = [
     path("appointments/<int:pk>/confirm/", views.appointment_confirm, name="appointment_confirm"),
     path("appointments/<int:pk>/cancel/", views.appointment_cancel, name="appointment_cancel"),
     path("appointments/affected/", views.affected_appointments, name="affected"),
+    path("waitlist/", views.waitlist_view, name="waitlist"),
+    path("waitlist/add/", views.waitlist_add, name="waitlist_add"),
+    path("waitlist/<int:pk>/remove/", views.waitlist_remove, name="waitlist_remove"),
     path("appointments/affected/<int:pk>/reschedule/", views.affected_reschedule, name="affected_reschedule"),
 ]

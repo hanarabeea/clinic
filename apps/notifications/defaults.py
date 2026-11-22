@@ -106,6 +106,21 @@ DEFAULT_TEMPLATES = [
         ),
         "email_subject": "تغيير ميعاد عمليتك",
     },
+    {
+        "event": Event.WAITLIST_OFFER,
+        "name_ar": "ميعاد فضي (قايمة الانتظار)",
+        "body": (
+            "أهلًا {first_name}، فضي ميعاد مع {doctor_name} يوم {date}، {time_label}.\n"
+            "لو يناسبك ابعت 1 في خلال {hold_minutes} دقيقة ونحجزهولك، ولو مش مناسب ابعت 2.\n{clinic_name}"
+        ),
+        "email_subject": "فضي ميعاد",
+    },
+    {
+        "event": Event.REPLY_CONFIRMED,
+        "name_ar": "رد: الميعاد اتأكد",
+        "body": "تمام يا {first_name}، ميعادك مع {doctor_name} يوم {date}، {time_label} اتأكد. في انتظارك.",
+        "email_subject": "ميعادك اتأكد",
+    },
     # The two below are for OB/GYN clinics only ("obgyn": seeding skips them elsewhere).
     {
         "event": Event.MILESTONE_DUE,
@@ -143,4 +158,5 @@ def templates_for(org) -> list[dict]:
 # Events added after a clinic was set up: `add_missing` gives it their default template (and only theirs).
 LATER_EVENTS = (
     Event.OPERATION_BOOKED, Event.OPERATION_REMINDER, Event.OPERATION_CHANGED, Event.MILESTONE_DUE, Event.POSTPARTUM,
+    Event.WAITLIST_OFFER, Event.REPLY_CONFIRMED,
 )  # fmt: skip

@@ -121,7 +121,9 @@ def test_confirmation_is_sent_and_rendered_at_send_time(clinic, gateway, django_
     assert _run("2026-01-02 10:00:05+02:00") == 1
     confirmation = _rows(appt, event=Event.BOOKING_CONFIRMED)[0]
     assert confirmation.status == MessageStatus.SENT
-    assert gateway.sent == [{"to": "201001234567", "caption": "أهلًا محمد، السبت 3 يناير 4:00 م"}]
+    # the reply line (phase 22) is added under a confirmation on WhatsApp
+    caption = "أهلًا محمد، السبت 3 يناير 4:00 م\n\nللتأكيد ابعت 1، وللإلغاء ابعت 2"
+    assert gateway.sent == [{"to": "201001234567", "caption": caption}]
     delivery = Delivery.objects.get(scheduled_message=confirmation)
     assert delivery.provider_message_id == "MSG1"
 
@@ -382,8 +384,8 @@ def test_template_validation_rejects_unknown_variables():
 def test_seed_notifications_is_idempotent(org_a):
     call_command("seed_notifications")
     call_command("seed_notifications")
-    # 9 templates for visits + 3 for operations (phase 15)
-    assert NotificationTemplate.objects.filter(organization=org_a).count() == 12
+    # 9 templates for visits + 3 for operations (phase 15) + waiting-list offer and reply confirmation (phase 22)
+    assert NotificationTemplate.objects.filter(organization=org_a).count() == 14
     reminders = NotificationTemplate.objects.filter(organization=org_a, event=Event.REMINDER).order_by("order")
     assert [(t.offset_minutes, t.min_lead_minutes, t.applies_to_mode) for t in reminders] == [
         (1440, 120, "all"),

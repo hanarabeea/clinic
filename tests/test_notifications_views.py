@@ -71,6 +71,8 @@ def test_save_settings(client, world):
     resp = client.post(reverse("notifications:settings"), {
         "is_enabled": "on", "default_channel": "whatsapp", "quiet_start": "23:00", "quiet_end": "08:00",
         "quiet_policy": "skip", "urgent_until": "23:30", "wa_min_gap_seconds": 20,
+        "reply_hint": "للتأكيد ابعت 1", "reply_window_hours": 48, "waitlist_hold_minutes": 60,
+        "no_show_risk_count": 2, "risk_extra_reminder_hours": 3,
     })  # fmt: skip
     assert resp.status_code == 302
     ns = NotificationSettings.objects.get(organization=world["org"])

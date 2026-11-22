@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "رسايل المرضى" %}{% endblock %}
+{% block content %}
+{% comment %}What patients wrote to the clinic's WhatsApp (plan 15 §1.2). A "1" / "2" answering a reminder or a
+waiting-list offer was already acted on (the badge says what happened); the rest waits here until someone marks it
+handled.{% endcomment %}
+<div class="page-head">
+  <h1>{% translate "رسايل المرضى" %}</h1>
+  <p class="page-sub">{% translate "اللي المرضى بعتوه على واتساب العيادة. الرد بـ1 أو 2 على التذكير بيتنفذ لوحده." %}</p>
+</div>
+
+<div class="mb-4 flex items-center gap-3">
+  <div class="segmented" role="tablist">
+    <a href="?show=open" class="{% if show == 'open' %}is-active{% endif %}">{% translate "محتاجة رد" %} <span class="num">({{ open_count }})</span></a>
+    <a href="?show=all" class="{% if show != 'open' %}is-active{% endif %}">{% translate "الكل" %}</a>
+  </div>
+  <a href="{% url 'notifications:log' %}" class="link ms-auto text-sm">{% translate "سجل الرسايل اللي اتبعتت" %}</a>
+</div>
+
+<div class="card divide-y divide-stone-100">
+  {% for m in page %}{% include "notifications/partials/inbox_row.html" %}
+  {% empty %}
+  <p class="px-4 py-10 text-center text-sm text-stone-500">{% if show == 'open' %}{% translate "مفيش رسايل محتاجة رد." %}{% else %}{% translate "مفيش رسايل." %}{% endif %}</p>
+  {% endfor %}
+</div>
+
+{% if page.has_other_pages %}
+<div class="mt-4 flex items-center justify-center gap-3 text-sm">
+  {% if page.has_previous %}<a class="btn-icon" aria-label="{% translate 'الصفحة اللي قبلها' %}" href="?show={{ show }}&page={{ page.previous_page_number }}">{% icon "caret-right" %}</a>{% endif %}
+  <span class="num text-stone-600">{{ page.number }} / {{ page.paginator.num_pages }}</span>
+  {% if page.has_next %}<a class="btn-icon" aria-label="{% translate 'الصفحة اللي بعدها' %}" href="?show={{ show }}&page={{ page.next_page_number }}">{% icon "caret-left" %}</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

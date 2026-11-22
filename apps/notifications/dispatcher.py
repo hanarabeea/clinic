@@ -36,7 +36,10 @@ VALID_STATUSES = {
     Event.RESCHEDULED: {AppointmentStatus.BOOKED, AppointmentStatus.CONFIRMED},
     Event.NEAR_TURN: {AppointmentStatus.BOOKED, AppointmentStatus.CONFIRMED},
     Event.CANCELLED: {AppointmentStatus.CANCELLED},
+    Event.REPLY_CONFIRMED: {AppointmentStatus.CONFIRMED},
 }
+# messages a patient can answer with 1 / 2 (replies.py): the clinic's reply line is added under them on WhatsApp
+REPLY_HINT_EVENTS = (Event.BOOKING_CONFIRMED, Event.REMINDER)
 
 
 class Dispatcher:
@@ -101,6 +104,8 @@ class Dispatcher:
             return MessageStatus.SKIPPED, _("الرسايل التلقائية مقفولة")
         if row.patient and not row.patient.messaging_consent:
             return MessageStatus.SKIPPED, _("مفيش موافقة")
+        if row.event == Event.WAITLIST_OFFER and not _offer_still_open(row, now):
+            return MessageStatus.CANCELLED, _("العرض خلص")
         if appt is not None:
             if row.appointment_version is not None and row.appointment_version != appt.version:
                 return MessageStatus.CANCELLED, _("اتعدل الميعاد")
@@ -140,9 +145,23 @@ class Dispatcher:
                 ctx = templating.patient_ctx(row.organization, row.patient) if row.patient else {}
         ctx.update(row.context or {})
         row.rendered_text = templating.render(row.template.body if row.template else "", ctx)
+        if self._wants_reply_hint(row):
+            row.rendered_text += "\n\n" + self._ns(row).reply_hint
         subject = (row.template.email_subject if row.template else "") or row.get_event_display()
         clinic = ctx.get("clinic_name", "")
         row.rendered_subject = templating.render(subject, ctx) + (f" — {clinic}" if clinic else "")
+
+    def _ns(self, row):
+        return NotificationSettings.for_org(row.organization)
+
+    def _wants_reply_hint(self, row) -> bool:
+        appt = row.appointment
+        if row.channel != MessageChannel.WHATSAPP or row.event not in REPLY_HINT_EVENTS or appt is None:
+            return False
+        if appt.status not in (AppointmentStatus.BOOKED, AppointmentStatus.CONFIRMED):
+            return False
+        ns = self._ns(row)
+        return ns.replies_enabled and bool(ns.reply_hint.strip())
 
     # --- providers ---------------------------------------------------------------------------
 
@@ -313,4 +332,17 @@ def cleanup(now=None):
     now = now or timezone.now()
     return ScheduledMessage.objects.filter(status=MessageStatus.PENDING, send_at__lt=now - timedelta(days=2)).update(
         status=MessageStatus.SKIPPED, status_reason=_("انتهت صلاحيتها"), updated_at=now
+    )
+
+
+def _offer_still_open(row, now) -> bool:
+    """A waiting-list offer goes out only while that very offer is still waiting for an answer."""
+    from apps.scheduling.models import WaitlistEntry, WaitlistStatus
+
+    entry = WaitlistEntry.objects.filter(pk=(row.context or {}).get("entry")).first()
+    return bool(
+        entry
+        and entry.status == WaitlistStatus.OFFERED
+        and entry.offers_made == (row.context or {}).get("offer")
+        and (entry.offer_expires_at is None or entry.offer_expires_at > now)
     )

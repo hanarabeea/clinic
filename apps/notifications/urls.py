@@ -14,4 +14,6 @@ urlpatterns = [
     path("messages/", views.message_log, name="log"),
     path("messages/<int:pk>/retry/", views.message_retry, name="retry"),
     path("messages/<int:pk>/cancel/", views.message_cancel, name="cancel"),
+    path("messages/inbox/", views.inbox, name="inbox"),
+    path("messages/inbox/<int:pk>/handled/", views.inbox_handle, name="inbox_handle"),
 ]

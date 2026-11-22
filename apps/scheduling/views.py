@@ -16,15 +16,16 @@ from apps.core.templatetags.clock import ampm
 from apps.core.timeutils import CAIRO, weekday_egypt
 from apps.doctors import services as doctor_services
 from apps.doctors.models import BookingMode, ScheduleException, ScheduleExceptionKind, VisitType
-from apps.notifications.models import Event, MessageStatus
+from apps.notifications import services as notifications
+from apps.notifications.models import Event, MessageStatus, NotificationSettings
 from apps.notifications.templating import fmt_date
 from apps.obstetrics import services as obstetrics
 from apps.patients import services as patient_services
 from apps.patients.forms import PatientForm
 from apps.patients.models import Patient
 
-from . import services
-from .models import ACTIVE_STATUSES, Appointment, AppointmentStatus
+from . import services, waitlist
+from .models import ACTIVE_STATUSES, Appointment, AppointmentStatus, TimePreference, WaitlistEntry
 
 
 def _parse_day(raw) -> date:
@@ -104,6 +105,9 @@ def _panel_ctx(request, doctor, patient, error=""):
     }
     if patient is not None and has_perm(request.membership, "pregnancy.view_basic"):
         ctx["ga"] = obstetrics.badge_for(patient, on=day)  # how far along she will be on the day being booked
+    if patient is not None:
+        ctx["no_show_risk"] = notifications.is_no_show_risk(patient, NotificationSettings.for_org(request.organization))
+        ctx["on_waitlist"] = waitlist.open_entries(request.organization, doctor).filter(patient=patient).first()
     if patient is None or visit_type is None:
         return ctx
     ctx["upcoming"] = (
@@ -391,3 +395,64 @@ def close_day(request):
         return redirect(reverse("scheduling:affected") + query)
     messages.success(request, _("اليوم اتقفل."))
     return redirect(_board(day=day))
+
+
+# --- the waiting list (plan 15 §1.3) -------------------------------------------------------------------------------
+
+
+def _waitlist_response(request, **extra):
+    org = request.organization
+    entries = list(waitlist.open_entries(org).order_by("doctor_id", "created_at", "id"))
+    return render(request, "scheduling/partials/waitlist.html", {"entries": entries, **extra})
+
+
+@require_perm("appointment.view")
+def waitlist_view(request):
+    return _waitlist_response(request)
+
+
+@require_perm("appointment.book")
+def waitlist_add(request):
+    org = request.organization
+    data = request.POST if request.method == "POST" else request.GET
+    pk = str(data.get("patient", ""))
+    patient = get_object_or_404(Patient.objects.for_org(org), pk=pk if pk.isdigit() else 0, is_active=True)
+    visit_type = _visit_type(request, data.get("visit_type"))
+    day = _parse_day(data.get("day"))
+    ctx = {
+        "patient": patient, "visit_type": visit_type, "doctor": visit_type.doctor,
+        "visit_types": VisitType.objects.for_org(org).filter(doctor=visit_type.doctor, is_active=True, is_system=False),
+        "earliest": _parse_day(data.get("earliest")) if data.get("earliest") else day,
+        "latest": _parse_day(data.get("latest")) if data.get("latest") else day + timedelta(days=14),
+        "time_pref": data.get("time_pref", TimePreference.ANY), "notes": data.get("notes", ""),
+        "time_prefs": TimePreference.choices,
+    }  # fmt: skip
+    if request.method == "POST":
+        try:
+            entry = waitlist.add(
+                patient=patient, doctor=visit_type.doctor, visit_type=visit_type, earliest=ctx["earliest"],
+                latest=ctx["latest"], time_pref=data.get("time_pref", TimePreference.ANY),
+                notes=data.get("notes", ""), by=request.user,
+            )  # fmt: skip
+        except waitlist.WaitlistError as e:
+            ctx["error"] = str(e)
+            return render(request, "scheduling/partials/waitlist_form.html", ctx)
+        audit.log("waitlist.added", request=request, target=entry.patient, summary=str(entry.doctor))
+        response = _waitlist_response(request, notice=_("%(p)s اتضاف لقايمة الانتظار.") % {"p": patient.full_name})
+        response["HX-Trigger"] = "board-refresh"
+        return response
+    return render(request, "scheduling/partials/waitlist_form.html", ctx)
+
+
+@require_POST
+@require_perm("appointment.book")
+def waitlist_remove(request, pk):
+    entry = get_object_or_404(WaitlistEntry.objects.for_org(request.organization), pk=pk)
+    try:
+        waitlist.remove(entry, by=request.user)
+    except waitlist.WaitlistError as e:
+        return _waitlist_response(request, error=str(e))
+    audit.log("waitlist.removed", request=request, target=entry.patient, summary=str(entry.doctor))
+    response = _waitlist_response(request)
+    response["HX-Trigger"] = "board-refresh"
+    return response

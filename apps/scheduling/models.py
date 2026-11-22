@@ -1,6 +1,7 @@
 from django.conf import settings as dj_settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from simple_history.models import HistoricalRecords
 
 from apps.core.models import TenantScopedModel
 
@@ -146,3 +147,68 @@ class AppointmentEvent(TenantScopedModel):
 
     def __str__(self):
         return f"{self.appointment_id}: {self.from_status} → {self.to_status}"
+
+
+class TimePreference(models.TextChoices):
+    ANY = "any", _("أي وقت")
+    MORNING = "morning", _("الصبح (قبل 2 الضهر)")
+    EVENING = "evening", _("بعد الضهر")
+
+
+class WaitlistStatus(models.TextChoices):
+    WAITING = "waiting", _("مستني")
+    OFFERED = "offered", _("اتعرض عليه ميعاد")
+    BOOKED = "booked", _("اتحجز")
+    CANCELLED = "cancelled", _("اتشال من القايمة")
+    EXPIRED = "expired", _("المدة خلصت")
+
+
+class WaitlistEntry(TenantScopedModel):
+    """A patient who wants an earlier / fuller day than the free ones (plan 15 §1.3). When a matching booking is
+    cancelled, `waitlist.on_slot_freed` offers the freed time to the first one waiting (WhatsApp, one person at a
+    time, `NotificationSettings.waitlist_hold_minutes` to answer); a "1" books it through `services.book`.
+    The offer in flight lives on the entry (`offered_*`); `passed` remembers the slots this patient was already
+    offered, so a slot is never offered twice to the same person. Nothing is deleted: an entry ends as booked /
+    cancelled / expired."""
+
+    patient = models.ForeignKey("patients.Patient", on_delete=models.PROTECT, related_name="waitlist")
+    doctor = models.ForeignKey("doctors.Doctor", on_delete=models.PROTECT, related_name="waitlist")
+    visit_type = models.ForeignKey("doctors.VisitType", on_delete=models.PROTECT, related_name="+")
+    earliest = models.DateField(_("من يوم"))
+    latest = models.DateField(_("لحد يوم"))
+    time_pref = models.CharField(_("الوقت"), max_length=10, choices=TimePreference.choices, default=TimePreference.ANY)
+    notes = models.CharField(_("ملاحظات"), max_length=300, blank=True)
+    status = models.CharField(max_length=10, choices=WaitlistStatus.choices, default=WaitlistStatus.WAITING)
+    # the offer in flight
+    offered_day = models.DateField(null=True, blank=True)
+    offered_start = models.DateTimeField(null=True, blank=True)  # slots mode; queue mode keeps the estimated time
+    offered_period_key = models.CharField(max_length=20, blank=True)  # queue mode
+    offer_expires_at = models.DateTimeField(null=True, blank=True)
+    offers_made = models.PositiveSmallIntegerField(default=0)
+    passed = models.JSONField(default=list, blank=True)  # slot keys already offered to this patient
+    appointment = models.ForeignKey("Appointment", null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    created_by = models.ForeignKey(dj_settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = _("قايمة الانتظار")
+        verbose_name_plural = _("قايمة الانتظار")
+        ordering = ["created_at", "id"]
+        constraints = [
+            # one open entry per patient and doctor
+            models.UniqueConstraint(
+                fields=["patient", "doctor"],
+                condition=models.Q(status__in=["waiting", "offered"]),
+                name="uniq_open_waitlist_entry",
+            ),
+            models.CheckConstraint(condition=models.Q(latest__gte=models.F("earliest")), name="waitlist_dates_order"),
+        ]
+        indexes = [models.Index(fields=["organization", "doctor", "status"])]
+
+    def __str__(self):
+        return f"{self.patient} — {self.doctor} ({self.status})"
+
+    @property
+    def is_open(self) -> bool:
+        return self.status in (WaitlistStatus.WAITING, WaitlistStatus.OFFERED)

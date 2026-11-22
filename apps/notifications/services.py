@@ -211,7 +211,29 @@ def schedule_reminders(appt, *, by=None, ns=None, now=None):
         if send_at < now or appt.start_at - now < timedelta(minutes=tpl.min_lead_minutes):
             continue
         rows += enqueue(appt=appt, template=tpl, event=Event.REMINDER, send_at=send_at, by=by, ns=ns)
+    rows += _risk_reminder(appt, by=by, ns=ns, now=now)
     return rows
+
+
+def is_no_show_risk(patient, ns) -> bool:
+    """A patient who missed `no_show_risk_count` bookings or more (plan 15 §1.6). 0 switches the tag off."""
+    return bool(ns.no_show_risk_count) and (patient.no_show_count or 0) >= ns.no_show_risk_count
+
+
+def _risk_reminder(appt, *, by, ns, now):
+    """One more reminder, `risk_extra_reminder_hours` before, for a patient who often misses (same wording as the
+    clinic's last reminder)."""
+    ns = ns or NotificationSettings.for_org(appt.organization)
+    if not ns.risk_extra_reminder_hours or not is_no_show_risk(appt.patient, ns):
+        return []
+    tpls = [t for t in _templates(appt.organization, Event.REMINDER, appt.doctor.booking_mode) if t.is_enabled]
+    if not tpls:
+        return []
+    tpl = min(tpls, key=lambda t: t.offset_minutes or 0)
+    send_at = appt.start_at - timedelta(hours=ns.risk_extra_reminder_hours)
+    if send_at < now or appt.start_at - now < timedelta(minutes=tpl.min_lead_minutes):
+        return []
+    return enqueue(appt=appt, template=tpl, event=Event.REMINDER, send_at=send_at, by=by, ns=ns, key_extra="risk")
 
 
 def schedule_for(appt, *, by=None, now=None):
@@ -415,7 +437,7 @@ def cancel_message(row, *, by=None):
     return True
 
 
-# --- inbound (06 §6.7: stored only, never acted on in v1) -----------------------------------
+# --- inbound (06 §6.7; a 1 / 2 answer is acted on by replies.handle, plan 15 §1.1) -------------
 
 
 def record_inbound(org_id, *, provider_message_id, from_number, body):
@@ -432,10 +454,14 @@ def record_inbound(org_id, *, provider_message_id, from_number, body):
         .order_by("id")
         .first()
     )
-    msg, _created = InboundMessage.objects.get_or_create(
+    msg, created = InboundMessage.objects.get_or_create(
         provider_message_id=provider_message_id,
         defaults={"organization_id": org_id, "patient": patient, "from_number": e164, "body": body[:4000]},
     )
+    if created:  # the gateway may deliver the same message twice: it is acted on once
+        from . import replies
+
+        replies.handle(msg)
     return msg
 
 

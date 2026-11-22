@@ -10,6 +10,7 @@ new bookings (a panel opened by "+ حجز جديد" or a free cell). apps/recept
     <p class="page-sub">{% if selected_doctor %}{{ selected_doctor }}{% else %}{% translate "كل الدكاترة" %}{% endif %}</p>
   </div>
   <span class="ms-auto"></span>
+  <button type="button" class="btn-secondary px-3" hx-get="{% url 'scheduling:waitlist' %}" hx-target="#modal">{% icon "hourglass-medium" "size-4" %}{% translate "قايمة الانتظار" %}{% if waitlist_count %} <span class="num rounded-sm bg-stone-200 px-1.5 text-xs leading-5">{{ waitlist_count }}</span>{% endif %}</button>
   {% if can.emergency_register %}
   <button type="button" class="btn-danger px-4" hx-get="{% url 'center:emergency_register' %}" hx-target="#modal">{% icon "siren" "size-4" %}{% translate "طوارئ" %}</button>
   {% endif %}
@@ -49,6 +50,11 @@ new bookings (a panel opened by "+ حجز جديد" or a free cell). apps/recept
   {% endif %}
 </div>
 
+{% if inbox_count %}
+<a href="{% url 'notifications:inbox' %}" class="notice notice-info mb-4 flex items-center gap-2 text-sm font-semibold">{% icon "chat-circle-text" "size-5 shrink-0" %}
+  <span>{% blocktranslate count n=inbox_count %}رسالة من مريض محتاجة رد{% plural %}{{ n }} رسايل من مرضى محتاجة رد{% endblocktranslate %}</span>
+  <span class="ms-auto link">{% translate "افتح الرسايل" %}</span></a>
+{% endif %}
 {% if followups %}
 <section class="mb-4 rounded-xl border border-amber-200 bg-amber-50/50">
   <h2 class="flex items-center gap-2 border-b border-amber-200/70 px-4 py-2 text-sm font-bold text-amber-900">{% icon "repeat" "size-4" %}{% translate "إعادات محتاجة حجز" %}</h2>
