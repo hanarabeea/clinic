@@ -1,0 +1,24 @@
+{% load i18n %}
+{% comment %}Visit templates (plan 15 §2.1) on the visit page: one chip fills the visit, the prescription, the
+investigations and the follow-up; "حفظ الكشف ده كقالب" keeps the current visit as one.{% endcomment %}
+<div id="visit-templates" class="mb-3 flex flex-wrap items-center gap-1.5">
+  <span class="flex items-center gap-1 text-xs font-semibold text-stone-500">{% icon "lightning" "size-3.5" %}{% translate "قوالب الكشف" %}</span>
+  {% for t in visit_templates %}
+  <span class="inline-flex items-center">
+    <button type="button" class="chip px-2.5 py-1 text-xs" title="{% translate 'املى الكشف والروشتة من القالب' %}"
+            hx-post="{% url 'clinical:visit_template_apply' visit.pk t.pk %}" hx-swap="none">{{ t.name }}</button>
+    <button type="button" class="ms-0.5 rounded-sm p-0.5 text-stone-400 hover:text-red-700" aria-label="{% translate 'شيل القالب' %}"
+            hx-post="{% url 'clinical:visit_template_remove' visit.pk t.pk %}" hx-target="#visit-templates" hx-swap="outerHTML"
+            hx-confirm="{% blocktranslate with n=t.name %}تشيل القالب {{ n }}؟{% endblocktranslate %}">{% icon "x" "size-3" %}</button>
+  </span>
+  {% empty %}
+  <span class="text-xs text-stone-500">{% translate "لسه مفيش. اكتب كشف عادي واحفظه كقالب، وبعد كده بضغطة واحدة." %}</span>
+  {% endfor %}
+  <form class="ms-auto" hx-post="{% url 'clinical:visit_template_save' visit.pk %}" hx-target="#visit-templates" hx-swap="outerHTML"
+        onsubmit="const n = prompt('{% translate 'اسم القالب؟ (مثلًا: متابعة حمل الشهور الأولى)' %}'); if (!n) { event.preventDefault(); return false; } this.querySelector('[name=name]').value = n;">
+    {% csrf_token %}<input type="hidden" name="name">
+    <button class="btn-ghost min-h-7 px-2 py-0.5 text-xs">{% icon "floppy-disk" "size-3.5" %}{% translate "حفظ الكشف ده كقالب" %}</button>
+  </form>
+  {% if notice %}<span class="basis-full text-xs font-semibold text-green-800" role="status">{{ notice }}</span>{% endif %}
+  {% if error %}<span class="basis-full text-xs font-semibold text-red-700" role="alert">{{ error }}</span>{% endif %}
+</div>

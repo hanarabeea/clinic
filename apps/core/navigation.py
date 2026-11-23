@@ -77,8 +77,8 @@ ITEMS = (
          exact=("organizations:settings", "patients:fields_settings", "prescriptions:categories",
                 "prescriptions:settings", "center:services", "center:service_edit", "theatre:setup",
                 "theatre:room_add", "theatre:room_edit", "theatre:procedure_add", "theatre:procedure_edit",
-                "invoicing:settings", "obstetrics:milestones", "obstetrics:milestone_new",
-                "obstetrics:milestone_edit"),
+                "invoicing:settings", "clinical:document_templates", "obstetrics:milestones",
+                "obstetrics:milestone_new", "obstetrics:milestone_edit"),
          prefixes=("doctors:", "messaging:", "notifications:"),
          # each settings tab has its own permission: open the first one this person may see
          by_perm=(("settings.manage", "organizations:settings"), ("schedule.manage", "doctors:schedule"),

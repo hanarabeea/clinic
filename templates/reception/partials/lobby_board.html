@@ -1,0 +1,28 @@
+{% load i18n %}
+<div data-call-sig="{{ lobby.call_sig }}" data-sound="{% if lobby.sound %}1{% else %}0{% endif %}"
+     class="grid h-full gap-6 {% if lobby.lines|length > 1 %}lg:grid-cols-2{% endif %}">
+  {% for line in lobby.lines %}
+  <section class="flex flex-col rounded-2xl bg-white/6 p-6">
+    <h2 class="mb-4 text-2xl font-semibold text-white/80">{{ line.doctor }}</h2>
+    <p class="text-lg text-white/60">{% translate "جوه دلوقتي" %}</p>
+    {% if line.inside %}
+    <p class="mt-1 flex flex-wrap items-baseline gap-x-5 rounded-xl bg-brand px-5 py-4" data-inside>
+      <span class="num text-6xl font-bold" dir="ltr">{{ line.inside.label }}</span>
+      {% if line.inside.name %}<span class="text-5xl font-bold">{{ line.inside.name }}</span>{% endif %}
+    </p>
+    {% else %}
+    <p class="mt-1 rounded-xl bg-white/5 px-5 py-4 text-3xl text-white/40">{% translate "مفيش حد جوه" %}</p>
+    {% endif %}
+    <p class="mt-6 text-lg text-white/60">{% translate "اللي عليهم الدور" %}</p>
+    <ol class="mt-2 space-y-2">
+      {% for e in line.next %}
+      <li class="flex items-baseline gap-4 rounded-lg bg-white/5 px-4 py-2 text-3xl">
+        <span class="num font-semibold text-white/90" dir="ltr">{{ e.label }}</span>{% if e.name %}<span>{{ e.name }}</span>{% endif %}
+      </li>
+      {% empty %}
+      <li class="text-2xl text-white/40">{% translate "مفيش حد مستني" %}</li>
+      {% endfor %}
+    </ol>
+  </section>
+  {% endfor %}
+</div>

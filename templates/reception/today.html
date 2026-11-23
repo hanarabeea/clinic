@@ -10,6 +10,7 @@ new bookings (a panel opened by "+ حجز جديد" or a free cell). apps/recept
     <p class="page-sub">{% if selected_doctor %}{{ selected_doctor }}{% else %}{% translate "كل الدكاترة" %}{% endif %}</p>
   </div>
   <span class="ms-auto"></span>
+  <a class="btn-ghost px-3" href="{% url 'reception:lobby' %}" target="_blank" title="{% translate 'افتحها على شاشة صالة الانتظار' %}">{% icon "speaker-high" "size-4" %}<span class="max-lg:hidden">{% translate "شاشة الانتظار" %}</span></a>
   <button type="button" class="btn-secondary px-3" hx-get="{% url 'scheduling:waitlist' %}" hx-target="#modal">{% icon "hourglass-medium" "size-4" %}{% translate "قايمة الانتظار" %}{% if waitlist_count %} <span class="num rounded-sm bg-stone-200 px-1.5 text-xs leading-5">{{ waitlist_count }}</span>{% endif %}</button>
   {% if can.emergency_register %}
   <button type="button" class="btn-danger px-4" hx-get="{% url 'center:emergency_register' %}" hx-target="#modal">{% icon "siren" "size-4" %}{% translate "طوارئ" %}</button>

@@ -5,6 +5,8 @@
     <div><dt class="text-xs text-stone-500">{% translate "تاريخ الميلاد" %}</dt><dd>{{ patient.date_of_birth|day|default:"-" }}</dd></div>
     <div><dt class="text-xs text-stone-500">{% translate "المهنة" %}</dt><dd>{{ patient.occupation|default:"-" }}</dd></div>
     <div><dt class="text-xs text-stone-500">{% translate "العنوان" %}</dt><dd>{{ patient.address|default:"-" }}</dd></div>
+    {% if patient.national_id %}<div><dt class="text-xs text-stone-500">{% translate "الرقم القومي" %}</dt><dd class="num" dir="ltr">{{ patient.national_id }}</dd></div>{% endif %}
+    {% if patient.husband_name %}<div><dt class="text-xs text-stone-500">{% translate "اسم الزوج" %}</dt><dd>{{ patient.husband_name }}</dd></div>{% endif %}
     {% if patient.guardian_name %}<div><dt class="text-xs text-stone-500">{% translate "ولي الأمر" %}</dt><dd>{{ patient.guardian_name }}</dd></div>{% endif %}
     {% for label, value in extra %}
     <div><dt class="text-xs text-stone-500">{{ label }}</dt><dd>{% if value is True %}{% icon "check" "size-4" %} {% elif value is False or value is None %}-{% else %}{{ value }}{% endif %}</dd></div>

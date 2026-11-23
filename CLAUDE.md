@@ -1114,3 +1114,40 @@ gotchas and conventions introduced in that phase.
 - Tests: `tests/test_replies_waitlist.py`.
 - Gotcha met here: in the Bash tool a `"\n"` inside a Python heredoc can reach the file as a real line break; write such
   edits with the Edit tool or check the result.
+
+## Patient file, templates, documents and lobby notes (Phase 23, 2026-11-23)
+- Plan 15 §1.4, §1.5, §1.7, §2.1, §2.3, §2.6.
+- **National ID** (`apps/core/national_id.py`): `parse()` reads the 14 digits (century 2 / 3, date of birth,
+  governorate code, 13th digit odd = male) and refuses an impossible date / century / governorate; the check digit is
+  not verified (its formula is not published). `Patient.national_id` (unique among **active** files of a clinic: a
+  merged-away duplicate keeps its number; `merge_patients` now switches the duplicate off before copying fields over)
+  and `Patient.husband_name`. `PatientForm` fills gender and date of birth from the ID, refuses an ID that disagrees with
+  what was typed or belongs to another file (`check_org`: the booking quick-add passes it without the custom fields);
+  gender is required only when there is no ID. Search finds a 14-digit ID exactly. `Patient.age` property.
+- **Families on one number**: booking search cards show age, last completed visit, "غاب N مرات" and a "نفس الرقم" tag
+  when several files share the phone (one annotate query).
+- **Past history** (`patients.PastHistoryItem`: surgical / family / social / other, text, year; `is_removed`, never
+  deleted; history; in `MERGE_MOVES`): patient page (medical section) and the visit drawer tab "التاريخ السابق"
+  (`patients:past_history*`, view_medical / edit_medical).
+- **Visit templates** (`clinical.VisitTemplate` + `clinical/visit_templates.py`): `save_from_visit` keeps the filled
+  visit fields, the visit's prescription lines, requests and advice (same name = update); `apply` fills like
+  `workspace.reuse` (empty → filled, written → text added below, never twice; prescription lines and requests already
+  there skipped; only with prescription.write), `usage_count`, `remove` = switched off. Chips above the panes on the
+  visit page (`clinical:visit_template_apply` → HX-Refresh, `visit_template_save`, `visit_template_remove`,
+  clinical.edit). Max 40 per doctor.
+- **Medical documents** (`clinical.MedicalDocument`, `DocumentTemplate`, `DocumentSequence`; `clinical/documents.py`):
+  six kinds (sick leave, report, referral, certificate, ultrasound report, visit summary). `draft()` renders the
+  clinic's wording (`DEFAULTS`, editable in Settings → "المستندات الطبية", `clinical:document_templates`,
+  settings.manage; unknown `{variables}` refused) with the patient, the visit, the pregnancy line and the antenatal
+  ultrasound values; the doctor edits the text in the drawer ("مستند" on the action bar, `document_new` /
+  `document_issue`, clinical.edit), `issue()` numbers it `DOC-<year>-00001` under `select_for_update` and fixes it; a
+  sick leave needs 1 to 90 days (to_date computed). `void()` with a reason (number stays used). PDF
+  `clinical:document_pdf` (clinical.view, audited) from `templates/pdf/medical_document.html` (clinic header, doctor,
+  number, a red "ملغي" watermark when voided). Drawer tab "المستندات" (`clinical:documents`).
+- **Waiting-room screen** (`apps/reception/lobby.py`, `reception:lobby` + `lobby_board` polled every 4 s,
+  appointment.view): per active doctor, who is inside now and the next four arrived, as `#queue number` or the time,
+  plus "first name + first letter" (`CenterSettings.lobby_show_names`, off = numbers / times only). `call_sig` changes
+  when someone is called in: the page chimes (Web Audio, `lobby_sound`; browsers need one click on the page first) and
+  flashes. Opened from the board ("شاشة الانتظار", new tab) and Settings → الخدمات والطوارئ. Sign the TV in with a
+  role that can only view.
+- Tests: `tests/test_phase23.py`.

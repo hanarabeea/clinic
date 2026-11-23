@@ -1,13 +1,21 @@
 from django.contrib import admin
 
-from .models import Allergy, ChronicCondition, CurrentMedication, Patient, PatientFieldDefinition, PatientSequence
+from .models import (
+    Allergy,
+    ChronicCondition,
+    CurrentMedication,
+    PastHistoryItem,
+    Patient,
+    PatientFieldDefinition,
+    PatientSequence,
+)
 
 
 @admin.register(Patient)
 class PatientAdmin(admin.ModelAdmin):
     list_display = ("full_name", "file_number", "organization", "phone", "is_active")
     list_filter = ("organization", "is_active", "gender")
-    search_fields = ("full_name", "phone", "file_number")
+    search_fields = ("full_name", "phone", "file_number", "national_id")
 
 
 @admin.register(Allergy)
@@ -39,3 +47,10 @@ class CurrentMedicationAdmin(admin.ModelAdmin):
     list_filter = ("organization",)
     search_fields = ("name",)
     raw_id_fields = ("patient", "drug")
+
+
+@admin.register(PastHistoryItem)
+class PastHistoryItemAdmin(admin.ModelAdmin):
+    list_display = ("patient", "kind", "text", "year", "is_removed")
+    list_filter = ("organization", "kind")
+    raw_id_fields = ("patient",)

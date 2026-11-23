@@ -72,6 +72,10 @@ they are paid with it. A service is switched off, never deleted (old visits keep
     <form method="post" class="space-y-4" novalidate>
       {% csrf_token %}<input type="hidden" name="action" value="fee">
       {% include "partials/field.html" with field=fee_form.emergency_fee %}
+      <h3 class="flex items-center gap-1.5 pt-2 text-sm font-bold text-stone-600">{% icon "speaker-high" "size-4" %}{% translate "شاشة الانتظار" %}
+        {% if can.appointment_view %}<a class="link ms-2 text-xs font-normal" href="{% url 'reception:lobby' %}" target="_blank">{% translate "افتحها" %}</a>{% endif %}</h3>
+      <label class="flex items-start gap-2 text-sm font-semibold">{{ fee_form.lobby_show_names }} <span>{{ fee_form.lobby_show_names.label }}<span class="block text-xs font-normal text-stone-500">{{ fee_form.lobby_show_names.help_text }}</span></span></label>
+      <label class="flex items-center gap-2 text-sm font-semibold">{{ fee_form.lobby_sound }} {{ fee_form.lobby_sound.label }}</label>
       <div class="flex justify-end"><button type="submit" class="btn-secondary">{% translate "حفظ" %}</button></div>
     </form>
   </section>

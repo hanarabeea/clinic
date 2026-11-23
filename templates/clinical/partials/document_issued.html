@@ -1,0 +1,10 @@
+{% load i18n %}
+<div id="document-box" class="space-y-4">
+  <div class="notice border-green-200 bg-green-50 font-semibold text-green-900" role="status">{% icon "check-circle" "size-5 shrink-0" %}
+    <span>{% blocktranslate with t=doc.title n=doc.number %}اتصدر {{ t }} رقم {{ n }}.{% endblocktranslate %}</span></div>
+  <div class="flex flex-wrap gap-2">
+    <a class="btn-primary" href="{% url 'clinical:document_pdf' doc.pk %}" target="_blank">{% icon "printer" "size-4" %}{% translate "اطبع" %}</a>
+    <button type="button" class="btn-secondary" hx-get="{% url 'clinical:document_new' visit.pk %}" hx-target="#document-box" hx-swap="outerHTML">{% translate "مستند تاني" %}</button>
+  </div>
+  <iframe src="{% url 'clinical:document_pdf' doc.pk %}" class="h-[60vh] w-full rounded-lg border border-stone-200" title="{{ doc.title }}"></iframe>
+</div>

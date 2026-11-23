@@ -15,6 +15,17 @@ urlpatterns = [
     path("desk/visits/<int:pk>/finish/", views.visit_finish, name="visit_finish"),
     path("desk/visits/<int:pk>/compare/<int:other_pk>/", views.visit_compare, name="visit_compare"),
     path("desk/visits/<int:pk>/reuse/", views.visit_reuse, name="visit_reuse"),
+    path("desk/visits/<int:pk>/templates/<int:tpl_pk>/apply/", views.visit_template_apply, name="visit_template_apply"),
+    path("desk/visits/<int:pk>/templates/save/", views.visit_template_save, name="visit_template_save"),
+    path(
+        "desk/visits/<int:pk>/templates/<int:tpl_pk>/remove/", views.visit_template_remove, name="visit_template_remove"
+    ),
+    path("desk/visits/<int:pk>/documents/new/", views.document_new, name="document_new"),
+    path("desk/visits/<int:pk>/documents/issue/", views.document_issue, name="document_issue"),
+    path("desk/patients/<int:pk>/documents/", views.patient_documents, name="documents"),
+    path("desk/documents/<int:pk>.pdf", views.document_pdf, name="document_pdf"),
+    path("desk/documents/<int:pk>/void/", views.document_void, name="document_void"),
+    path("org/settings/documents/", views.document_templates, name="document_templates"),
     path("desk/poll/", views.desk_poll, name="poll"),
     path("desk/emergency-alert/", views.emergency_alert, name="emergency_alert"),
     path("desk/patients/<int:pk>/", views.patient_record, name="record"),

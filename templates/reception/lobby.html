@@ -1,0 +1,49 @@
+{% extends "base_page.html" %}
+{% load i18n %}
+{% block title %}{% translate "شاشة الانتظار" %}{% endblock %}
+{% block body %}
+{% comment %}The waiting-room TV (plan 15 §1.5): no menus, big type, re-read every 4 seconds; a chime and a flash when
+someone is called in. Browsers only play sound after one click on the page: the first click / key hides the hint.{% endcomment %}
+<main class="flex min-h-screen flex-col bg-ink-panel text-white">
+  <header class="flex items-center gap-4 px-8 py-5">
+    {% if current_org_settings.logo %}<img src="{% url 'organizations:logo' %}" alt="" class="size-14 rounded-lg bg-white object-contain p-1">{% endif %}
+    <h1 class="text-3xl font-bold">{{ current_org_settings.clinic_name_ar|default:current_org.name_ar }}</h1>
+    <span id="lobby-clock" class="num ms-auto text-3xl font-semibold text-white/80" dir="ltr"></span>
+  </header>
+  <div id="lobby" class="flex-1 px-8 pb-8"
+       hx-get="{% url 'reception:lobby_board' %}" hx-trigger="every 4s" hx-swap="innerHTML">
+    {% include "reception/partials/lobby_board.html" %}
+  </div>
+  <p id="lobby-hint" class="pb-4 text-center text-sm text-white/50">{% translate "اضغط أي زرار أو اضغط على الشاشة مرة عشان الصوت يشتغل." %}</p>
+</main>
+<script>
+  (() => {
+    let audio = null, lastSig = document.querySelector("[data-call-sig]")?.dataset.callSig || "";
+    const unlock = () => {
+      if (!audio) { try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { /* no sound */ } }
+      document.getElementById("lobby-hint")?.remove();
+    };
+    document.addEventListener("click", unlock); document.addEventListener("keydown", unlock);
+    const chime = () => {
+      if (!audio) return;
+      [660, 880].forEach((freq, i) => {
+        const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime + i * 0.35;
+        o.frequency.value = freq; o.connect(g); g.connect(audio.destination);
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.4, t + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.6); o.start(t); o.stop(t + 0.65);
+      });
+    };
+    document.body.addEventListener("htmx:afterSettle", () => {
+      const el = document.querySelector("[data-call-sig]");
+      const sig = el?.dataset.callSig || "";
+      if (sig && sig !== lastSig) {
+        if (el.dataset.sound === "1") chime();
+        document.querySelectorAll("[data-inside]").forEach((n) => { n.classList.add("animate-pulse"); setTimeout(() => n.classList.remove("animate-pulse"), 6000); });
+      }
+      lastSig = sig;
+    });
+    const tick = () => { document.getElementById("lobby-clock").textContent = new Date().toLocaleTimeString("en-US", {hour: "numeric", minute: "2-digit"}); };
+    tick(); setInterval(tick, 15000);
+  })();
+</script>
+{% endblock %}

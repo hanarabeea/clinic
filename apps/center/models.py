@@ -24,6 +24,13 @@ class CenterSettings(TenantScopedModel):
     emergency_fee = models.DecimalField(
         _("رسوم كشف الطوارئ"), max_digits=10, decimal_places=2, default=0, validators=[MinValueValidator(0)]
     )
+    # the waiting-room screen (plan 15 §1.5)
+    lobby_show_names = models.BooleanField(
+        _("شاشة الانتظار تكتب الاسم"),
+        default=True,
+        help_text=_("الاسم الأول وأول حرف من اسم الأب بس. من غيرها بيظهر رقم الدور أو الميعاد بس."),
+    )
+    lobby_sound = models.BooleanField(_("شاشة الانتظار تعمل صوت لما حد يدخل"), default=True)
 
     history = HistoricalRecords()
 

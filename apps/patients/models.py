@@ -43,6 +43,9 @@ class PatientQuerySet(OrgQuerySet):
         filters = Q(name_normalized__icontains=normalize_arabic(q))
         if digits:
             filters |= Q(phone__icontains=digits) | Q(whatsapp__icontains=digits)
+        nid = "".join(ch for ch in q if ch.isdigit())
+        if len(nid) == 14:
+            filters |= Q(national_id=nid)
         if q.isdigit():
             filters |= Q(file_number=int(q))
         return self.filter(filters).distinct()
@@ -59,6 +62,10 @@ class Patient(TenantScopedModel):
     whatsapp = models.CharField(_("رقم الواتساب"), max_length=20, blank=True)
     email = models.EmailField(_("الإيميل"), blank=True)
     guardian_name = models.CharField(_("اسم ولي الأمر"), max_length=150, blank=True)
+    national_id = models.CharField(
+        _("الرقم القومي"), max_length=14, blank=True, help_text=_("بيملى تاريخ الميلاد والنوع لوحده.")
+    )
+    husband_name = models.CharField(_("اسم الزوج"), max_length=150, blank=True)
     address = models.CharField(_("العنوان"), max_length=300, blank=True)
     occupation = models.CharField(_("المهنة"), max_length=150, blank=True)
     preferred_channel = models.CharField(
@@ -84,7 +91,15 @@ class Patient(TenantScopedModel):
         verbose_name = _("مريض")
         verbose_name_plural = _("المرضى")
         ordering = ["-id"]
-        constraints = [models.UniqueConstraint(fields=["organization", "file_number"], name="uniq_patient_file_number")]
+        constraints = [
+            models.UniqueConstraint(fields=["organization", "file_number"], name="uniq_patient_file_number"),
+            # one file per national ID (a merged-away duplicate keeps its number, so active files only)
+            models.UniqueConstraint(
+                fields=["organization", "national_id"],
+                condition=~Q(national_id="") & Q(is_active=True),
+                name="uniq_patient_national_id",
+            ),
+        ]
         indexes = [
             models.Index(fields=["organization", "phone"]),
             models.Index(fields=["organization", "name_normalized"]),
@@ -92,6 +107,17 @@ class Patient(TenantScopedModel):
 
     def __str__(self):
         return f"{self.full_name} (#{self.file_number})"
+
+    @property
+    def age(self) -> int | None:
+        """Whole years today (Cairo), or None without a date of birth."""
+        if not self.date_of_birth:
+            return None
+        from apps.core.timeutils import CAIRO
+
+        today = timezone.localtime(timezone.now(), CAIRO).date()
+        dob = self.date_of_birth
+        return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
 
     def save(self, *args, **kwargs):
         self.full_name = " ".join(self.full_name.split())
@@ -211,3 +237,33 @@ class PatientFieldDefinition(TenantScopedModel):
 
     def __str__(self):
         return self.label_ar
+
+
+class HistoryKind(models.TextChoices):
+    SURGICAL = "surgical", _("عمليات سابقة")
+    FAMILY = "family", _("تاريخ عائلي")
+    SOCIAL = "social", _("عادات (تدخين...)")
+    OTHER = "other", _("تاني")
+
+
+class PastHistoryItem(TenantScopedModel):
+    """One line of the patient's past history (plan 15 §2.6): an operation she had, a disease in the family, smoking.
+    Kept as short typed lines instead of one free text, so the snapshot and the doctor read them at a glance.
+    A wrong line is removed with `is_removed` (medical records are never deleted)."""
+
+    patient = models.ForeignKey(Patient, on_delete=models.PROTECT, related_name="past_history")
+    kind = models.CharField(_("النوع"), max_length=10, choices=HistoryKind.choices)
+    text = models.CharField(_("البيان"), max_length=200)
+    year = models.PositiveSmallIntegerField(_("السنة"), null=True, blank=True)
+    is_removed = models.BooleanField(default=False)
+    recorded_by = models.ForeignKey(dj_settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = _("تاريخ مرضي سابق")
+        verbose_name_plural = _("التاريخ المرضي السابق")
+        ordering = ["kind", "-year", "id"]
+
+    def __str__(self):
+        return f"{self.get_kind_display()}: {self.text}"

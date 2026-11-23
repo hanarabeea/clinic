@@ -1,0 +1,44 @@
+{% load i18n %}
+{% comment %}Drawer: a medical document for this visit (plan 15 §2.3). The kind's wording comes filled with the patient
+and the visit; the doctor edits it, then "إصدار وطباعة" numbers it and fixes the text.{% endcomment %}
+<div id="document-box" class="space-y-4">
+  <div class="flex flex-wrap gap-1.5">
+    {% for value, label in kinds %}
+    <button type="button" class="chip px-3 py-1.5 text-sm {% if value == kind %}border-brand! bg-brand! text-white!{% endif %}"
+            hx-get="{% url 'clinical:document_new' visit.pk %}?kind={{ value }}" hx-target="#document-box" hx-swap="outerHTML">{{ label }}</button>
+    {% endfor %}
+  </div>
+  {% if error %}<div class="notice notice-danger" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}<span>{{ error }}</span></div>{% endif %}
+  {% if draft %}
+  <form class="space-y-3" hx-post="{% url 'clinical:document_issue' visit.pk %}" hx-target="#document-box" hx-swap="outerHTML">
+    {% csrf_token %}
+    <input type="hidden" name="kind" value="{{ draft.kind }}">
+    <div class="form-field"><label for="doc-title">{% translate "العنوان" %}</label>
+      <input id="doc-title" type="text" name="title" value="{{ draft.title }}" maxlength="150" required></div>
+    {% if draft.kind == "referral" or draft.kind == "medical_report" or draft.kind == "certificate" %}
+    <div class="form-field"><label for="doc-to">{% translate "موجه إلى" %}</label>
+      <input id="doc-to" type="text" name="recipient" value="{{ draft.recipient }}" maxlength="200" dir="auto"
+             placeholder="{% if draft.kind == 'referral' %}{% translate 'مثلًا: د. أحمد، استشاري الباطنة' %}{% else %}{% translate 'لمن يهمه الأمر' %}{% endif %}"
+             hx-get="{% url 'clinical:document_new' visit.pk %}?kind={{ draft.kind }}" hx-trigger="change" hx-target="#document-box" hx-swap="outerHTML" hx-include="this"></div>
+    {% endif %}
+    {% if draft.kind == "sick_leave" %}
+    <div class="grid grid-cols-2 gap-3">
+      <div class="form-field"><label for="doc-days">{% translate "عدد الأيام" %}</label>
+        <input id="doc-days" type="number" name="days" min="1" max="90" value="{{ draft.days }}" required class="num"
+               hx-get="{% url 'clinical:document_new' visit.pk %}?kind=sick_leave" hx-trigger="change" hx-target="#document-box" hx-swap="outerHTML" hx-include="#doc-days, #doc-from"></div>
+      <div class="form-field"><label for="doc-from">{% translate "من يوم" %}</label>
+        <input id="doc-from" type="date" name="from_date" value="{{ draft.from_date|date:'Y-m-d' }}"
+               hx-get="{% url 'clinical:document_new' visit.pk %}?kind=sick_leave" hx-trigger="change" hx-target="#document-box" hx-swap="outerHTML" hx-include="#doc-days, #doc-from"></div>
+    </div>
+    {% endif %}
+    <div class="form-field"><label for="doc-body">{% translate "النص" %} <span class="font-normal text-stone-500">{% translate "(عدّل براحتك قبل الإصدار)" %}</span></label>
+      <textarea id="doc-body" name="body" rows="12" required dir="auto" class="leading-7">{{ draft.body }}</textarea></div>
+    <div class="flex items-center gap-2">
+      <button class="btn-primary">{% icon "printer" "size-4" %}{% translate "إصدار وطباعة" %}</button>
+      <span class="text-xs text-stone-500">{% translate "بعد الإصدار النص بيتثبت بالرقم، والتعديل بيبقى مستند جديد." %}</span>
+    </div>
+  </form>
+  {% else %}
+  <p class="text-sm text-stone-500">{% translate "اختار نوع المستند." %}</p>
+  {% endif %}
+</div>

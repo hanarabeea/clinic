@@ -1,0 +1,26 @@
+{% load i18n %}
+{% comment %}The patient's medical documents (drawer tab / medical file). Issued ones are fixed; a mistake is voided
+with a reason.{% endcomment %}
+<div id="documents-list" class="space-y-2">
+  {% for d in docs %}
+  <article class="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm {% if d.is_void %}opacity-60{% endif %}">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="font-semibold">{{ d.title }}</span>
+      <span class="num text-xs text-stone-500" dir="ltr">{{ d.number }}</span>
+      <span class="text-xs text-stone-500">{{ d.issued_at|day }} · {{ d.doctor }}</span>
+      {% if d.is_void %}<span class="badge bg-red-50 text-red-800">{% translate "ملغي" %}: {{ d.void_reason }}</span>{% endif %}
+      <a class="link ms-auto text-xs" href="{% url 'clinical:document_pdf' d.pk %}" target="_blank">{% icon "printer" "size-3.5" %} {% translate "اطبع" %}</a>
+      {% if can.clinical_edit and not d.is_void %}
+      <form hx-post="{% url 'clinical:document_void' d.pk %}" hx-target="#documents-list" hx-swap="outerHTML"
+            onsubmit="const r = prompt('{% translate 'سبب الإلغاء؟' %}'); if (!r) { event.preventDefault(); return false; } this.querySelector('[name=reason]').value = r;">
+        {% csrf_token %}<input type="hidden" name="reason">
+        <button class="text-xs font-semibold text-red-700 hover:underline">{% translate "إلغاء" %}</button>
+      </form>
+      {% endif %}
+    </div>
+    <p class="mt-1 line-clamp-2 text-xs text-stone-600 whitespace-pre-line"><bdi dir="auto">{{ d.body }}</bdi></p>
+  </article>
+  {% empty %}
+  <p class="py-6 text-center text-sm text-stone-500">{% translate "مفيش مستندات اتصدرت للمريض ده." %}</p>
+  {% endfor %}
+</div>

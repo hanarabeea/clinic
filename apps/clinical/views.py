@@ -172,6 +172,10 @@ def visit_view(request, pk):
            **workspace.snapshot(visit)}  # fmt: skip
     if ctx.get("ob_patient"):
         ctx.update(ob_context.antenatal_ctx(request, visit))
+    if has_perm(request.membership, "clinical.edit"):
+        from . import visit_templates
+
+        ctx["visit_templates"] = list(visit_templates.for_doctor(visit.doctor))
     return render(request, "clinical/visit.html", ctx)
 
 
@@ -459,3 +463,193 @@ def patient_export(request, pk):
     resp = HttpResponse(data, content_type="application/pdf")
     resp["Content-Disposition"] = f'attachment; filename="patient-{patient.file_number}.pdf"'
     return resp
+
+
+# --- visit templates (plan 15 §2.1) --------------------------------------------------------------------------------
+
+
+def _templates_response(request, visit, **extra):
+    from . import visit_templates
+
+    ctx = {"visit": visit, "visit_templates": list(visit_templates.for_doctor(visit.doctor)), **extra}
+    return render(request, "clinical/partials/visit_templates.html", ctx)
+
+
+@require_POST
+@require_perm("clinical.edit")
+@desk_unlocked
+def visit_template_apply(request, pk, tpl_pk):
+    from . import visit_templates
+    from .models import VisitTemplate
+
+    visit = _visit(request, pk)
+    template = get_object_or_404(VisitTemplate.objects.for_org(request.organization), pk=tpl_pk)
+    try:
+        done = visit_templates.apply(visit, template, by=request.user,
+                                     with_prescription=has_perm(request.membership, "prescription.write"))  # fmt: skip
+    except (visit_templates.TemplateError, ValidationError, rx_services.PrescriptionError) as e:
+        messages.error(request, " ".join(getattr(e, "messages", [str(e)])))
+    else:
+        audit.log("visit.template_applied", request=request, target=visit, summary=template.name)
+        messages.success(request, _("اتملى من القالب: %(n)s") % {"n": template.name} if done
+                         else _("القالب ده مكتوب في الكشف فعلًا."))  # fmt: skip
+    resp = HttpResponse(status=204)
+    resp["HX-Refresh"] = "true"  # the fields and the prescription re-render from the server
+    return resp
+
+
+@require_POST
+@require_perm("clinical.edit")
+@desk_unlocked
+def visit_template_save(request, pk):
+    from . import visit_templates
+
+    visit = _visit(request, pk)
+    try:
+        template = visit_templates.save_from_visit(visit, request.POST.get("name", ""), by=request.user)
+    except visit_templates.TemplateError as e:
+        return _templates_response(request, visit, error=str(e))
+    audit.log("visit.template_saved", request=request, target=visit, summary=template.name)
+    return _templates_response(request, visit, notice=_("اتحفظ القالب: %(n)s") % {"n": template.name})
+
+
+@require_POST
+@require_perm("clinical.edit")
+@desk_unlocked
+def visit_template_remove(request, pk, tpl_pk):
+    from . import visit_templates
+    from .models import VisitTemplate
+
+    visit = _visit(request, pk)
+    template = get_object_or_404(VisitTemplate.objects.for_org(request.organization), pk=tpl_pk, doctor=visit.doctor)
+    visit_templates.remove(template)
+    return _templates_response(request, visit)
+
+
+# --- medical documents (plan 15 §2.3) --------------------------------------------------------------------------
+
+
+def _date_or_none(raw):
+    from datetime import date
+
+    try:
+        return date.fromisoformat(raw) if raw else None
+    except ValueError:
+        return None
+
+
+@require_perm("clinical.edit")
+@desk_unlocked
+def document_new(request, pk):
+    """The drawer form: pick a kind, the clinic's wording comes filled with this visit; the doctor edits and issues."""
+    from . import documents
+    from .models import DocumentKind
+
+    visit = _visit(request, pk)
+    kind = request.GET.get("kind", "")
+    ctx = {"visit": visit, "patient": visit.patient, "kinds": DocumentKind.choices, "kind": kind}
+    if kind in DocumentKind.values:
+        days = request.GET.get("days", "")
+        ctx["draft"] = documents.draft(
+            visit.patient, kind, visit=visit, days=int(days) if days.isdigit() else None,
+            from_date=_date_or_none(request.GET.get("from_date")), recipient=request.GET.get("recipient", ""),
+        )  # fmt: skip
+    return render(request, "clinical/partials/document_form.html", ctx)
+
+
+@require_POST
+@require_perm("clinical.edit")
+@desk_unlocked
+def document_issue(request, pk):
+    from . import documents
+    from .models import DocumentKind
+
+    visit = _visit(request, pk)
+    data = request.POST
+    days = data.get("days", "")
+    try:
+        doc = documents.issue(
+            visit.patient, kind=data.get("kind", ""), title=data.get("title", ""), body=data.get("body", ""),
+            doctor=visit.doctor, by=request.user, visit=visit, recipient=data.get("recipient", ""),
+            days=int(days) if days.isdigit() else None, from_date=_date_or_none(data.get("from_date")),
+        )  # fmt: skip
+    except documents.DocumentError as e:
+        draft = documents.Draft(kind=data.get("kind", ""), title=data.get("title", ""), body=data.get("body", ""),
+                                recipient=data.get("recipient", ""), days=int(days) if days.isdigit() else None,
+                                from_date=_date_or_none(data.get("from_date")))  # fmt: skip
+        ctx = {"visit": visit, "patient": visit.patient, "kinds": DocumentKind.choices, "kind": draft.kind,
+               "draft": draft, "error": str(e)}  # fmt: skip
+        return render(request, "clinical/partials/document_form.html", ctx)
+    audit.log("document.issued", request=request, target=visit.patient, summary=f"{doc.number} {doc.title}")
+    return render(request, "clinical/partials/document_issued.html", {"doc": doc, "visit": visit})
+
+
+@require_perm("clinical.view")
+@desk_unlocked
+def patient_documents(request, pk):
+    patient = _patient(request, pk)
+    docs = list(patient.documents.select_related("doctor"))
+    return render(request, "clinical/partials/documents.html", {"patient": patient, "docs": docs,
+                                                               "visit_pk": request.GET.get("visit", "")})  # fmt: skip
+
+
+@require_perm("clinical.view")
+def document_pdf(request, pk):
+    from . import documents
+    from .models import MedicalDocument
+
+    doc = get_object_or_404(MedicalDocument.objects.for_org(request.organization).select_related("patient"), pk=pk)
+    audit.log("document.printed", request=request, target=doc.patient, summary=doc.number)
+    resp = HttpResponse(documents.render_pdf(doc), content_type="application/pdf")
+    resp["Content-Disposition"] = f'inline; filename="{doc.number}.pdf"'
+    return resp
+
+
+@require_POST
+@require_perm("clinical.edit")
+@desk_unlocked
+def document_void(request, pk):
+    from . import documents
+    from .models import MedicalDocument
+
+    doc = get_object_or_404(MedicalDocument.objects.for_org(request.organization), pk=pk)
+    try:
+        documents.void(doc, reason=request.POST.get("reason", ""), by=request.user)
+    except documents.DocumentError as e:
+        messages.error(request, str(e))
+    else:
+        audit.log("document.voided", request=request, target=doc.patient, summary=doc.number)
+    docs = list(doc.patient.documents.select_related("doctor"))
+    return render(request, "clinical/partials/documents.html", {"patient": doc.patient, "docs": docs})
+
+
+@require_perm("settings.manage")
+def document_templates(request):
+    """Settings → المستندات الطبية: the clinic's wording of each kind."""
+    from . import documents
+    from .models import DocumentKind
+
+    org = request.organization
+    templates = documents.ensure_templates(org)
+    error, saved = "", ""
+    if request.method == "POST":
+        kind = request.POST.get("kind", "")
+        tpl = templates.get(kind)
+        title, body = request.POST.get("title", "").strip(), request.POST.get("body", "").strip()
+        try:
+            if tpl is None or not title or not body:
+                raise documents.DocumentError(_("العنوان والنص مطلوبين."))
+            documents.validate_body(body)
+        except documents.DocumentError as e:
+            error = str(e)
+        else:
+            tpl.title, tpl.body = title[:150], body
+            tpl.save(update_fields=["title", "body", "updated_at"])
+            audit.log("settings.document_template", request=request, target=tpl, summary=kind)
+            saved = kind
+    ctx = {
+        "rows": [(value, label, templates[value]) for value, label in DocumentKind.choices],
+        "tab": "documents",
+        "variables": documents.VARIABLES, "error": error, "saved": saved,
+    }  # fmt: skip
+    return render(request, "clinical/document_templates.html", ctx)

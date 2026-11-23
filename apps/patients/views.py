@@ -69,6 +69,7 @@ def patient_detail(request, pk):
     if can_view_medical:
         ctx["chronic_conditions"] = patient.chronic_conditions.all()
         ctx.update(_medications_ctx(request, patient))
+        ctx.update(_history_ctx(request, patient))
     if has_perm(request.membership, "pregnancy.view_basic"):
         ctx["ga"] = obstetrics.badge_for(patient)  # the week / month and the expected date; nothing else of the file
     # 03 §3.7: bookings (upcoming + past), messages (sent + received, 06 §6.7) and payments.
@@ -268,3 +269,59 @@ def medication_drugs(request, pk):
     q = request.GET.get("name", "").strip()
     drugs = rx_services.search_drugs(request.organization, q, limit=8) if len(q) >= 2 else []
     return render(request, "patients/partials/medication_options.html", {"drugs": drugs})
+
+
+# --- past history (plan 15 §2.6) -------------------------------------------------------------------------------
+
+
+def _history_ctx(request, patient, **extra):
+    from .models import HistoryKind
+
+    items = list(patient.past_history.filter(is_removed=False))
+    groups = [(value, label, [i for i in items if i.kind == value]) for value, label in HistoryKind.choices]
+    return {
+        "patient": patient,
+        "history_groups": groups,
+        "has_history": bool(items),
+        "history_kinds": HistoryKind.choices,
+        "can_edit_history": has_perm(request.membership, "patient.edit_medical"),
+        **extra,
+    }
+
+
+def _history_response(request, patient, changed=False, **extra):
+    response = render(request, "patients/partials/past_history.html", _history_ctx(request, patient, **extra))
+    if changed:
+        response["HX-Trigger"] = "history-changed"
+    return response
+
+
+@require_perm("patient.view_medical")
+def past_history(request, pk):
+    return _history_response(request, _patient(request, pk))
+
+
+@require_POST
+@require_perm("patient.edit_medical")
+def past_history_add(request, pk):
+    patient = _patient(request, pk)
+    raw_year = request.POST.get("year", "").strip()
+    try:
+        item = services.add_history(
+            patient, kind=request.POST.get("kind", ""), text=request.POST.get("text", ""),
+            year=int(raw_year) if raw_year.isdigit() else None, by=request.user,
+        )  # fmt: skip
+    except services.MedicationError as e:
+        return _history_response(request, patient, error=str(e))
+    audit.log("patient.history_added", request=request, target=patient, summary=item.get_kind_display())
+    return _history_response(request, patient, changed=True)
+
+
+@require_POST
+@require_perm("patient.edit_medical")
+def past_history_remove(request, pk, item_pk):
+    patient = _patient(request, pk)
+    item = get_object_or_404(patient.past_history.for_org(request.organization), pk=item_pk, is_removed=False)
+    services.remove_history(item)
+    audit.log("patient.history_removed", request=request, target=patient, summary=item.get_kind_display())
+    return _history_response(request, patient, changed=True)

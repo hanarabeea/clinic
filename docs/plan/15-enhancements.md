@@ -124,6 +124,20 @@ results so the doctor sees it before adding.
 - Settings for all of it; screens gated (reception 200, viewer 403, another clinic 404); quality gates green;
   `tests/test_replies_waitlist.py`.
 
+### Phase 23: Definition of Done
+
+- A valid national ID fills date of birth and gender, an impossible one is refused, a second active file with the same
+  ID is refused; husband's name on the file; search by ID.
+- Booking search shows age, last visit and "نفس الرقم" for files sharing a phone.
+- Past history lines (surgical / family / social / other) added and removed (hidden) from the patient page and the
+  visit drawer.
+- A visit saved as a template fills another visit (fields, prescription lines, requests, follow-up) without removing
+  or doubling anything.
+- Six kinds of medical documents drafted from the clinic's wording, edited, issued with a yearly number, printed as a
+  PDF, voided with a reason; the wording is editable in Settings.
+- The waiting-room screen shows who is inside and next per doctor, chimes on a call, and can hide names.
+- Reception 403 / other clinic 404 on the new clinical URLs; quality gates green; `tests/test_phase23.py`.
+
 ## Open questions for the owner
 
 1. Which clinics / centers will use it first: only this OB/GYN center, or general clinics too? (Changes the weight of

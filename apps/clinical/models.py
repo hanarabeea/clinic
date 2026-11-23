@@ -133,3 +133,98 @@ class Attachment(TenantScopedModel):
     @property
     def is_image(self):
         return self.content_type.startswith("image/")
+
+
+class VisitTemplate(TenantScopedModel):
+    """A doctor's ready visit ("order set", plan 15 §2.1): the usual text of the visit fields, the prescription lines,
+    the investigations and the follow-up, applied in one click (`visit_templates.apply`). Built from a finished
+    visit ("حفظ الكشف ده كقالب"); switched off, never deleted."""
+
+    doctor = models.ForeignKey("doctors.Doctor", on_delete=models.CASCADE, related_name="visit_templates")
+    name = models.CharField(_("اسم القالب"), max_length=100)
+    fields = models.JSONField(default=dict, blank=True)  # {visit field: text}, only the ones filled
+    rx_items = models.JSONField(default=list, blank=True)  # [{drug, drug_name, form, instructions, duration}]
+    requests = models.JSONField(default=list, blank=True)  # [{name, kind}]
+    advice = models.TextField(blank=True)
+    usage_count = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = _("قالب كشف")
+        verbose_name_plural = _("قوالب الكشف")
+        ordering = ["-usage_count", "name"]
+
+    def __str__(self):
+        return self.name
+
+
+class DocumentKind(models.TextChoices):
+    SICK_LEAVE = "sick_leave", _("إجازة مرضية")
+    MEDICAL_REPORT = "medical_report", _("تقرير طبي")
+    REFERRAL = "referral", _("خطاب تحويل")
+    CERTIFICATE = "certificate", _("شهادة طبية")
+    ULTRASOUND = "ultrasound", _("تقرير سونار")
+    VISIT_SUMMARY = "visit_summary", _("ملخص زيارة")
+
+
+class DocumentTemplate(TenantScopedModel):
+    """The clinic's wording of each document kind (Settings → المستندات الطبية). `{variables}` are filled from the
+    patient and the visit when a document is started; the doctor edits the text before issuing it."""
+
+    kind = models.CharField(_("النوع"), max_length=20, choices=DocumentKind.choices)
+    title = models.CharField(_("العنوان"), max_length=150)
+    body = models.TextField(_("النص"))
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = _("قالب مستند")
+        verbose_name_plural = _("قوالب المستندات")
+        constraints = [models.UniqueConstraint(fields=["organization", "kind"], name="uniq_document_template_kind")]
+
+    def __str__(self):
+        return self.title
+
+
+class DocumentSequence(TenantScopedModel):
+    year = models.PositiveSmallIntegerField()
+    last = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["organization", "year"], name="uniq_document_sequence")]
+
+
+class MedicalDocument(TenantScopedModel):
+    """A medical document given to the patient (plan 15 §2.3): sick leave, report, referral, certificate, ultrasound
+    report, visit summary. Numbered per year (`DOC-2026-00001`), its text fixed when issued; a mistake is voided with
+    a reason (the number stays used) and a new one issued. Printed as a PDF with the clinic's header."""
+
+    patient = models.ForeignKey("patients.Patient", on_delete=models.PROTECT, related_name="documents")
+    visit = models.ForeignKey(Visit, null=True, blank=True, on_delete=models.PROTECT, related_name="documents")
+    doctor = models.ForeignKey("doctors.Doctor", on_delete=models.PROTECT, related_name="+")
+    kind = models.CharField(_("النوع"), max_length=20, choices=DocumentKind.choices)
+    number = models.CharField(max_length=30)
+    title = models.CharField(_("العنوان"), max_length=150)
+    recipient = models.CharField(_("موجه إلى"), max_length=200, blank=True)
+    body = models.TextField(_("النص"))
+    days = models.PositiveSmallIntegerField(_("عدد الأيام"), null=True, blank=True)
+    from_date = models.DateField(_("من يوم"), null=True, blank=True)
+    to_date = models.DateField(_("لحد يوم"), null=True, blank=True)
+    issued_at = models.DateTimeField(default=timezone.now)
+    issued_by = models.ForeignKey(dj_settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL, related_name="+")
+    is_void = models.BooleanField(default=False)
+    void_reason = models.CharField(max_length=200, blank=True)
+    voided_at = models.DateTimeField(null=True, blank=True)
+
+    history = HistoricalRecords()
+
+    class Meta:
+        verbose_name = _("مستند طبي")
+        verbose_name_plural = _("المستندات الطبية")
+        ordering = ["-issued_at", "-id"]
+        constraints = [models.UniqueConstraint(fields=["organization", "number"], name="uniq_document_number")]
+
+    def __str__(self):
+        return f"{self.number} {self.title}"

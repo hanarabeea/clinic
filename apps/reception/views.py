@@ -356,3 +356,21 @@ def followup_dismiss(request, visit_pk):
     visit = get_object_or_404(Visit.objects.for_org(request.organization), pk=visit_pk)
     Visit.objects.filter(pk=visit.pk).update(followup_handled=True)
     return redirect("reception:today")
+
+
+# --- the waiting-room screen (plan 15 §1.5) --------------------------------------------------------------------
+
+
+@require_perm("appointment.view")
+def lobby(request):
+    """Full screen for a TV in the waiting room (sign in once on that computer, with a role that only views)."""
+    from . import lobby as lobby_state
+
+    return render(request, "reception/lobby.html", {"lobby": lobby_state.state(request.organization)})
+
+
+@require_perm("appointment.view")
+def lobby_board(request):
+    from . import lobby as lobby_state
+
+    return render(request, "reception/partials/lobby_board.html", {"lobby": lobby_state.state(request.organization)})

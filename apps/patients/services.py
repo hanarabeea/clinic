@@ -62,6 +62,7 @@ MERGE_MOVES = [
     ("billing", "Payment"),
     ("patients", "CurrentMedication"),
     ("scheduling", "WaitlistEntry"),
+    ("patients", "PastHistoryItem"),
 ]
 
 
@@ -121,14 +122,15 @@ def merge_patients(primary: Patient, duplicate: Patient, *, by=None) -> Patient:
         if not model.objects.filter(patient=primary).exists():
             model.objects.filter(patient=duplicate).update(patient=primary)
 
-    for name in ("email", "date_of_birth", "national_id", "address", "whatsapp"):
+    # the duplicate is switched off first: a national ID is unique among active files only, and may move over
+    duplicate.merged_into = primary
+    duplicate.is_active = False
+    duplicate.save(update_fields=["merged_into", "is_active", "updated_at"])
+    for name in ("email", "date_of_birth", "national_id", "husband_name", "address", "whatsapp"):
         if hasattr(primary, name) and not getattr(primary, name) and getattr(duplicate, name, None):
             setattr(primary, name, getattr(duplicate, name))
     primary.no_show_count = (primary.no_show_count or 0) + (duplicate.no_show_count or 0)
     primary.save()
-    duplicate.merged_into = primary
-    duplicate.is_active = False
-    duplicate.save(update_fields=["merged_into", "is_active", "updated_at"])
     return primary
 
 
@@ -169,3 +171,28 @@ def stop_medication(med, *, by=None, on=None):
         med.stopped_by = by
         med.save(update_fields=["stopped_on", "stopped_by", "updated_at"])
     return med
+
+
+# --- past history (plan 15 §2.6) -------------------------------------------------------------------------------
+
+
+def add_history(patient: Patient, *, kind: str, text: str, year=None, by=None):
+    from .models import HistoryKind, PastHistoryItem
+
+    text = (text or "").strip()
+    if kind not in HistoryKind.values:
+        raise MedicationError(_("اختار النوع."))
+    if not text:
+        raise MedicationError(_("اكتب البيان."))
+    this_year = timezone.localtime(timezone.now(), CAIRO).year
+    if year is not None and not 1900 <= year <= this_year:
+        raise MedicationError(_("السنة مش منطقية."))
+    return PastHistoryItem.objects.create(
+        organization=patient.organization, patient=patient, kind=kind, text=text[:200], year=year, recorded_by=by
+    )
+
+
+def remove_history(item) -> None:
+    """Entered by mistake: hidden, never deleted."""
+    item.is_removed = True
+    item.save(update_fields=["is_removed", "updated_at"])

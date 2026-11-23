@@ -32,6 +32,7 @@ in a drawer over the page, so the visit being written is never left (or reloaded
             title="{% translate 'الكشف والروشتة جنب بعض' %}">{% icon "columns" "size-4" %}{% translate "جنب بعض" %}</button>
   </div>
   {% endif %}
+  {% if can.clinical_edit and visit.status != "finished" %}{% include "clinical/partials/visit_templates.html" %}{% endif %}
   <div id="panes">
     <section id="pane-visit" class="ws-panel min-w-0 scroll-mt-28">
       {% include "clinical/partials/tab_visit.html" %}
@@ -56,6 +57,7 @@ in a drawer over the page, so the visit being written is never left (or reloaded
       {% if can.patient_view_medical %}<button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'patients:medications' patient.pk %}">{% icon "pill" "size-4" %} {% translate "الأدوية المستمرة" %}</button>{% endif %}
       <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:attachments' patient.pk %}?visit={{ visit.pk }}">{% icon "paperclip" "size-4" %} {% translate "المرفقات" %}</button>
       <button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:data' patient.pk %}">{% icon "user" "size-4" %} {% translate "البيانات" %}</button>
+      {% if can.clinical_edit %}<button type="button" class="btn-ghost whitespace-nowrap px-3" data-drawer="{% url 'clinical:document_new' visit.pk %}">{% icon "file-text" "size-4" %} {% translate "مستند" %}</button>{% endif %}
       {% if can.theatre_schedule %}<a class="btn-ghost whitespace-nowrap px-3" href="{% url 'theatre:operation_new' %}?patient={{ patient.pk }}">{% icon "first-aid-kit" "size-4" %} {% translate "حجز عملية" %}</a>{% endif %}
     </div>
     {% if can.clinical_edit and visit.status != "finished" %}
@@ -80,6 +82,8 @@ in a drawer over the page, so the visit being written is never left (or reloaded
       <button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'clinical:history' patient.pk %}?visit={{ visit.pk }}">{% translate "التاريخ" %}</button>
       {% if can.clinical_view %}<button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'prescriptions:patient_list' patient.pk %}">{% translate "الروشتات" %}</button>{% endif %}
       {% if can.patient_view_medical %}<button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'patients:medications' patient.pk %}">{% translate "الأدوية المستمرة" %}</button>{% endif %}
+      {% if can.patient_view_medical %}<button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'patients:past_history' patient.pk %}">{% translate "التاريخ السابق" %}</button>{% endif %}
+      {% if can.clinical_view %}<button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'clinical:documents' patient.pk %}?visit={{ visit.pk }}">{% translate "المستندات" %}</button>{% endif %}
       <button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'clinical:attachments' patient.pk %}?visit={{ visit.pk }}">{% translate "المرفقات" %}</button>
       <button type="button" class="drawer-tab whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-stone-500" data-drawer="{% url 'clinical:data' patient.pk %}">{% translate "البيانات" %}</button>
     </nav>

@@ -20,6 +20,9 @@ urlpatterns = [
     path("patients/<int:pk>/medications/add/", views.medication_add, name="medication_add"),
     path("patients/<int:pk>/medications/drugs/", views.medication_drugs, name="medication_drugs"),
     path("patients/<int:pk>/medications/<int:med_pk>/stop/", views.medication_stop, name="medication_stop"),
+    path("patients/<int:pk>/past-history/", views.past_history, name="past_history"),
+    path("patients/<int:pk>/past-history/add/", views.past_history_add, name="past_history_add"),
+    path("patients/<int:pk>/past-history/<int:item_pk>/remove/", views.past_history_remove, name="past_history_remove"),
     path("patients/<int:pk>/merge/", views.merge_search, name="merge_search"),
     path("patients/<int:pk>/merge/<int:duplicate_pk>/", views.merge_confirm, name="merge_confirm"),
 ]

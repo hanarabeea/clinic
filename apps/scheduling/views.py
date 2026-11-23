@@ -1,7 +1,9 @@
 import json
+from collections import Counter
 from datetime import date, datetime, timedelta
 
 from django.contrib import messages
+from django.db.models import Max, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -133,11 +135,24 @@ def _panel_ctx(request, doctor, patient, error=""):
 @search_limit
 def booking_search(request):
     q = request.GET.get("q", "").strip()
-    patients = Patient.objects.for_org(request.organization).filter(is_active=True).search(q)[:8] if q else []
+    patients = []
+    if q:
+        # 03 §3.2: each file as a card with the age and the last visit, and families on one number shown together
+        done = Q(appointments__status=AppointmentStatus.COMPLETED)
+        patients = list(
+            Patient.objects.for_org(request.organization)
+            .filter(is_active=True)
+            .search(q)
+            .annotate(last_visit=Max("appointments__start_at", filter=done))
+            .order_by("phone", "-id")[:8]
+        )
+    phones = Counter(p.phone for p in patients)
+    for p in patients:
+        p.shares_phone = phones[p.phone] > 1
     digits = sum(ch.isdigit() for ch in q)
     looks_like_phone = bool(q) and digits >= max(len(q) - 2, 1)
     initial = {"phone": q} if looks_like_phone else {"full_name": q}
-    form = PatientForm(initial=initial) if q else None
+    form = PatientForm(initial=initial, check_org=request.organization) if q else None
     ctx = {"q": q, "patients": patients, "form": form, "day": request.GET.get("day", ""),
            "at": request.GET.get("at", ""), "hour": request.GET.get("hour", ""),
            "doctor": doctor_services.current_doctor(request)}  # fmt: skip
@@ -147,7 +162,7 @@ def booking_search(request):
 @require_perm("appointment.book")
 def booking_new_patient(request):
     """Add the patient, then straight to picking their time (the panel); an invalid form comes back in place."""
-    form = PatientForm(request.POST)
+    form = PatientForm(request.POST, check_org=request.organization)
     if form.is_valid():
         patient = patient_services.create_patient(request.organization, form.save(commit=False), by=request.user)
         audit.log("patient.created", request=request, target=patient, summary=patient.full_name)

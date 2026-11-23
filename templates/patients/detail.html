@@ -48,6 +48,8 @@
       <div class="flex justify-between"><dt class="text-stone-600">{% translate "الموبايل" %}</dt><dd dir="ltr">{{ patient.phone }}</dd></div>
       <div class="flex justify-between"><dt class="text-stone-600">{% translate "الواتساب" %}</dt><dd dir="ltr">{{ patient.whatsapp }}</dd></div>
       {% if patient.email %}<div class="flex justify-between"><dt class="text-stone-600">{% translate "الإيميل" %}</dt><dd dir="ltr">{{ patient.email }}</dd></div>{% endif %}
+      {% if patient.national_id %}<div class="flex justify-between"><dt class="text-stone-600">{% translate "الرقم القومي" %}</dt><dd class="num" dir="ltr">{{ patient.national_id }}</dd></div>{% endif %}
+      {% if patient.husband_name %}<div class="flex justify-between"><dt class="text-stone-600">{% translate "اسم الزوج" %}</dt><dd>{{ patient.husband_name }}</dd></div>{% endif %}
       {% if patient.guardian_name %}<div class="flex justify-between"><dt class="text-stone-600">{% translate "ولي الأمر" %}</dt><dd>{{ patient.guardian_name }}</dd></div>{% endif %}
       {% if patient.address %}<div class="flex justify-between"><dt class="text-stone-600">{% translate "العنوان" %}</dt><dd>{{ patient.address }}</dd></div>{% endif %}
       <div class="flex justify-between"><dt class="text-stone-600">{% translate "موافقة الرسايل" %}</dt><dd>{% if patient.messaging_consent %}<span class="badge bg-green-50 text-green-800">{% translate "موافق" %}</span>{% else %}<span class="badge bg-amber-50 text-amber-900">{% translate "مش موافق، مفيش رسايل هتتبعتله" %}</span>{% endif %}</dd></div>
@@ -65,6 +67,9 @@
 
     <h2 class="mt-6 mb-3 border-t border-stone-100 pt-4 text-[15px] font-bold">{% translate "الأدوية المستمرة" %}</h2>
     {% include "patients/partials/medications.html" %}
+
+    <h2 class="mt-6 mb-3 border-t border-stone-100 pt-4 text-[15px] font-bold">{% translate "التاريخ السابق" %}</h2>
+    {% include "patients/partials/past_history.html" %}
     {% endif %}
   </section>
 </div>

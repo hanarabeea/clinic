@@ -38,7 +38,7 @@ class ServiceForm(forms.ModelForm):
 class CenterSettingsForm(forms.ModelForm):
     class Meta:
         model = CenterSettings
-        fields = ["emergency_fee"]
+        fields = ["emergency_fee", "lobby_show_names", "lobby_sound"]
         widgets = {
             "emergency_fee": forms.NumberInput(attrs={"dir": "ltr", "step": "0.01", "min": "0", "inputmode": "decimal"})
         }

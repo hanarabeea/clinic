@@ -11,6 +11,7 @@
   {% if can.settings_manage %}<a href="{% url 'patients:fields_settings' %}" class="tab {% if tab == 'patient_fields' %}is-active{% endif %}">{% translate "ملف المريض" %}</a>{% endif %}
   {% if can.drug_manage %}<a href="{% url 'prescriptions:categories' %}" class="tab {% if tab == 'drug_categories' %}is-active{% endif %}">{% translate "تصنيفات الأدوية" %}</a>{% endif %}
   {% if can.settings_manage %}<a href="{% url 'prescriptions:settings' %}" class="tab {% if tab == 'rx' %}is-active{% endif %}">{% translate "الروشتة" %}</a>{% endif %}
+  {% if can.settings_manage %}<a href="{% url 'clinical:document_templates' %}" class="tab {% if tab == 'documents' %}is-active{% endif %}">{% translate "المستندات الطبية" %}</a>{% endif %}
   {% if can.settings_manage %}<a href="{% url 'notifications:settings' %}" class="tab {% if tab == 'messages' %}is-active{% endif %}">{% translate "الرسايل" %}</a>{% endif %}
   {% if can.settings_manage %}<a href="{% url 'messaging:email_settings' %}" class="tab {% if tab == 'email' %}is-active{% endif %}">{% translate "الإرسال بالإيميل" %}</a>{% endif %}
   {% if can.settings_manage %}<a href="{% url 'messaging:whatsapp' %}" class="tab {% if tab == 'whatsapp' %}is-active{% endif %}">{% translate "واتساب" %}</a>{% endif %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% block title %}{% translate "الإعدادات" %}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{% translate "الإعدادات" %}</h1></div>
+{% include "partials/settings_tabs.html" %}
+
+<p class="mb-4 text-sm text-stone-600">{% translate "صيغة كل نوع مستند. الدكتور بيفتحها من صفحة الكشف (زرار \"مستند\") متملية ببيانات المريضة والزيارة، ويقدر يعدلها قبل ما يصدرها." %}</p>
+<p class="mb-4 flex flex-wrap gap-1.5 text-xs text-stone-600">{% translate "المتغيرات:" %}
+  {% for v in variables %}<code class="num rounded-sm bg-stone-100 px-1.5" dir="ltr">{% templatetag openbrace %}{{ v }}{% templatetag closebrace %}</code>{% endfor %}
+</p>
+{% if error %}<div class="notice notice-danger mb-4" role="alert">{% icon "warning-circle" "size-5 shrink-0" %}<span>{{ error }}</span></div>{% endif %}
+
+<div class="space-y-4">
+  {% for kind, label, tpl in rows %}
+  <form method="post" class="card space-y-3 p-4 sm:p-5" id="doc-{{ kind }}">
+    {% csrf_token %}<input type="hidden" name="kind" value="{{ kind }}">
+    <div class="flex items-center gap-2">
+      <h2 class="text-[15px] font-bold">{{ label }}</h2>
+      {% if saved == kind %}<span class="badge bg-green-50 text-green-800">{% icon "check" "size-3.5" %}{% translate "اتحفظ" %}</span>{% endif %}
+    </div>
+    <div class="form-field"><label for="t-{{ kind }}">{% translate "العنوان" %}</label><input id="t-{{ kind }}" type="text" name="title" value="{{ tpl.title }}" maxlength="150" required></div>
+    <div class="form-field"><label for="b-{{ kind }}">{% translate "النص" %}</label><textarea id="b-{{ kind }}" name="body" rows="6" required dir="auto" class="leading-7">{{ tpl.body }}</textarea></div>
+    <div class="flex justify-end"><button class="btn-secondary">{% translate "حفظ" %}</button></div>
+  </form>
+  {% endfor %}
+</div>
+{% endblock %}
